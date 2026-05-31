@@ -1,0 +1,5 @@
+node_modules
+apps/server/generated/.DS_Store
+apps/server/generated/pdf/
+apps/server/prisma/dev.db
+apps/server/dist/index.js

@@ -1,0 +1,30 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check-env": "bun run ./src/env.ts",
+    "dev": "bun run check-env && bun --watch src/index.ts",
+    "build": "bun run check-env && bun build ./src/index.ts --outdir ./dist --target bun",
+    "start": "bun run check-env && bun run ./dist/index.js",
+    "prisma": "prisma"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.17.3",
+    "@orpc/client": "latest",
+    "@orpc/server": "latest",
+    "@prisma/adapter-libsql": "^7.8.0",
+    "@prisma/client": "latest",
+    "@t3-oss/env-core": "^0.13.11",
+    "@zeme/shared": "workspace:*",
+    "hono": "latest",
+    "puppeteer": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "prisma": "latest",
+    "typescript": "latest",
+    "@types/bun": "latest"
+  }
+}
