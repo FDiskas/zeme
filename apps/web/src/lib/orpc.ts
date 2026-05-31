@@ -14,3 +14,24 @@ const link = new RPCLink({
 });
 
 export const orpcClient = createORPCClient<ParcelClient>(link);
+
+// In-flight de-duplication for getReport. React StrictMode (dev) mounts effects
+// twice, and a user can trigger overlapping loads (e.g. fast navigation). Two
+// identical concurrent requests — same cadastral number + refresh flag — share a
+// single network call instead of hitting /rpc/parcel/getReport twice.
+const reportInFlight = new Map<string, Promise<ParcelReport>>();
+
+export function getParcelReport(input: {
+  cadastralRegNo: string;
+  forceRefresh?: boolean;
+}): Promise<ParcelReport> {
+  const key = `${input.cadastralRegNo}|${input.forceRefresh ? "1" : "0"}`;
+  const existing = reportInFlight.get(key);
+  if (existing) return existing;
+
+  const request = orpcClient.parcel
+    .getReport(input)
+    .finally(() => reportInFlight.delete(key));
+  reportInFlight.set(key, request);
+  return request;
+}

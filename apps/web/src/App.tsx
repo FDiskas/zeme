@@ -4,7 +4,7 @@ import type { ParcelReport, ParcelSearchItem } from "@zeme/shared";
 import { ParcelMap } from "./components/ParcelMap";
 import { ReportPanel } from "./components/ReportPanel";
 import { SummaryCard } from "./components/SummaryCard";
-import { orpcClient } from "./lib/orpc";
+import { orpcClient, getParcelReport } from "./lib/orpc";
 import { useLocalStorage } from "./lib/useLocalStorage";
 
 type SearchHistoryItem = {
@@ -225,7 +225,7 @@ function ParcelPage() {
     if (!cadastralRegNo) return;
     setLoading(true);
     try {
-      const data = await orpcClient.parcel.getReport({ cadastralRegNo, forceRefresh: true });
+      const data = await getParcelReport({ cadastralRegNo, forceRefresh: true });
       setReport(data);
       rememberLookup(data);
     } finally {
@@ -242,7 +242,7 @@ function ParcelPage() {
 
     (async () => {
       try {
-        const data = await orpcClient.parcel.getReport({ cadastralRegNo, forceRefresh: false });
+        const data = await getParcelReport({ cadastralRegNo, forceRefresh: false });
         if (ignore) return;
         setReport(data);
         rememberLookup(data);
