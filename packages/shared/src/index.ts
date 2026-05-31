@@ -40,11 +40,19 @@ export const reportPanelSchema = z.object({
   note: z.string().optional(),
 });
 
+// Adjacent parcels around the subject parcel — drawn grey on the map and
+// clickable to load that parcel's own report. Only identity + outline needed.
+export const neighborParcelSchema = z.object({
+  cadastralRegNo: z.string(),
+  geometry: geometrySchema,
+});
+
 export const parcelReportSchema = z.object({
   cadastralRegNo: z.string(),
   address: z.string(),
   coordinates: geometrySchema,
   buildings: z.array(buildingFootprintSchema).optional(),
+  neighbors: z.array(neighborParcelSchema).optional(),
   fetchedAt: z.string(),
   cached: z.boolean(),
   cacheAgeDays: z.number().optional(),
@@ -55,4 +63,5 @@ export const parcelReportSchema = z.object({
 
 export type ParcelSearchItem = z.infer<typeof parcelSearchItemSchema>;
 export type BuildingFootprint = z.infer<typeof buildingFootprintSchema>;
+export type NeighborParcel = z.infer<typeof neighborParcelSchema>;
 export type ParcelReport = z.infer<typeof parcelReportSchema>;

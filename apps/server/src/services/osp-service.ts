@@ -80,6 +80,80 @@ export interface OspParcelData {
   geometry: any;
 }
 
+export interface NeighborParcel {
+  cadastralRegNo: string;
+  geometry: { type: "Polygon"; coordinates: number[][][] };
+}
+
+// Bounding box of every ring in a Polygon/MultiPolygon, expanded outward by
+// `marginRatio` of its own size so the map shows a band of surrounding parcels,
+// not just the ones literally touching the subject parcel's edge.
+function expandedEnvelope(geometry: any, marginRatio = 0.75) {
+  const arcgisGeom = getArcgisGeometry(geometry);
+  if (!arcgisGeom) return null;
+
+  let xmin = Infinity, ymin = Infinity, xmax = -Infinity, ymax = -Infinity;
+  for (const ring of arcgisGeom.rings) {
+    for (const [x, y] of ring as [number, number][]) {
+      if (x < xmin) xmin = x;
+      if (y < ymin) ymin = y;
+      if (x > xmax) xmax = x;
+      if (y > ymax) ymax = y;
+    }
+  }
+  if (!Number.isFinite(xmin) || !Number.isFinite(ymin)) return null;
+
+  const dx = (xmax - xmin) * marginRatio || 0.001;
+  const dy = (ymax - ymin) * marginRatio || 0.001;
+  return {
+    xmin: xmin - dx,
+    ymin: ymin - dy,
+    xmax: xmax + dx,
+    ymax: ymax + dy,
+    spatialReference: { wkid: 4326 },
+  };
+}
+
+// Parcels around the subject parcel, for the grey clickable context layer on the
+// map. Spatial query against ntr_sklypai over an expanded bounding box; the
+// subject parcel itself is filtered out by cadastral number.
+export async function fetchNeighborParcels(
+  geometry: any,
+  excludeCadastralRegNo: string,
+  limit = 80,
+): Promise<NeighborParcel[]> {
+  const envelope = expandedEnvelope(geometry);
+  if (!envelope) return [];
+
+  const serviceUrl = "https://osp-sdg.stat.gov.lt/arcgis/rest/services/ntr_sklypai/FeatureServer";
+  try {
+    const features = await queryArcgisLayer(serviceUrl, 0, {
+      geometry: JSON.stringify(envelope),
+      geometryType: "esriGeometryEnvelope",
+      spatialRel: "esriSpatialRelIntersects",
+      inSR: "4326",
+      outSR: "4326",
+      outFields: "kadastro_nr",
+      returnGeometry: "true",
+      f: "json",
+    });
+
+    const neighbors: NeighborParcel[] = [];
+    for (const f of features) {
+      const cadastralRegNo = f.attributes?.kadastro_nr;
+      const rings = f.geometry?.rings;
+      if (!cadastralRegNo || cadastralRegNo === excludeCadastralRegNo) continue;
+      if (!Array.isArray(rings) || (rings[0]?.length ?? 0) < 4) continue;
+      neighbors.push({ cadastralRegNo, geometry: { type: "Polygon", coordinates: rings } });
+      if (neighbors.length >= limit) break;
+    }
+    return neighbors;
+  } catch (err) {
+    console.error("Error querying OSP neighbor parcels:", err);
+    return [];
+  }
+}
+
 export async function fetchOspParcelData(queryStr: string): Promise<OspParcelData | null> {
   const serviceUrl = "https://osp-sdg.stat.gov.lt/arcgis/rest/services/ntr_sklypai/FeatureServer";
   const cleanQuery = queryStr.trim();

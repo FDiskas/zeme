@@ -16,6 +16,7 @@ import {
   getOspParcelSummaryPanel,
   getOspPollutionRisksPanel,
   fetchOspBuildingPermits,
+  fetchNeighborParcels,
 } from "./osp-service";
 
 const SIX_MONTHS_MS = 1000 * 60 * 60 * 24 * 30 * 6;
@@ -163,7 +164,8 @@ export async function buildComprehensiveReport(
     pdbis,
     ospParcelSummary,
     ospPollutionRisks,
-    ospPermits
+    ospPermits,
+    neighbors
   ] = await Promise.all([
     fetchBiipBoundary(targetCadastralRegNo, resolvedAddress),
     fetchBiipAddresses(targetCadastralRegNo, resolvedCoordinates, addressDetails),
@@ -178,7 +180,8 @@ export async function buildComprehensiveReport(
     fetchOspBuildingPermits(
       targetCadastralRegNo,
       ospParcel?.unikalus_nr || parcel?.uniqueNumber?.toString()
-    ).catch(() => [] as any[])
+    ).catch(() => [] as any[]),
+    fetchNeighborParcels(resolvedCoordinates, targetCadastralRegNo).catch(() => [])
   ]);
 
   const ospPermitsPanel: UpstreamPanel = {
@@ -218,6 +221,7 @@ export async function buildComprehensiveReport(
     address: resolvedAddress,
     coordinates,
     buildings: grpkBuildings.footprints,
+    neighbors,
     fetchedAt: new Date().toISOString(),
     cached: false,
     sources: [
