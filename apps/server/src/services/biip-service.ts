@@ -65,22 +65,43 @@ export interface BiipRoom {
   fullAddress: string;
 }
 
+function parseCoordPairs(ringStr: string): [number, number][] {
+  return ringStr
+    .trim()
+    .split(/\s*,\s*/)
+    .flatMap((pair) => {
+      const [lonStr, latStr] = pair.trim().split(/\s+/);
+      const lon = Number(lonStr);
+      const lat = Number(latStr);
+      if (!Number.isFinite(lon) || !Number.isFinite(lat)) return [];
+      return [[lon, lat] as [number, number]];
+    });
+}
+
 function parseEwktPolygon(ewkt: string) {
-  const match = ewkt.match(/POLYGON\s*\(\((.+)\)\)/i);
-  if (!match) return null;
+  if (!ewkt) return null;
+  // Strip optional SRID prefix ("SRID=4326;")
+  const body = ewkt.replace(/^SRID=\d+;/i, "").trim();
 
-  const ringsStr = match[1];
-  const coords = ringsStr.split(",").map((pairStr) => {
-    const [lonStr, latStr] = pairStr.trim().split(/\s+/);
-    const lon = Number(lonStr);
-    const lat = Number(latStr);
-    return [lon, lat] as [number, number];
-  });
+  // MULTIPOLYGON(((outer),(hole)),...) — take first polygon's outer ring only.
+  // [^)]+ prevents crossing ring-boundary parens, which would produce NaN coords
+  // that JSON.stringify silently turns into null values.
+  const multiMatch = body.match(/^MULTIPOLYGON\s*\(\s*\(\s*\(([^)]+)\)/i);
+  if (multiMatch) {
+    const coords = parseCoordPairs(multiMatch[1]!);
+    if (coords.length < 3) return null;
+    return { type: "Polygon" as const, coordinates: [coords] };
+  }
 
-  return {
-    type: "Polygon" as const,
-    coordinates: [coords],
-  };
+  // POLYGON((outer),(hole)) — take the outer ring only.
+  const polyMatch = body.match(/^POLYGON\s*\(\s*\(([^)]+)\)/i);
+  if (polyMatch) {
+    const coords = parseCoordPairs(polyMatch[1]!);
+    if (coords.length < 3) return null;
+    return { type: "Polygon" as const, coordinates: [coords] };
+  }
+
+  return null;
 }
 
 function parseEwktPoint(ewkt: string): [number, number] | null {
@@ -137,7 +158,7 @@ export async function resolveParcelFromBiip(cadastralRegNo: string): Promise<Res
   try {
     const response = await parcelsSearch({
       client: biipClient,
-      query: { srid: WGS84 },
+      query: { srid: WGS84, geometry_output_format: "ewkt" },
       body: {
         filters: [
           {
@@ -310,7 +331,7 @@ export async function resolveParcelByCoordinates(lon: number, lat: number): Prom
   try {
     const response = await parcelsSearch({
       client: biipClient,
-      query: { srid: WGS84 },
+      query: { srid: WGS84, geometry_output_format: "ewkt" },
       body: {
         filters: [
           {

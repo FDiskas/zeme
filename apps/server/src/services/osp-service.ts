@@ -1,5 +1,21 @@
 import type { UpstreamPanel } from "./connectors";
 
+// Strip null/NaN/undefined points from ArcGIS geometry rings so the output
+// satisfies z.array(z.array(z.array(z.number()))).
+function sanitizeRings(rings: any[][]): number[][][] {
+  return rings.map((ring) =>
+    ring.filter(
+      (pt) =>
+        Array.isArray(pt) &&
+        pt.length >= 2 &&
+        typeof pt[0] === "number" &&
+        typeof pt[1] === "number" &&
+        Number.isFinite(pt[0]) &&
+        Number.isFinite(pt[1]),
+    ),
+  );
+}
+
 function getArcgisGeometry(geometry: any) {
   if (!geometry) return null;
   if (geometry.type === "Polygon") {
@@ -141,9 +157,11 @@ export async function fetchNeighborParcels(
     const neighbors: NeighborParcel[] = [];
     for (const f of features) {
       const cadastralRegNo = f.attributes?.kadastro_nr;
-      const rings = f.geometry?.rings;
+      const rawRings = f.geometry?.rings;
       if (!cadastralRegNo || cadastralRegNo === excludeCadastralRegNo) continue;
-      if (!Array.isArray(rings) || (rings[0]?.length ?? 0) < 4) continue;
+      if (!Array.isArray(rawRings)) continue;
+      const rings = sanitizeRings(rawRings);
+      if ((rings[0]?.length ?? 0) < 4) continue;
       neighbors.push({ cadastralRegNo, geometry: { type: "Polygon", coordinates: rings } });
       if (neighbors.length >= limit) break;
     }
@@ -185,9 +203,11 @@ export async function fetchParcelsByBbox(
     const parcels: NeighborParcel[] = [];
     for (const f of features) {
       const cadastralRegNo = f.attributes?.kadastro_nr;
-      const rings = f.geometry?.rings;
+      const rawRings = f.geometry?.rings;
       if (!cadastralRegNo) continue;
-      if (!Array.isArray(rings) || (rings[0]?.length ?? 0) < 4) continue;
+      if (!Array.isArray(rawRings)) continue;
+      const rings = sanitizeRings(rawRings);
+      if ((rings[0]?.length ?? 0) < 4) continue;
       parcels.push({ cadastralRegNo, geometry: { type: "Polygon", coordinates: rings } });
       if (parcels.length >= limit) break;
     }
@@ -383,13 +403,17 @@ export async function fetchOspBuildingPoints(geometry: any): Promise<OspBuilding
 
 export async function fetchOspPollutionSites(geometry: any): Promise<any[]> {
   const serviceUrl = "https://osp-sdg.stat.gov.lt/arcgis/rest/services/potencialus_tarsos_zidiniai/FeatureServer";
-  const arcgisGeom = getArcgisGeometry(geometry);
-  if (!arcgisGeom) return [];
+  // Use an envelope (bounding-box) instead of the full polygon — the OSP ArcGIS
+  // service rejects complex polygon queries for some parcels with "Unable to
+  // complete operation". An envelope intersect is a reasonable approximation for
+  // point-geometry pollution data and is far more robust.
+  const envelope = expandedEnvelope(geometry, 0);
+  if (!envelope) return [];
 
   try {
     const features = await queryArcgisLayer(serviceUrl, 0, {
-      geometry: JSON.stringify(arcgisGeom),
-      geometryType: "esriGeometryPolygon",
+      geometry: JSON.stringify(envelope),
+      geometryType: "esriGeometryEnvelope",
       spatialRel: "esriSpatialRelIntersects",
       inSR: "4326",
       outSR: "4326",

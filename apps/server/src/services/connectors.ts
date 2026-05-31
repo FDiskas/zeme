@@ -530,6 +530,23 @@ export async function fetchAsgrRegulations(geometry: any): Promise<UpstreamPanel
 const GRPK_BUILDINGS_URL =
   "https://www.geoportal.lt/arcgis/rest/services/NZT/GRPK/MapServer/22/query";
 
+// Some ArcGIS services include null/undefined values in geometry rings (e.g.
+// GRPK, OSP ntr_sklypai). Strip those points so the rings satisfy the schema's
+// z.array(z.array(z.array(z.number()))) constraint.
+function sanitizeRings(rings: any[][]): number[][][] {
+  return rings.map((ring) =>
+    ring.filter(
+      (pt) =>
+        Array.isArray(pt) &&
+        pt.length >= 2 &&
+        typeof pt[0] === "number" &&
+        typeof pt[1] === "number" &&
+        Number.isFinite(pt[0]) &&
+        Number.isFinite(pt[1]),
+    ),
+  );
+}
+
 export async function fetchGrpkBuildings(
   geometry: any,
   addressPoints: BiipAddressPoint[] = [],
@@ -579,8 +596,10 @@ export async function fetchGrpkBuildings(
     let enriched = 0;
 
     for (const feature of data.features || []) {
-      const rings = feature.geometry?.rings;
-      if (!rings || rings.length === 0) continue;
+      const rawRings = feature.geometry?.rings;
+      if (!rawRings || rawRings.length === 0) continue;
+      const rings = sanitizeRings(rawRings);
+      if ((rings[0]?.length ?? 0) < 4) continue;
       const outerRing = rings[0];
       const attrs = feature.attributes || {};
       const areaSqM = typeof attrs.SHAPE_Area === "number" ? attrs.SHAPE_Area : undefined;

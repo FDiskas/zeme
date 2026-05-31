@@ -2,7 +2,7 @@ import { MapContainer, Polygon, TileLayer, Tooltip, useMap, useMapEvents } from 
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { ParcelReport } from "@zeme/shared";
-import { getParcelsByBbox, resolveParcelByPoint } from "../lib/orpc";
+import { getParcelsByBbox } from "../lib/orpc";
 import "leaflet/dist/leaflet.css";
 
 type BuildingShape = {
@@ -172,24 +172,11 @@ function ViewportParcelsLayer({
   );
 }
 
-// Empty-map clicks (not on a polygon) ask the server which parcel is underneath.
+// Empty-map clicks on a polygon ask the server which parcel is underneath.
 // Leaflet doesn't fire map `click` for clicks that land on an interactive layer,
 // so clicking a neighbour/your parcel still uses that layer's own handler.
-// This remains as a fallback for areas not covered by the viewport parcel layer
-// (e.g. when zoomed out below MIN_ZOOM_FOR_VIEWPORT).
-function MapClickHandler({ onPick }: { onPick: (lat: number, lng: number) => void }) {
-  useMapEvents({
-    click(e) {
-      onPick(e.latlng.lat, e.latlng.lng);
-    },
-  });
-  return null;
-}
-
 export function ParcelMap({ report }: Props) {
   const navigate = useNavigate();
-  const [resolving, setResolving] = useState(false);
-  const [notFound, setNotFound] = useState(false);
   const polygon = toLatLngPath(report);
   const buildings = toBuildingShapes(report);
   const neighbors = toNeighborShapes(report);
@@ -203,27 +190,6 @@ export function ParcelMap({ report }: Props) {
 
   function navigateToParcel(cadastralRegNo: string) {
     navigate(`/parcel/${encodeURIComponent(cadastralRegNo)}`);
-  }
-
-  async function handleMapPick(lat: number, lng: number) {
-    if (resolving) return;
-    setResolving(true);
-    setNotFound(false);
-    try {
-      const result = await resolveParcelByPoint(lat, lng);
-      if (result) {
-        // Navigation remounts this page, so no need to reset `resolving`.
-        navigateToParcel(result.cadastralRegNo);
-        return;
-      }
-      setNotFound(true);
-      setTimeout(() => setNotFound(false), 4000);
-    } catch {
-      setNotFound(true);
-      setTimeout(() => setNotFound(false), 4000);
-    } finally {
-      setResolving(false);
-    }
   }
 
   if (polygon.length === 0) {
@@ -241,19 +207,8 @@ export function ParcelMap({ report }: Props) {
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-300/70 bg-white">
       <div className="relative h-130 w-full">
-        {resolving ? (
-          <div className="pointer-events-none absolute left-1/2 top-4 z-1000 -translate-x-1/2 rounded-full bg-slate-900/85 px-4 py-2 text-base font-semibold text-white shadow-lg">
-            Ieškoma sklypo…
-          </div>
-        ) : null}
-        {notFound ? (
-          <div className="pointer-events-none absolute left-1/2 top-4 z-1000 -translate-x-1/2 rounded-full bg-amber-500/95 px-4 py-2 text-base font-semibold text-white shadow-lg">
-            Šioje vietoje sklypo nerasta
-          </div>
-        ) : null}
         <MapContainer center={center} zoom={16} className="h-full w-full">
           <FitToParcel positions={polygon} />
-          <MapClickHandler onPick={handleMapPick} />
           <ViewportParcelsLayer excludeIds={excludeIds} onNavigate={navigateToParcel} />
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
