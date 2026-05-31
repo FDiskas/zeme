@@ -45,10 +45,10 @@ function Footer() {
     <footer className="border-t border-slate-200 bg-white">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 text-center md:flex-row md:px-8 md:text-left">
         <p className="text-base text-slate-600">
-          Žemė.lt — sklypų informacija iš viešų Lietuvos registrų.
+          reginfo.lt — sklypų informacija iš viešų Lietuvos registrų.
         </p>
         <a
-          href="https://github.com/vkuciauskas/zeme"
+          href="https://github.com/FDiskas/zeme"
           target="_blank"
           rel="noreferrer"
           className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-base font-semibold text-slate-800 transition hover:border-teal-300 hover:text-teal-700 active:scale-[0.98]"
@@ -72,7 +72,7 @@ function Header() {
             </svg>
           </div>
           <span className="text-2xl font-extrabold tracking-tight text-slate-900">
-            Žemė<span className="ml-1 text-sm font-semibold uppercase tracking-widest text-teal-600/80">.lt</span>
+            Reginfo<span className="ml-1 text-sm font-semibold uppercase tracking-widest text-teal-600/80">.lt</span>
           </span>
         </Link>
         <nav className="flex items-center gap-6">
