@@ -30,7 +30,7 @@ export async function fetchBiipBoundary(cadastralRegNo: string, address: string)
   if (parcel) {
     return {
       key: "biip-boundary",
-      title: "Boundary & Land Purpose",
+      title: "Sklypo ribos ir naudojimo paskirtis",
       source: "biip.lt",
       status: "ok",
       items: [
@@ -44,7 +44,7 @@ export async function fetchBiipBoundary(cadastralRegNo: string, address: string)
           landUse: parcel.purposeFullName || parcel.purposeName || "Kita (žemės)",
           status: parcel.status || "N/A",
           updatedAt: parcel.updatedAt || "N/A",
-          measuredMethod: "Kadastriniai matavimai (LKS-94 coordinate system)",
+          measuredMethod: "Kadastriniai matavimai (LKS-94)",
         },
       ],
     };
@@ -52,11 +52,11 @@ export async function fetchBiipBoundary(cadastralRegNo: string, address: string)
 
   return {
     key: "biip-boundary",
-    title: "Boundary & Land Purpose",
+    title: "Sklypo ribos ir naudojimo paskirtis",
     source: "biip.lt",
     status: "error",
     items: [],
-    note: `Failed to resolve parcel boundary from BIIP boundaries API for cadastral number: ${cadastralRegNo}`,
+    note: `Nepavyko nustatyti sklypo ribų iš BIIP registro (kadastro Nr.: ${cadastralRegNo})`,
   };
 }
 
@@ -79,11 +79,11 @@ export async function fetchBiipAddresses(
   if (!ewkt) {
     return {
       key: "biip-addresses",
-      title: "Address Points & Rooms (BIIP)",
+      title: "Adresų taškai ir patalpos (BIIP)",
       source: "biip.lt",
       status: "error",
       items: [],
-      note: `Failed to resolve parcel geometry from BIIP for cadastral number: ${cadastralRegNo}`,
+      note: `Nepavyko gauti sklypo geometrijos iš BIIP (kadastro Nr.: ${cadastralRegNo})`,
     };
   }
 
@@ -97,7 +97,7 @@ export async function fetchBiipAddresses(
   ]);
 
   const addressItems = (addresses?.addresses || []).map((a) => ({
-    type: "Adreso taškas (Address point)",
+    type: "Adreso taškas",
     address: a.fullAddress,
     plotOrBuildingNumber: a.plotOrBuildingNumber,
     postalCode: a.postalCode || "N/A",
@@ -105,7 +105,7 @@ export async function fetchBiipAddresses(
   }));
 
   const roomItems = rooms.map((r) => ({
-    type: "Patalpa (Room/Unit)",
+    type: "Patalpa",
     roomNumber: r.roomNumber,
     address: r.fullAddress,
   }));
@@ -114,13 +114,13 @@ export async function fetchBiipAddresses(
 
   return {
     key: "biip-addresses",
-    title: "Address Points & Rooms (BIIP)",
+    title: "Adresų taškai ir patalpos (BIIP)",
     source: "biip.lt",
     status: "ok",
     items,
     note: items.length === 0
-      ? "No registered address points or rooms found on this parcel."
-      : `Found ${addressItems.length} address point(s) and ${roomItems.length} addressed room(s) on this parcel.`,
+      ? "Sklype neregistruota adresų taškų ar patalpų."
+      : `Rasta ${addressItems.length} adresų taškų ir ${roomItems.length} patalpų.`,
   };
 }
 
@@ -207,11 +207,11 @@ export async function fetchGeoportalConstraints(
   if (!geom) {
     return {
       key: "geoportal-constraints",
-      title: "Environmental & Special Land Use Conditions (SŽNS)",
-      source: "Valstybinis saugomų teritorijų kadastras (VSTT STVK) via OSP",
+      title: "Aplinkosauginiai apribojimai (saugomos teritorijos)",
+      source: "Valstybinis saugomų teritorijų kadastras (VSTT STVK) per OSP",
       status: "error",
       items: [],
-      note: `Failed to resolve parcel boundary coordinates for cadastral number: ${cadastralRegNo}`,
+      note: `Nepavyko nustatyti sklypo koordinačių (kadastro Nr.: ${cadastralRegNo})`,
     };
   }
 
@@ -227,27 +227,27 @@ export async function fetchGeoportalConstraints(
 
     const items: Record<string, any>[] = [
       ...draustiniai.map(attrs => ({
-        type: "Draustinis (Nature/Cultural Reserve)",
+        type: "Draustinis",
         name: attrs.pavadinimas,
         code: attrs.id || attrs.gkodas || "N/A",
       })),
       ...parkai.map(attrs => ({
-        type: "Nacionalinis/Regioninis parkas (National/Regional Park)",
+        type: "Nacionalinis / regioninis parkas",
         name: attrs.pavadinimas,
         code: attrs.id || attrs.gkodas || "N/A",
       })),
       ...rezervatai.map(attrs => ({
-        type: "Rezervatas (Strict Nature Reserve)",
+        type: "Rezervatas",
         name: attrs.pavadinimas,
         code: attrs.id || attrs.gkodas || "N/A",
       })),
       ...buveines.map(attrs => ({
-        type: "Buveinių apsaugai svarbi teritorija (Habitat Protection Area)",
+        type: "Buveinių apsaugai svarbi teritorija",
         name: attrs.pavadinimas,
         code: attrs.id || attrs.gkodas || "N/A",
       })),
       ...pauksciai.map(attrs => ({
-        type: "Paukščių apsaugai svarbi teritorija (Birds Protection Area)",
+        type: "Paukščių apsaugai svarbi teritorija",
         name: attrs.pavadinimas,
         code: attrs.id || attrs.gkodas || "N/A",
       })),
@@ -255,22 +255,22 @@ export async function fetchGeoportalConstraints(
 
     return {
       key: "geoportal-constraints",
-      title: "Environmental & Special Land Use Conditions (SŽNS)",
-      source: "Valstybinis saugomų teritorijų kadastras (VSTT STVK) via OSP",
+      title: "Aplinkosauginiai apribojimai (saugomos teritorijos)",
+      source: "Valstybinis saugomų teritorijų kadastras (VSTT STVK) per OSP",
       status: "ok",
       items,
       note: items.length === 0
-        ? "No protected territories or environmental constraints found intersecting this parcel."
-        : `Found ${items.length} environmental constraints / special conditions intersecting this parcel.`,
+        ? "Sklypas nesikerta su saugomomis teritorijomis ar aplinkosauginiais apribojimais."
+        : `Rasta ${items.length} aplinkosauginių apribojimų / saugomų teritorijų.`,
     };
   } catch (err: any) {
     return {
       key: "geoportal-constraints",
-      title: "Environmental & Special Land Use Conditions (SŽNS)",
-      source: "Valstybinis saugomų teritorijų kadastras (VSTT STVK) via OSP",
+      title: "Aplinkosauginiai apribojimai (saugomos teritorijos)",
+      source: "Valstybinis saugomų teritorijų kadastras (VSTT STVK) per OSP",
       status: "error",
       items: [],
-      note: `Error querying environmental constraints: ${err instanceof Error ? err.message : String(err)}`,
+      note: `Klaida tikrinant aplinkosauginius apribojimus: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
 }
@@ -289,11 +289,11 @@ export async function fetchKvrData(
   if (!geom) {
     return {
       key: "kvr-heritage",
-      title: "Cultural Heritage Register",
-      source: "KVR ArcGIS REST API via OSP",
+      title: "Kultūros paveldo registras (KVR)",
+      source: "KVR ArcGIS REST API per OSP",
       status: "error",
       items: [],
-      note: `Failed to resolve parcel boundary coordinates for cadastral number: ${cadastralRegNo}`,
+      note: `Nepavyko nustatyti sklypo koordinačių (kadastro Nr.: ${cadastralRegNo})`,
     };
   }
 
@@ -307,7 +307,7 @@ export async function fetchKvrData(
 
     const items: Record<string, any>[] = [
       ...poligonai.map(attrs => ({
-        type: "Kultūros paveldo objektas (Polygon)",
+        type: "Kultūros paveldo objektas (poligonas)",
         name: attrs.pavadinimas,
         code: attrs.unikalus_kodas,
         classifier: attrs.klasifikatorius,
@@ -319,7 +319,7 @@ export async function fetchKvrData(
         areaSqM: attrs.Shape__Area ? Number(attrs.Shape__Area).toFixed(2) : "N/A",
       })),
       ...taskai.map(attrs => ({
-        type: "Kultūros paveldo objektas (Point)",
+        type: "Kultūros paveldo objektas (taškas)",
         name: attrs.pavadinimas,
         code: attrs.unikalus_kodas,
         classifier: attrs.klasifikatorius,
@@ -330,7 +330,7 @@ export async function fetchKvrData(
         link: attrs.nuoroda,
       })),
       ...apsaugosZonos.map(attrs => ({
-        type: "Apsaugos zona (Protection Zone)",
+        type: "Apsaugos zona",
         name: attrs.pavadinimas || `Apsaugos zona: ${attrs.unikalus_kodas}`,
         code: attrs.unikalus_kodas,
         classifier: attrs.klasifikatorius,
@@ -342,22 +342,22 @@ export async function fetchKvrData(
 
     return {
       key: "kvr-heritage",
-      title: "Cultural Heritage Register",
-      source: "KVR ArcGIS REST API via OSP",
+      title: "Kultūros paveldo registras (KVR)",
+      source: "KVR ArcGIS REST API per OSP",
       status: "ok",
       items,
       note: items.length === 0
-        ? "No cultural heritage objects or protection zones found intersecting this parcel."
-        : `Found ${items.length} cultural heritage records intersecting this parcel.`,
+        ? "Sklypas nesikerta su kultūros paveldo objektais ar apsaugos zonomis."
+        : `Rasta ${items.length} kultūros paveldo įrašų.`,
     };
   } catch (err: any) {
     return {
       key: "kvr-heritage",
-      title: "Cultural Heritage Register",
-      source: "KVR ArcGIS REST API via OSP",
+      title: "Kultūros paveldo registras (KVR)",
+      source: "KVR ArcGIS REST API per OSP",
       status: "error",
       items: [],
-      note: `Error querying cultural heritage registry: ${err instanceof Error ? err.message : String(err)}`,
+      note: `Klaida tikrinant kultūros paveldo registrą: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
 }
@@ -382,22 +382,22 @@ export function buildPdbisPanel(ospPoints: OspBuildingPoint[]): UpstreamPanel {
 
     return {
       key: "pdbis-building-data",
-      title: "Building Data Bank",
-      source: "pastatai_geo API via OSP",
+      title: "Pastatų duomenų bankas (PDBIS)",
+      source: "pastatai_geo API per OSP",
       status: "ok",
       items,
       note: items.length === 0
-        ? "No registered (managed) buildings found on this parcel."
-        : `Found ${items.length} registered building(s) on this parcel.`,
+        ? "Sklype nerasta valdomų daugiabučių."
+        : `Rasta ${items.length} valdomų pastatų.`,
     };
   } catch (err: any) {
     return {
       key: "pdbis-building-data",
-      title: "Building Data Bank",
-      source: "pastatai_geo API via OSP",
+      title: "Pastatų duomenų bankas (PDBIS)",
+      source: "pastatai_geo API per OSP",
       status: "error",
       items: [],
-      note: `Error building register panel: ${err instanceof Error ? err.message : String(err)}`,
+      note: `Klaida generuojant pastatų registro duomenis: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
 }
@@ -415,15 +415,15 @@ const SZNS_PROBE_URL =
 export async function fetchSznsRestrictions(geometry: any): Promise<UpstreamPanel> {
   const base: Pick<UpstreamPanel, "key" | "title" | "source"> = {
     key: "szns-restrictions",
-    title: "Special Land Use Conditions (SŽNS / apribojimai)",
+    title: "Specialiosios žemės naudojimo sąlygos (SŽNS)",
     source: "geoportal.lt rc_szns (VĮ Registrų centras)",
   };
   const authNote =
-    "SŽNS feature/query data is not available on the public geoportal.lt service " +
-    "(map-view only; feature extraction is gated by VĮ Registrų centras). " +
-    "To pull restrictions/servitutai as data, request access at " +
-    "https://www.registrucentras.lt/p/1553 . Protected territories and heritage " +
-    "protection zones are still covered by the environmental and KVR panels above.";
+    "SŽNS objektų užklausa viešajame geoportal.lt servise negalima " +
+    "(pasiekiamas tik žemėlapio vaizdas; duomenų ištraukimas apribotas VĮ Registrų centro). " +
+    "Norėdami gauti apribojimų / servitutų duomenis, kreipkitės: " +
+    "https://www.registrucentras.lt/p/1553 . Saugomos teritorijos ir paveldo apsaugos zonos " +
+    "vis tiek pateikiamos aplinkosaugos ir KVR skyriuose aukščiau.";
 
   const arcgisGeom = getArcgisGeometry(geometry);
   if (!arcgisGeom) {
@@ -454,7 +454,7 @@ export async function fetchSznsRestrictions(geometry: any): Promise<UpstreamPane
       ...base,
       status: "ok",
       items: typeof data.count === "number" ? [{ intersectingConditions: data.count }] : [],
-      note: "SŽNS query authorized — extend fetchSznsRestrictions to enumerate the 58 condition layers for full detail.",
+      note: "SŽNS užklausa autorizuota — išplėtoti fetchSznsRestrictions, kad būtų pateikti visi 58 sąlygų sluoksniai.",
     };
   } catch (err: any) {
     return { ...base, status: "partial", items: [], note: authNote };
@@ -480,12 +480,12 @@ function arcgisDate(value: unknown): string {
 export async function fetchAsgrRegulations(geometry: any): Promise<UpstreamPanel> {
   const base: Pick<UpstreamPanel, "key" | "title" | "source"> = {
     key: "asgr-regulations",
-    title: "Planning Regulations (ASGR — galiojantys reglamentai)",
+    title: "Teritorijų planavimo reglamentai (ASGR)",
     source: "planuojustatau.lt TPDR (Aktuali suvestinė galiojančių reglamentų)",
   };
 
   if (!getArcgisGeometry(geometry)) {
-    return { ...base, status: "error", items: [], note: "Parcel geometry unavailable; cannot query planning regulations." };
+    return { ...base, status: "error", items: [], note: "Sklypo geometrija nepasiekiama; negalima tikrinti planavimo reglamentų." };
   }
 
   try {
@@ -509,15 +509,15 @@ export async function fetchAsgrRegulations(geometry: any): Promise<UpstreamPanel
       status: "ok",
       items,
       note: items.length === 0
-        ? "No binding planning regulations (ASGR) intersect this parcel."
-        : `Found ${items.length} planning-regulation zone(s) intersecting this parcel.`,
+        ? "Sklypas nesikerta su galiojančiais planavimo reglamentais (ASGR)."
+        : `Rasta ${items.length} planavimo reglamentų zonų.`,
     };
   } catch (err: any) {
     return {
       ...base,
       status: "error",
       items: [],
-      note: `Error querying ASGR planning regulations: ${err instanceof Error ? err.message : String(err)}`,
+      note: `Klaida tikrinant ASGR planavimo reglamentus: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
 }
@@ -540,7 +540,7 @@ export async function fetchGrpkBuildings(
   const errorPanel = (note: string): { panel: UpstreamPanel; footprints: BuildingFootprint[] } => ({
     panel: {
       key: "grpk-buildings",
-      title: "Building Footprints (GRPK)",
+      title: "Pastatų kontūrai (GRPK)",
       source: "geoportal.lt GRPK (Georeferencinio pagrindo kadastras)",
       status: "error",
       items: [],
@@ -550,7 +550,7 @@ export async function fetchGrpkBuildings(
   });
 
   if (!arcgisGeom) {
-    return errorPanel("Parcel geometry unavailable; cannot query building footprints.");
+    return errorPanel("Sklypo geometrija nepasiekiama; negalima tikrinti pastatų kontūrų.");
   }
 
   const params = new URLSearchParams();
@@ -620,19 +620,19 @@ export async function fetchGrpkBuildings(
     return {
       panel: {
         key: "grpk-buildings",
-        title: "Building Footprints (GRPK + BIIP/OSP)",
-        source: "geoportal.lt GRPK, joined with BIIP addresses & OSP pastatai_geo",
+        title: "Pastatų kontūrai (GRPK + BIIP/OSP)",
+        source: "geoportal.lt GRPK, papildyta BIIP adresais ir OSP pastatai_geo",
         status: "ok",
         items,
         note: footprints.length === 0
-          ? "No building footprints found intersecting this parcel in GRPK."
-          : `Found ${footprints.length} building footprint(s) on this parcel (drawn on map); ${enriched} matched to an address/registry record.`,
+          ? "GRPK nerado pastatų kontūrų šiame sklype."
+          : `Rasta ${footprints.length} pastatų kontūrų sklype; ${enriched} sutapo su adreso / registro įrašu.`,
       },
       footprints,
     };
   } catch (err: any) {
     return errorPanel(
-      `Error querying GRPK building footprints: ${err instanceof Error ? err.message : String(err)}`,
+      `Klaida tikrinant GRPK pastatų kontūrus: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
 }

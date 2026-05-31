@@ -186,13 +186,13 @@ export async function buildComprehensiveReport(
 
   const ospPermitsPanel: UpstreamPanel = {
     key: "osp-building-permits",
-    title: "Infostatyba Official Building Permits",
+    title: "Statybos leidimai (Infostatyba)",
     source: "OSP infostatyba FeatureServer",
     status: "ok",
     items: ospPermits,
     note: ospPermits.length === 0
-      ? "No building permits found in the official Infostatyba registry for this parcel."
-      : `Found ${ospPermits.length} official building permit record(s) in Infostatyba.`
+      ? "Oficialaus Infostatyba registro duomenyse šiam sklypui statybos leidimų nerasta."
+      : `Rasta ${ospPermits.length} statybos leidimo įrašų Infostatyba registre.`
   };
 
   let center: [number, number] | null = null;

@@ -9,4 +9,6 @@
 - [ux-goal-elderly-readability](project/ux-goal-elderly-readability.md) — core UX goal: clean, organized, readable map+report for elderly users; cut noise. keywords: ux, ui, map, report, readability, elderly, accessibility, design-goal
 
 ## decisions/
+
+- [pdf-report-printable-real-estate-style](decisions/pdf-report-printable-real-estate-style.md) — PDF must be a serious printable NT report, not raw dumps. keywords: pdf, printable, nt, report, layout
 - [ui-lithuanian-and-curation-layer](decisions/ui-lithuanian-and-curation-layer.md) — UI fully Lithuanian; report uses curation layer + summary card, not raw panel dump. keywords: ui, lithuanian, curation, summary, report, panels, decision

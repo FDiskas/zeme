@@ -381,11 +381,11 @@ export async function getOspParcelSummaryPanel(cadastralRegNo: string): Promise<
   if (!data) {
     return {
       key: "osp-parcel-summary",
-      title: "State Data Agency (OSP) Parcel Registry",
+      title: "OSP žemės sklypų registras",
       source: "OSP ntr_sklypai FeatureServer",
       status: "error",
       items: [],
-      note: `Failed to find official land parcel record in State Data Agency (OSP) for: ${cadastralRegNo}`,
+      note: `Nerasta oficialaus sklypo įrašo OSP registre (kadastro Nr.: ${cadastralRegNo})`,
     };
   }
 
@@ -399,9 +399,9 @@ export async function getOspParcelSummaryPanel(cadastralRegNo: string): Promise<
       eldership: data.sen_pavad || "N/A",
       municipality: data.sav_pavad || "N/A",
       protectedAreaOverlapPercentage: `${data.st_p}%`,
-      protectedAreaNames: data.st_p_pavad || "None",
+      protectedAreaNames: data.st_p_pavad || "Nėra",
       culturalHeritageOverlapPercentage: `${data.kvr_p}%`,
-      culturalHeritageNames: data.kvr_p_pavad || "None",
+      culturalHeritageNames: data.kvr_p_pavad || "Nėra",
       cadastralDataDate: data.ntr_duom_data,
       addressDataDate: data.adr_duom_data,
       protectedAreaKadastroDate: data.stk_duom_data,
@@ -411,11 +411,11 @@ export async function getOspParcelSummaryPanel(cadastralRegNo: string): Promise<
 
   return {
     key: "osp-parcel-summary",
-    title: "State Data Agency (OSP) Parcel Registry",
+    title: "OSP žemės sklypų registras",
     source: "OSP ntr_sklypai FeatureServer",
     status: "ok",
     items,
-    note: `Retrieved official cadastral boundary and registry details from State Data Agency (OSP).`
+    note: `Gauti oficialaus kadastro ribos ir registro duomenys iš OSP.`
   };
 }
 
@@ -423,11 +423,11 @@ export async function getOspPollutionRisksPanel(geometry?: any): Promise<Upstrea
   if (!geometry) {
     return {
       key: "osp-pollution-risks",
-      title: "Environmental & Pollution Risks",
+      title: "Aplinkosauga: taršos rizikos objektai",
       source: "OSP potencialus_tarsos_zidiniai FeatureServer",
       status: "partial",
       items: [],
-      note: "Parcel boundary geometry is required to query pollution risks spatially."
+      note: "Sklypo ribos geometrija būtina taršos rizikos tikrinimui."
     };
   }
 
@@ -436,22 +436,22 @@ export async function getOspPollutionRisksPanel(geometry?: any): Promise<Upstrea
 
     return {
       key: "osp-pollution-risks",
-      title: "Environmental & Pollution Risks",
+      title: "Aplinkosauga: taršos rizikos objektai",
       source: "OSP potencialus_tarsos_zidiniai FeatureServer",
       status: "ok",
       items: sites,
       note: sites.length === 0
-        ? "No potential environmental contamination sources or pollution sites found intersecting this parcel."
-        : `Found ${sites.length} potential contamination / environmental risk site(s) intersecting this parcel.`
+        ? "Sklype nerasta potencialių taršos žldinių ar aplinkosauginių rizikos objektų."
+        : `Rasta ${sites.length} potencialių taršos / aplinkosauginių rizikos objektų.`
     };
   } catch (err: any) {
     return {
       key: "osp-pollution-risks",
-      title: "Environmental & Pollution Risks",
+      title: "Aplinkosauga: taršos rizikos objektai",
       source: "OSP potencialus_tarsos_zidiniai FeatureServer",
       status: "error",
       items: [],
-      note: `Error querying pollution risk geodata: ${err instanceof Error ? err.message : String(err)}`
+      note: `Klaida tikrinant taršos rizikos geoduomenis: ${err instanceof Error ? err.message : String(err)}`
     };
   }
 }
