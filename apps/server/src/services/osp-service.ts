@@ -154,6 +154,50 @@ export async function fetchNeighborParcels(
   }
 }
 
+// All parcel outlines intersecting an explicit WGS84 bounding box — used to
+// populate the map's clickable polygon layer when the user is zoomed in enough.
+export async function fetchParcelsByBbox(
+  minLat: number,
+  minLng: number,
+  maxLat: number,
+  maxLng: number,
+  limit = 150,
+): Promise<NeighborParcel[]> {
+  const envelope = {
+    xmin: minLng,
+    ymin: minLat,
+    xmax: maxLng,
+    ymax: maxLat,
+    spatialReference: { wkid: 4326 },
+  };
+  const serviceUrl = "https://osp-sdg.stat.gov.lt/arcgis/rest/services/ntr_sklypai/FeatureServer";
+  try {
+    const features = await queryArcgisLayer(serviceUrl, 0, {
+      geometry: JSON.stringify(envelope),
+      geometryType: "esriGeometryEnvelope",
+      spatialRel: "esriSpatialRelIntersects",
+      inSR: "4326",
+      outSR: "4326",
+      outFields: "kadastro_nr",
+      returnGeometry: "true",
+      f: "json",
+    });
+    const parcels: NeighborParcel[] = [];
+    for (const f of features) {
+      const cadastralRegNo = f.attributes?.kadastro_nr;
+      const rings = f.geometry?.rings;
+      if (!cadastralRegNo) continue;
+      if (!Array.isArray(rings) || (rings[0]?.length ?? 0) < 4) continue;
+      parcels.push({ cadastralRegNo, geometry: { type: "Polygon", coordinates: rings } });
+      if (parcels.length >= limit) break;
+    }
+    return parcels;
+  } catch (err) {
+    console.error("Error querying OSP parcels by bbox:", err);
+    return [];
+  }
+}
+
 // Reverse lookup against ntr_sklypai: the cadastral number of the parcel a
 // WGS84 point falls inside, or null. Used as a fallback when BIIP can't resolve
 // a clicked map coordinate.

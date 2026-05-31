@@ -1,8 +1,8 @@
 import { MapContainer, Polygon, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { ParcelReport } from "@zeme/shared";
-import { resolveParcelByPoint } from "../lib/orpc";
+import { getParcelsByBbox, resolveParcelByPoint } from "../lib/orpc";
 import "leaflet/dist/leaflet.css";
 
 type BuildingShape = {
@@ -85,9 +85,98 @@ function FitToParcel({ positions }: { positions: [number, number][] }) {
 const NEIGHBOR_STYLE = { color: "#94a3b8", weight: 1, fillColor: "#cbd5e1", fillOpacity: 0.15, className: "cursor-pointer" };
 const NEIGHBOR_HOVER_STYLE = { color: "#0d9488", weight: 2, fillColor: "#5eead4", fillOpacity: 0.35, className: "cursor-pointer" };
 
+// The minimum zoom at which the viewport parcel layer kicks in.
+// Below this level there are too many parcels to load and show usefully.
+const MIN_ZOOM_FOR_VIEWPORT = 15;
+
+type ViewportShape = { cadastralRegNo: string; ring: [number, number][] };
+
+// Loads all parcel outlines visible in the current map bounds whenever the user
+// pans or zooms (debounced). Each polygon is directly clickable — no server
+// coordinate-lookup needed since we already know its cadastral number.
+function ViewportParcelsLayer({
+  excludeIds,
+  onNavigate,
+}: {
+  excludeIds: ReadonlySet<string>;
+  onNavigate: (cadastralRegNo: string) => void;
+}) {
+  const [shapes, setShapes] = useState<ViewportShape[]>([]);
+  const genRef = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const map = useMapEvents({
+    moveend: schedule,
+    zoomend: schedule,
+  });
+
+  function schedule() {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => { void loadParcels(); }, 400);
+  }
+
+  async function loadParcels() {
+    const gen = ++genRef.current;
+    if (map.getZoom() < MIN_ZOOM_FOR_VIEWPORT) {
+      setShapes([]);
+      return;
+    }
+    const b = map.getBounds();
+    try {
+      const results = await getParcelsByBbox({
+        minLat: b.getSouth(),
+        minLng: b.getWest(),
+        maxLat: b.getNorth(),
+        maxLng: b.getEast(),
+      });
+      if (gen !== genRef.current) return; // stale response — a newer load is in flight
+      setShapes(
+        results
+          .filter((p) => !excludeIds.has(p.cadastralRegNo))
+          .map((p) => ({
+            cadastralRegNo: p.cadastralRegNo,
+            ring: (p.geometry.coordinates[0] ?? []).map(([lng, lat]) => [lat, lng] as [number, number]),
+          }))
+          .filter((s) => s.ring.length >= 3),
+      );
+    } catch {
+      // Silent fail — the user sees fewer clickable polygons but everything still works.
+    }
+  }
+
+  useEffect(() => {
+    schedule();
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <>
+      {shapes.map((s) => (
+        <Polygon
+          key={s.cadastralRegNo}
+          positions={s.ring}
+          pathOptions={NEIGHBOR_STYLE}
+          eventHandlers={{
+            click: () => onNavigate(s.cadastralRegNo),
+            mouseover: (e) => e.target.setStyle(NEIGHBOR_HOVER_STYLE),
+            mouseout: (e) => e.target.setStyle(NEIGHBOR_STYLE),
+          }}
+        >
+          <Tooltip sticky>
+            {s.cadastralRegNo}
+            <span className="block text-slate-500">Spustelėkite, kad pamatytumėte ataskaitą</span>
+          </Tooltip>
+        </Polygon>
+      ))}
+    </>
+  );
+}
+
 // Empty-map clicks (not on a polygon) ask the server which parcel is underneath.
 // Leaflet doesn't fire map `click` for clicks that land on an interactive layer,
 // so clicking a neighbour/your parcel still uses that layer's own handler.
+// This remains as a fallback for areas not covered by the viewport parcel layer
+// (e.g. when zoomed out below MIN_ZOOM_FOR_VIEWPORT).
 function MapClickHandler({ onPick }: { onPick: (lat: number, lng: number) => void }) {
   useMapEvents({
     click(e) {
@@ -105,6 +194,17 @@ export function ParcelMap({ report }: Props) {
   const buildings = toBuildingShapes(report);
   const neighbors = toNeighborShapes(report);
 
+  // IDs already rendered as their own layers — the viewport layer skips these
+  // to avoid duplicate polygons on top of existing neighbors / the main parcel.
+  const excludeIds = new Set([
+    report.cadastralRegNo,
+    ...(report.neighbors ?? []).map((n) => n.cadastralRegNo),
+  ]);
+
+  function navigateToParcel(cadastralRegNo: string) {
+    navigate(`/parcel/${encodeURIComponent(cadastralRegNo)}`);
+  }
+
   async function handleMapPick(lat: number, lng: number) {
     if (resolving) return;
     setResolving(true);
@@ -113,7 +213,7 @@ export function ParcelMap({ report }: Props) {
       const result = await resolveParcelByPoint(lat, lng);
       if (result) {
         // Navigation remounts this page, so no need to reset `resolving`.
-        navigate(`/parcel/${encodeURIComponent(result.cadastralRegNo)}`);
+        navigateToParcel(result.cadastralRegNo);
         return;
       }
       setNotFound(true);
@@ -154,6 +254,7 @@ export function ParcelMap({ report }: Props) {
         <MapContainer center={center} zoom={16} className="h-full w-full">
           <FitToParcel positions={polygon} />
           <MapClickHandler onPick={handleMapPick} />
+          <ViewportParcelsLayer excludeIds={excludeIds} onNavigate={navigateToParcel} />
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -166,7 +267,7 @@ export function ParcelMap({ report }: Props) {
               positions={n.ring}
               pathOptions={NEIGHBOR_STYLE}
               eventHandlers={{
-                click: () => navigate(`/parcel/${encodeURIComponent(n.cadastralRegNo)}`),
+                click: () => navigateToParcel(n.cadastralRegNo),
                 mouseover: (e) => e.target.setStyle(NEIGHBOR_HOVER_STYLE),
                 mouseout: (e) => e.target.setStyle(NEIGHBOR_STYLE),
               }}
@@ -215,7 +316,7 @@ export function ParcelMap({ report }: Props) {
       </div>
 
       <p className="border-t border-slate-100 px-5 py-3 text-base text-slate-500">
-        Patarimas: spustelėkite bet kurioje žemėlapio vietoje, kad atidarytumėte ten esantį sklypą.
+        Artėjant žemėlapį (zoom ≥ 15) matomi visi aplinkiniai sklypai — spustelėkite bet kurį.
       </p>
     </div>
   );

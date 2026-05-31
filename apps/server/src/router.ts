@@ -2,11 +2,13 @@ import { os } from "@orpc/server";
 import { prisma } from "./db";
 import {
   parcelAutocompleteInputSchema,
+  parcelBboxInputSchema,
   parcelLookupInputSchema,
   parcelPointInputSchema,
   parcelPointResolutionSchema,
   parcelReportSchema,
   parcelSearchItemSchema,
+  neighborParcelSchema,
 } from "@zeme/shared";
 import {
   buildUnknownAddress,
@@ -17,7 +19,7 @@ import {
   isCacheFresh,
 } from "./services/report-service";
 import { resolveParcelByCoordinates } from "./services/biip-service";
-import { fetchParcelByPoint } from "./services/osp-service";
+import { fetchParcelByPoint, fetchParcelsByBbox } from "./services/osp-service";
 import { renderReportPdf } from "./services/pdf";
 import { searchAddressAutocomplete } from "./services/autocomplete";
 
@@ -117,11 +119,22 @@ const resolveByPoint = os
     return null;
   });
 
+// All parcel outlines intersecting the map viewport bounding box (WGS84).
+// The client calls this when zoomed in enough to render clickable polygons
+// for every visible parcel instead of relying on a coordinate-to-parcel lookup.
+const parcelsByBbox = os
+  .input(parcelBboxInputSchema)
+  .output(neighborParcelSchema.array())
+  .handler(async ({ input }) => {
+    return fetchParcelsByBbox(input.minLat, input.minLng, input.maxLat, input.maxLng);
+  });
+
 export const appRouter = {
   parcel: {
     autocomplete,
     getReport,
     resolveByPoint,
+    parcelsByBbox,
   },
 };
 

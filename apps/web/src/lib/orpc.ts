@@ -1,12 +1,13 @@
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
-import type { ParcelReport, ParcelSearchItem } from "@zeme/shared";
+import type { NeighborParcel, ParcelReport, ParcelSearchItem } from "@zeme/shared";
 
 type ParcelClient = {
   parcel: {
     autocomplete(input: { query: string }): Promise<ParcelSearchItem[]>;
     getReport(input: { cadastralRegNo: string; forceRefresh?: boolean }): Promise<ParcelReport>;
     resolveByPoint(input: { lat: number; lng: number }): Promise<{ cadastralRegNo: string } | null>;
+    parcelsByBbox(input: { minLat: number; minLng: number; maxLat: number; maxLng: number }): Promise<NeighborParcel[]>;
   };
 };
 
@@ -40,4 +41,16 @@ export function getParcelReport(input: {
 // Which parcel sits under a clicked map coordinate (WGS84), or null if none.
 export function resolveParcelByPoint(lat: number, lng: number): Promise<{ cadastralRegNo: string } | null> {
   return orpcClient.parcel.resolveByPoint({ lat, lng });
+}
+
+// All parcel outlines (cadastralRegNo + geometry) within the given WGS84 bbox.
+// Used by the map's viewport-parcel layer so every visible parcel is directly
+// clickable without a coordinate-to-parcel server round-trip.
+export function getParcelsByBbox(bbox: {
+  minLat: number;
+  minLng: number;
+  maxLat: number;
+  maxLng: number;
+}): Promise<NeighborParcel[]> {
+  return orpcClient.parcel.parcelsByBbox(bbox);
 }

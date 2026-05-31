@@ -15,6 +15,14 @@ export const parcelPointInputSchema = z.object({
   lng: z.number(),
 });
 
+// Bounding-box query: all parcel outlines visible in the current map viewport.
+export const parcelBboxInputSchema = z.object({
+  minLat: z.number().min(-90).max(90),
+  minLng: z.number().min(-180).max(180),
+  maxLat: z.number().min(-90).max(90),
+  maxLng: z.number().min(-180).max(180),
+});
+
 // Null when no parcel covers the point (e.g. a road, water, or outside coverage).
 export const parcelPointResolutionSchema = z
   .object({ cadastralRegNo: z.string() })
