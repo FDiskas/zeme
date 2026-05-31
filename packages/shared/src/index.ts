@@ -9,6 +9,17 @@ export const parcelLookupInputSchema = z.object({
   forceRefresh: z.boolean().optional().default(false),
 });
 
+// Reverse lookup: which parcel sits under a clicked map coordinate (WGS84).
+export const parcelPointInputSchema = z.object({
+  lat: z.number(),
+  lng: z.number(),
+});
+
+// Null when no parcel covers the point (e.g. a road, water, or outside coverage).
+export const parcelPointResolutionSchema = z
+  .object({ cadastralRegNo: z.string() })
+  .nullable();
+
 export const parcelSearchItemSchema = z.object({
   cadastralRegNo: z.string(),
   address: z.string().optional(),

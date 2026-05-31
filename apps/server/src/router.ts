@@ -3,6 +3,8 @@ import { prisma } from "./db";
 import {
   parcelAutocompleteInputSchema,
   parcelLookupInputSchema,
+  parcelPointInputSchema,
+  parcelPointResolutionSchema,
   parcelReportSchema,
   parcelSearchItemSchema,
 } from "@zeme/shared";
@@ -14,6 +16,8 @@ import {
   isPlaceholderAddress,
   isCacheFresh,
 } from "./services/report-service";
+import { resolveParcelByCoordinates } from "./services/biip-service";
+import { fetchParcelByPoint } from "./services/osp-service";
 import { renderReportPdf } from "./services/pdf";
 import { searchAddressAutocomplete } from "./services/autocomplete";
 
@@ -97,10 +101,27 @@ const getReport = os
     return hydrated;
   });
 
+// Reverse-resolve a clicked map coordinate to the parcel beneath it. BIIP first
+// (authoritative boundaries); OSP ntr_sklypai as a fallback. Returns null when
+// nothing covers the point, so the UI can say so rather than navigate nowhere.
+const resolveByPoint = os
+  .input(parcelPointInputSchema)
+  .output(parcelPointResolutionSchema)
+  .handler(async ({ input }) => {
+    const biip = await resolveParcelByCoordinates(input.lng, input.lat);
+    if (biip?.cadastralRegNo) return { cadastralRegNo: biip.cadastralRegNo };
+
+    const ospCadastralRegNo = await fetchParcelByPoint(input.lat, input.lng);
+    if (ospCadastralRegNo) return { cadastralRegNo: ospCadastralRegNo };
+
+    return null;
+  });
+
 export const appRouter = {
   parcel: {
     autocomplete,
     getReport,
+    resolveByPoint,
   },
 };
 

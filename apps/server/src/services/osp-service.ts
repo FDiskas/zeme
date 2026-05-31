@@ -154,6 +154,29 @@ export async function fetchNeighborParcels(
   }
 }
 
+// Reverse lookup against ntr_sklypai: the cadastral number of the parcel a
+// WGS84 point falls inside, or null. Used as a fallback when BIIP can't resolve
+// a clicked map coordinate.
+export async function fetchParcelByPoint(lat: number, lng: number): Promise<string | null> {
+  const serviceUrl = "https://osp-sdg.stat.gov.lt/arcgis/rest/services/ntr_sklypai/FeatureServer";
+  const point = { x: lng, y: lat, spatialReference: { wkid: 4326 } };
+  try {
+    const features = await queryArcgisLayer(serviceUrl, 0, {
+      geometry: JSON.stringify(point),
+      geometryType: "esriGeometryPoint",
+      spatialRel: "esriSpatialRelIntersects",
+      inSR: "4326",
+      outFields: "kadastro_nr",
+      returnGeometry: "false",
+      f: "json",
+    });
+    return features[0]?.attributes?.kadastro_nr ?? null;
+  } catch (err) {
+    console.error("Error resolving parcel by point (OSP):", err);
+    return null;
+  }
+}
+
 export async function fetchOspParcelData(queryStr: string): Promise<OspParcelData | null> {
   const serviceUrl = "https://osp-sdg.stat.gov.lt/arcgis/rest/services/ntr_sklypai/FeatureServer";
   const cleanQuery = queryStr.trim();

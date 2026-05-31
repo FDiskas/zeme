@@ -6,6 +6,7 @@ type ParcelClient = {
   parcel: {
     autocomplete(input: { query: string }): Promise<ParcelSearchItem[]>;
     getReport(input: { cadastralRegNo: string; forceRefresh?: boolean }): Promise<ParcelReport>;
+    resolveByPoint(input: { lat: number; lng: number }): Promise<{ cadastralRegNo: string } | null>;
   };
 };
 
@@ -34,4 +35,9 @@ export function getParcelReport(input: {
     .finally(() => reportInFlight.delete(key));
   reportInFlight.set(key, request);
   return request;
+}
+
+// Which parcel sits under a clicked map coordinate (WGS84), or null if none.
+export function resolveParcelByPoint(lat: number, lng: number): Promise<{ cadastralRegNo: string } | null> {
+  return orpcClient.parcel.resolveByPoint({ lat, lng });
 }
