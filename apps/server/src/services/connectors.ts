@@ -1,7 +1,6 @@
 import type { ParcelReport, BuildingFootprint } from "@zeme/shared";
 import type { BiipAddressPoint } from "./biip-service";
 import type { OspBuildingPoint } from "./osp-service";
-import puppeteer from "puppeteer";
 
 export type UpstreamPanel = ParcelReport["reportPanels"][number];
 
@@ -17,9 +16,6 @@ function pointInRing(point: [number, number], ring: number[][]): boolean {
   }
   return inside;
 }
-
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 
 import {
   resolveParcelFromBiip,
@@ -640,88 +636,3 @@ export async function fetchGrpkBuildings(
     );
   }
 }
-
-export async function runScrapingFallback(cadastralRegNo: string, address: string): Promise<UpstreamPanel> {
-  const cleanAddress = address.trim();
-  console.log(`[Scraper] Initializing Puppeteer scraping engine for parcel: ${cadastralRegNo} at address: ${cleanAddress}`);
-  
-  let browser;
-  let pageTitle = "";
-  let scrapSuccess = false;
-  
-  try {
-    // Launch headless Chromium
-    browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"]
-    });
-    
-    const page = await browser.newPage();
-    // Use a short timeout of 5 seconds to ensure quick API responses
-    await page.setDefaultNavigationTimeout(5000);
-    
-    // Visit planuojustatau.lt which is the official portal for building permits in Lithuania
-    console.log(`[Scraper] Navigating to planuojustatau.lt public registry portal...`);
-    await page.goto("https://planuojustatau.lt/", { waitUntil: "domcontentloaded" });
-    
-    pageTitle = await page.title();
-    scrapSuccess = true;
-    console.log(`[Scraper] Successfully contacted portal. Page title: "${pageTitle}"`);
-  } catch (err) {
-    console.warn(`[Scraper] Real-time portal connection failed (expected in offline/local dev env):`, err instanceof Error ? err.message : String(err));
-  } finally {
-    if (browser) {
-      await browser.close();
-    }
-  }
-
-  // Generate deterministic, realistic building permits and planning documents
-  // to ensure a high-fidelity due diligence response in any scenario.
-  let hash = 0;
-  for (let i = 0; i < cadastralRegNo.length; i++) {
-    hash = (hash << 5) - hash + cadastralRegNo.charCodeAt(i);
-    hash |= 0;
-  }
-  hash = Math.abs(hash);
-
-  const year = 2018 + (hash % 8);
-  const month = String(1 + (hash % 12)).padStart(2, "0");
-  const day = String(1 + (hash % 28)).padStart(2, "0");
-  const permitSeq = Math.abs(hash % 99999).toString().padStart(5, "0");
-  
-  const permitNo = `LSP-${hash % 99}-${year}${month}${day}-${permitSeq}`;
-  
-  // Decide building type realistically based on address
-  let buildingType = "Vieno buto gyvenamasis namas (Single-family residential house)";
-  if (cleanAddress.includes("pr.") || cleanAddress.includes("al.")) {
-    buildingType = "Daugiabutis gyvenamasis namas (Multi-family apartment building)";
-  } else if (cleanAddress.includes("g. 14") || cleanAddress.includes("g. 16")) {
-    buildingType = "Vieno buto gyvenamasis namas su pagalbinio ūkio pastatu (Single-family house with garage/barn)";
-  }
-
-  const items = [
-    {
-      permitNumber: permitNo,
-      permitType: "Statybos leidimas (Building Permit for new structure)",
-      issuedDate: `${year}-${month}-${day}`,
-      status: "Galioja (Active)",
-      buildingDescription: buildingType,
-      authority: "Vilniaus rajono savivaldybės administracija",
-      projectAddress: cleanAddress,
-      developerType: hash % 2 === 0 ? "Fizinis asmuo (Private Individual)" : "Juridinis asmuo (UAB Developer)",
-      designer: `Arch. ${hash % 2 === 0 ? "J. Petrauskas" : "V. Jonaitis"} (Atestatas Nr. ${10000 + (hash % 5000)})`,
-    }
-  ];
-
-  return {
-    key: "scraping-fallback",
-    title: "Fallback Registries & Active Permits",
-    source: scrapSuccess ? `Puppeteer (Scraped via planuojustatau.lt)` : "Puppeteer Fallback (planuojustatau.lt offline)",
-    status: "ok",
-    items,
-    note: scrapSuccess 
-      ? `Real-time query successfully contacted Infostatyba portal and retrieved active planning and permit records for this cadastral boundary.`
-      : `Infostatyba portal is currently offline or timing out; returned active planning and permit records from local cached fallback.`
-  };
-}
-

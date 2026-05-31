@@ -8,7 +8,6 @@ import {
   fetchAsgrRegulations,
   fetchKvrData,
   buildPdbisPanel,
-  runScrapingFallback,
   type UpstreamPanel,
 } from "./connectors";
 import {
@@ -162,7 +161,6 @@ export async function buildComprehensiveReport(
     asgr,
     kvr,
     pdbis,
-    scraper,
     ospParcelSummary,
     ospPollutionRisks,
     ospPermits
@@ -175,7 +173,6 @@ export async function buildComprehensiveReport(
     fetchAsgrRegulations(resolvedCoordinates),
     fetchKvrData(targetCadastralRegNo, resolvedAddress, resolvedCoordinates),
     Promise.resolve(buildPdbisPanel(ospBuildingPoints)),
-    runScrapingFallback(targetCadastralRegNo, resolvedAddress),
     getOspParcelSummaryPanel(targetCadastralRegNo),
     getOspPollutionRisksPanel(resolvedCoordinates),
     fetchOspBuildingPermits(
@@ -230,7 +227,6 @@ export async function buildComprehensiveReport(
       "TPDR ASGR (planuojustatau.lt)",
       "KVR ArcGIS",
       "PDBIS",
-      "Puppeteer Fallback",
       "OSP ntr_sklypai",
       "OSP infostatyba",
       "OSP tarsos_zidiniai"
@@ -246,8 +242,7 @@ export async function buildComprehensiveReport(
       kvr,
       pdbis,
       ospPermitsPanel,
-      ospPollutionRisks,
-      scraper
+      ospPollutionRisks
     ],
   };
 }

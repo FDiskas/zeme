@@ -54,35 +54,52 @@ export function ParcelMap({ report }: Props) {
 
   if (polygon.length === 0) {
     return (
-      <div className="rounded-2xl border border-slate-300 bg-slate-50 p-6 text-sm text-slate-600">
-        Parcel geometry is not available from the current public data sources, so no map location can be shown yet.
+      <div className="rounded-2xl border border-slate-300 bg-slate-50 p-6 text-lg text-slate-700">
+        Šio sklypo vietos žemėlapyje parodyti negalime – viešuose duomenų šaltiniuose nėra jo ribų.
       </div>
     );
   }
 
   const center = polygon[0]!;
+  const hasBuildings = buildings.length > 0;
 
   return (
-    <div className="h-[420px] w-full overflow-hidden rounded-2xl border border-slate-300/70">
-      <MapContainer center={center} zoom={16} className="h-full w-full">
-        <ChangeMapView center={center} />
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        />
-        {polygon.length >= 3 ? (
-          <Polygon pathOptions={{ color: "#0d9488", fillOpacity: 0.25 }} positions={polygon} />
+    <div className="overflow-hidden rounded-2xl border border-slate-300/70 bg-white">
+      <div className="h-[520px] w-full">
+        <MapContainer center={center} zoom={16} className="h-full w-full">
+          <ChangeMapView center={center} />
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          />
+          {polygon.length >= 3 ? (
+            <Polygon pathOptions={{ color: "#0d9488", weight: 3, fillOpacity: 0.2 }} positions={polygon} />
+          ) : null}
+          {buildings.map((b, i) => (
+            <Polygon
+              key={i}
+              pathOptions={{ color: "#b45309", weight: 1, fillColor: "#f59e0b", fillOpacity: 0.55 }}
+              positions={b.ring}
+            >
+              {b.label ? <Tooltip sticky>{b.label}</Tooltip> : null}
+            </Polygon>
+          ))}
+        </MapContainer>
+      </div>
+
+      {/* Legend so the colours on the map mean something at a glance. */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-slate-200 px-5 py-3 text-base text-slate-700">
+        <span className="flex items-center gap-2">
+          <span className="inline-block h-4 w-4 rounded-sm border-2 border-teal-600 bg-teal-600/20" aria-hidden="true" />
+          Jūsų sklypas
+        </span>
+        {hasBuildings ? (
+          <span className="flex items-center gap-2">
+            <span className="inline-block h-4 w-4 rounded-sm border border-amber-700 bg-amber-400/70" aria-hidden="true" />
+            Pastatai
+          </span>
         ) : null}
-        {buildings.map((b, i) => (
-          <Polygon
-            key={i}
-            pathOptions={{ color: "#b45309", weight: 1, fillColor: "#f59e0b", fillOpacity: 0.55 }}
-            positions={b.ring}
-          >
-            {b.label ? <Tooltip sticky>{b.label}</Tooltip> : null}
-          </Polygon>
-        ))}
-      </MapContainer>
+      </div>
     </div>
   );
 }
