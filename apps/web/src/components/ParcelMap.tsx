@@ -55,15 +55,29 @@ function toNeighborShapes(report: ParcelReport): NeighborShape[] {
     .filter((n) => n.ring.length >= 3);
 }
 
-function ChangeMapView({ center }: { center: [number, number] }) {
+// Frame the subject parcel: zoom to its outline (with padding) rather than a
+// fixed zoom on one corner. maxZoom keeps tiny urban plots from zooming in too
+// far; the fallback handles a single-point geometry.
+function FitToParcel({ positions }: { positions: [number, number][] }) {
   const map = useMap();
   useEffect(() => {
-    map.setView(center, 16);
+    if (positions.length >= 2) {
+      let minLat = Infinity, minLng = Infinity, maxLat = -Infinity, maxLng = -Infinity;
+      for (const [lat, lng] of positions) {
+        if (lat < minLat) minLat = lat;
+        if (lng < minLng) minLng = lng;
+        if (lat > maxLat) maxLat = lat;
+        if (lng > maxLng) maxLng = lng;
+      }
+      map.fitBounds([[minLat, minLng], [maxLat, maxLng]], { padding: [48, 48], maxZoom: 18 });
+    } else if (positions.length === 1) {
+      map.setView(positions[0]!, 17);
+    }
     // Trigger map invalidation to ensure full-size layout renders perfectly
     setTimeout(() => {
       map.invalidateSize();
     }, 100);
-  }, [center, map]);
+  }, [positions, map]);
   return null;
 }
 
@@ -92,7 +106,7 @@ export function ParcelMap({ report }: Props) {
     <div className="overflow-hidden rounded-2xl border border-slate-300/70 bg-white">
       <div className="h-[520px] w-full">
         <MapContainer center={center} zoom={16} className="h-full w-full">
-          <ChangeMapView center={center} />
+          <FitToParcel positions={polygon} />
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
