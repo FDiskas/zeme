@@ -465,6 +465,67 @@ export async function fetchSznsRestrictions(geometry: any): Promise<UpstreamPane
   }
 }
 
+// ASGR — "Aktuali suvestinė informacija apie galiojančius reglamentus" (TPDR).
+// Open, queryable ArcGIS MapServer published by planuojustatau.lt. Layer 0 is a
+// polygon coverage of the binding territorial-planning regulations (max building
+// height/intensity/density, land-use purpose & method, functional zone). This is
+// the open-data route around the gated SŽNS service: it answers "what may be built
+// here". No API key, live spatial intersect — same pattern as the other connectors.
+const ASGR_URL =
+  "https://tpdr.planuojustatau.lt/arcgis/rest/services/duomenu_viesinimas/ASGR/MapServer";
+
+// Epoch-ms ArcGIS date → YYYY-MM-DD, or "N/A".
+function arcgisDate(value: unknown): string {
+  return typeof value === "number" && value > 0
+    ? new Date(value).toISOString().slice(0, 10)
+    : "N/A";
+}
+
+export async function fetchAsgrRegulations(geometry: any): Promise<UpstreamPanel> {
+  const base: Pick<UpstreamPanel, "key" | "title" | "source"> = {
+    key: "asgr-regulations",
+    title: "Planning Regulations (ASGR — galiojantys reglamentai)",
+    source: "planuojustatau.lt TPDR (Aktuali suvestinė galiojančių reglamentų)",
+  };
+
+  if (!getArcgisGeometry(geometry)) {
+    return { ...base, status: "error", items: [], note: "Parcel geometry unavailable; cannot query planning regulations." };
+  }
+
+  try {
+    const rows = await queryArcgisLayer(ASGR_URL, 0, geometry);
+    const items = rows.map((a) => ({
+      summary: a.APIBENDR || a.VAIZD || "N/A",
+      mainPurpose: a.PAGR_PASK || "N/A",
+      useMethod: a.NAUD_BUD || "N/A",
+      useType: a.NAUD_TIP || "N/A",
+      functionalZone: a.FUNKC_ZON || "N/A",
+      maxHeightM: a.MAX_AUK_M ?? "N/A",
+      maxIntensity: a.MAX_INTENS ?? "N/A",
+      maxDensityPct: a.MAX_TANKIS ?? "N/A",
+      minGreeneryPct: a.MIN_APZELD ?? "N/A",
+      documentNo: a.PAGR_PASKNR || a.FUNKC_ZONNR || "N/A",
+      approvedAt: arcgisDate(a.PAGR_PASKD ?? a.FUNKC_ZOND),
+    }));
+
+    return {
+      ...base,
+      status: "ok",
+      items,
+      note: items.length === 0
+        ? "No binding planning regulations (ASGR) intersect this parcel."
+        : `Found ${items.length} planning-regulation zone(s) intersecting this parcel.`,
+    };
+  } catch (err: any) {
+    return {
+      ...base,
+      status: "error",
+      items: [],
+      note: `Error querying ASGR planning regulations: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
 // GRPK (Georeferencinio pagrindo kadastras) building footprints from geoportal.lt.
 // This is the open, queryable source of actual building polygon geometry — used to
 // draw buildings on the map. Layer 22 = "Pastatai". Server returns Esri JSON only
