@@ -12,5 +12,4 @@ apps/server/prisma/dev.db-wal
 README.md
 _.md
 .claude
-scripts
 config
