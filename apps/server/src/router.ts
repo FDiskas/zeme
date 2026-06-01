@@ -4,6 +4,8 @@ import {
   parcelAutocompleteInputSchema,
   parcelBboxInputSchema,
   parcelLookupInputSchema,
+  parcelPdfInputSchema,
+  parcelPdfOutputSchema,
   parcelPointInputSchema,
   parcelPointResolutionSchema,
   parcelReportSchema,
@@ -20,7 +22,6 @@ import {
 } from "./services/report-service";
 import { resolveParcelByCoordinates } from "./services/biip-service";
 import { fetchParcelByPoint, fetchParcelsByBbox } from "./services/osp-service";
-import { renderReportPdf } from "./services/pdf";
 import { searchAddressAutocomplete } from "./services/autocomplete";
 
 function shouldReuseCachedReport(report: { address: string; reportData: string; updatedAt: Date }): boolean {
@@ -58,12 +59,10 @@ const getReport = os
 
     if (existing && !input.forceRefresh && shouldReuseCachedReport(existing)) {
       const parsed = parcelReportSchema.parse(JSON.parse(existing.reportData));
-      const safeId = parsed.cadastralRegNo.replace(/[^a-zA-Z0-9-_.]/g, "_");
       return {
         ...parsed,
         cached: true,
         cacheAgeDays: cacheAgeDays(existing.updatedAt),
-        pdfUrl: existing.pdfCachedPath ? `/api/pdf/${safeId}.pdf` : undefined,
       };
     }
 
@@ -76,32 +75,26 @@ const getReport = os
       parsedCoordinates,
     );
 
-    const pdfPath = await renderReportPdf(report);
-    const safeId = report.cadastralRegNo.replace(/[^a-zA-Z0-9-_.]/g, "_");
-    const hydrated = {
-      ...report,
-      pdfUrl: pdfPath ? `/api/pdf/${safeId}.pdf` : undefined,
-    };
-
     await prisma.parcelReport.upsert({
       where: { cadastralRegNo: input.cadastralRegNo },
       update: {
-        address: hydrated.address,
-        coordinates: JSON.stringify(hydrated.coordinates),
-        reportData: JSON.stringify(hydrated),
-        pdfCachedPath: pdfPath,
+        address: report.address,
+        coordinates: JSON.stringify(report.coordinates),
+        reportData: JSON.stringify(report),
+        pdfCachedPath: null,
       },
       create: {
-        address: hydrated.address,
-        cadastralRegNo: hydrated.cadastralRegNo,
-        coordinates: JSON.stringify(hydrated.coordinates),
-        reportData: JSON.stringify(hydrated),
-        pdfCachedPath: pdfPath,
+        address: report.address,
+        cadastralRegNo: report.cadastralRegNo,
+        coordinates: JSON.stringify(report.coordinates),
+        reportData: JSON.stringify(report),
       },
     });
 
-    return hydrated;
+    return report;
   });
+
+
 
 // Reverse-resolve a clicked map coordinate to the parcel beneath it. BIIP first
 // (authoritative boundaries); OSP ntr_sklypai as a fallback. Returns null when
@@ -119,6 +112,42 @@ const resolveByPoint = os
     return null;
   });
 
+// On-demand PDF generation. Returns the URL for an already-cached PDF if one
+// exists, otherwise renders a new one and caches the path in the database.
+const generatePdf = os
+  .input(parcelPdfInputSchema)
+  .output(parcelPdfOutputSchema)
+  .handler(async ({ input }) => {
+    const { renderReportPdf } = await import("./services/pdf");
+    const safeId = input.cadastralRegNo.replace(/[^a-zA-Z0-9-_.]/g, "_");
+    const pdfUrl = `/api/pdf/${safeId}.pdf`;
+
+    const existing = await prisma.parcelReport.findUnique({
+      where: { cadastralRegNo: input.cadastralRegNo },
+    });
+
+    if (!existing?.reportData) {
+      throw new Error("Report not found. Fetch the report first.");
+    }
+
+    if (existing.pdfCachedPath) {
+      return { pdfUrl };
+    }
+
+    const report = parcelReportSchema.parse(JSON.parse(existing.reportData));
+    const pdfPath = await renderReportPdf(report);
+    if (!pdfPath) {
+      throw new Error("PDF generation failed.");
+    }
+
+    await prisma.parcelReport.update({
+      where: { cadastralRegNo: input.cadastralRegNo },
+      data: { pdfCachedPath: pdfPath },
+    });
+
+    return { pdfUrl };
+  });
+
 // All parcel outlines intersecting the map viewport bounding box (WGS84).
 // The client calls this when zoomed in enough to render clickable polygons
 // for every visible parcel instead of relying on a coordinate-to-parcel lookup.
@@ -133,6 +162,7 @@ export const appRouter = {
   parcel: {
     autocomplete,
     getReport,
+    generatePdf,
     resolveByPoint,
     parcelsByBbox,
   },

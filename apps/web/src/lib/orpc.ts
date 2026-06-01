@@ -1,11 +1,12 @@
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
-import type { NeighborParcel, ParcelReport, ParcelSearchItem } from "@zeme/shared";
+import type { NeighborParcel, ParcelPdfOutput, ParcelReport, ParcelSearchItem } from "@zeme/shared";
 
 type ParcelClient = {
   parcel: {
     autocomplete(input: { query: string }): Promise<ParcelSearchItem[]>;
     getReport(input: { cadastralRegNo: string; forceRefresh?: boolean }): Promise<ParcelReport>;
+    generatePdf(input: { cadastralRegNo: string }): Promise<ParcelPdfOutput>;
     resolveByPoint(input: { lat: number; lng: number }): Promise<{ cadastralRegNo: string } | null>;
     parcelsByBbox(input: { minLat: number; minLng: number; maxLat: number; maxLng: number }): Promise<NeighborParcel[]>;
   };
@@ -41,6 +42,12 @@ export function getParcelReport(input: {
 // Which parcel sits under a clicked map coordinate (WGS84), or null if none.
 export function resolveParcelByPoint(lat: number, lng: number): Promise<{ cadastralRegNo: string } | null> {
   return orpcClient.parcel.resolveByPoint({ lat, lng });
+}
+
+// Generate (or retrieve cached) PDF for a given parcel. Renders on the server
+// and returns the URL that can be opened directly in the browser.
+export function generateParcelPdf(cadastralRegNo: string): Promise<ParcelPdfOutput> {
+  return orpcClient.parcel.generatePdf({ cadastralRegNo });
 }
 
 // All parcel outlines (cadastralRegNo + geometry) within the given WGS84 bbox.

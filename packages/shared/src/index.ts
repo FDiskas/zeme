@@ -80,7 +80,16 @@ export const parcelReportSchema = z.object({
   pdfUrl: z.string().optional(),
 });
 
+export const parcelPdfInputSchema = z.object({
+  cadastralRegNo: z.string().min(3).max(64),
+});
+
+export const parcelPdfOutputSchema = z.object({
+  pdfUrl: z.string(),
+});
+
 export type ParcelSearchItem = z.infer<typeof parcelSearchItemSchema>;
 export type BuildingFootprint = z.infer<typeof buildingFootprintSchema>;
 export type NeighborParcel = z.infer<typeof neighborParcelSchema>;
 export type ParcelReport = z.infer<typeof parcelReportSchema>;
+export type ParcelPdfOutput = z.infer<typeof parcelPdfOutputSchema>;

@@ -4,7 +4,7 @@ import type { ParcelReport, ParcelSearchItem } from "@zeme/shared";
 import { ParcelMap } from "./components/ParcelMap";
 import { ReportPanel } from "./components/ReportPanel";
 import { SummaryCard } from "./components/SummaryCard";
-import { orpcClient, getParcelReport } from "./lib/orpc";
+import { orpcClient, getParcelReport, generateParcelPdf } from "./lib/orpc";
 import { useLocalStorage } from "./lib/useLocalStorage";
 
 type SearchHistoryItem = {
@@ -208,6 +208,7 @@ function ParcelPage() {
   // Starts true: the page always loads a report on mount, so the effect never
   // has to set loading synchronously (which would trigger cascading renders).
   const [loading, setLoading] = useState(true);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const [history, setHistory] = useLocalStorage<SearchHistoryItem[]>("zeme-search-history", []);
 
   function rememberLookup(data: ParcelReport) {
@@ -230,6 +231,17 @@ function ParcelPage() {
       rememberLookup(data);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function onDownloadPdf() {
+    if (!cadastralRegNo || pdfLoading) return;
+    setPdfLoading(true);
+    try {
+      const { pdfUrl } = await generateParcelPdf(cadastralRegNo);
+      window.open(pdfUrl, "_blank", "noreferrer");
+    } finally {
+      setPdfLoading(false);
     }
   }
 
@@ -280,15 +292,15 @@ function ParcelPage() {
           >
             {loading ? "Atnaujinama…" : "Atnaujinti"}
           </button>
-          {report?.pdfUrl ? (
-            <a
-              href={report.pdfUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-xl border border-teal-300 bg-teal-50 px-5 py-3 text-lg font-semibold text-teal-800 transition hover:bg-teal-100/80 active:scale-[0.98]"
+          {report ? (
+            <button
+              type="button"
+              onClick={onDownloadPdf}
+              disabled={pdfLoading}
+              className="rounded-xl border border-teal-300 bg-teal-50 px-5 py-3 text-lg font-semibold text-teal-800 transition hover:bg-teal-100/80 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Atsisiųsti PDF
-            </a>
+              {pdfLoading ? "Generuojama…" : "Atsisiųsti PDF"}
+            </button>
           ) : null}
         </div>
       </div>
