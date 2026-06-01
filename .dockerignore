@@ -1,0 +1,16 @@
+node_modules
+.git
+.gitignore
+**/.env
+**/.env.*
+!**/.env.example
+**/dist
+apps/server/generated/pdf
+apps/server/prisma/dev.db
+apps/server/prisma/dev.db-shm
+apps/server/prisma/dev.db-wal
+README.md
+*.md
+.claude
+scripts
+config

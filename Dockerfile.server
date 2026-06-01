@@ -1,0 +1,45 @@
+# ─── Server ──────────────────────────────────────────────────────────────────
+FROM oven/bun:1 AS server-base
+WORKDIR /app
+
+# Install Chromium for Puppeteer PDF generation.
+# Remove this block (and set DISABLE_PDF=true) if you don't need PDF reports.
+RUN apt-get update && apt-get install -y \
+    chromium \
+    fonts-liberation \
+    fonts-noto \
+    --no-install-recommends \
+  && rm -rf /var/lib/apt/lists/*
+
+# ─── Install dependencies ─────────────────────────────────────────────────────
+FROM server-base AS server-deps
+# Copy workspace manifests first for layer caching
+COPY package.json bun.lock ./
+COPY apps/server/package.json ./apps/server/
+COPY packages/shared/package.json ./packages/shared/
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+RUN bun install --frozen-lockfile
+
+# ─── Build ────────────────────────────────────────────────────────────────────
+FROM server-deps AS server-builder
+COPY . .
+# Generate Prisma client
+RUN cd apps/server && bunx prisma generate
+
+# ─── Runtime ──────────────────────────────────────────────────────────────────
+FROM server-base AS server-runner
+WORKDIR /app
+
+# Copy the full workspace (deps + generated Prisma client + source)
+COPY --from=server-builder /app .
+
+# Create directory for generated PDFs (excluded by .dockerignore in source)
+RUN mkdir -p /app/apps/server/generated/pdf
+
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+
+WORKDIR /app/apps/server
+EXPOSE 8787
+
+CMD ["bun", "run", "src/index.ts"]

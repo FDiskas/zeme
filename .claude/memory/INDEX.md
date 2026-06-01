@@ -12,3 +12,4 @@
 
 - [pdf-report-printable-real-estate-style](decisions/pdf-report-printable-real-estate-style.md) — PDF must be a serious printable NT report, not raw dumps. keywords: pdf, printable, nt, report, layout
 - [ui-lithuanian-and-curation-layer](decisions/ui-lithuanian-and-curation-layer.md) — UI fully Lithuanian; report uses curation layer + summary card, not raw panel dump. keywords: ui, lithuanian, curation, summary, report, panels, decision
+- [dokploy-deployment](decisions/dokploy-deployment.md) — Deploys to Dokploy via GitHub Compose; Dockerfile.server + Dockerfile.web + nginx + docker-compose. keywords: dokploy, deploy, docker, docker-compose, github, server, web, nginx, puppeteer, turso

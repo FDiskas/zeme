@@ -23,7 +23,6 @@ export const env = createEnv({
       .default("false")
       .transform((value) => value === "true"),
     BIIP_BASE_URL: z
-      .string()
       .url()
       .default("https://boundaries.biip.lt"),
   },

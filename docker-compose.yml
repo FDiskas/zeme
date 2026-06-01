@@ -1,0 +1,37 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    restart: unless-stopped
+    environment:
+      PORT: "8787"
+      DATABASE_URL: "${DATABASE_URL}"
+      BIIP_BASE_URL: "${BIIP_BASE_URL:-https://boundaries.biip.lt}"
+      DISABLE_PDF: "${DISABLE_PDF:-false}"
+    volumes:
+      # Persist SQLite database file (only used when DATABASE_URL is a file: path)
+      - server-db:/app/apps/server/prisma
+      # Persist generated PDF files
+      - server-pdfs:/app/apps/server/generated/pdf
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8787/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-80}:80"
+    depends_on:
+      server:
+        condition: service_healthy
+
+volumes:
+  server-db:
+  server-pdfs:
