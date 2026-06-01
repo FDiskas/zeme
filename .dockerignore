@@ -1,8 +1,8 @@
-node_modules
+node*modules
 .git
 .gitignore
 **/.env
-**/.env._
+**/.env.*
 !**/.env.example
 **/dist
 apps/server/generated/pdf
@@ -10,6 +10,6 @@ apps/server/prisma/dev.db
 apps/server/prisma/dev.db-shm
 apps/server/prisma/dev.db-wal
 README.md
-_.md
+\_.md
 .claude
 config

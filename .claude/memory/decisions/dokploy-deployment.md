@@ -1,6 +1,6 @@
 ---
 name: dokploy-deployment
-description: Deployment target is Dokploy via GitHub; docker-compose with server + web nginx services.
+description: Deployment target is Dokploy via GitHub; docker-compose with server + reginfo(web) nginx services. Confirmed working.
 keywords:
   [
     dokploy,
@@ -12,34 +12,32 @@ keywords:
     web,
     nginx,
     puppeteer,
-    turso,
+    bun,
   ]
 created: 2026-06-01
 updated: 2026-06-01
 ---
 
-**Fact / Rule:** Project deploys to Dokploy from GitHub using `docker-compose.yml` (Compose application type).
+**Fact / Rule:** Project deploys to Dokploy from GitHub using `docker-compose.yml` (Compose application type). Confirmed working.
 
 **Why:** Two-service monorepo (Bun/Hono server + React/Vite web) is cleanest as a Compose stack in Dokploy.
 
-**Files created:**
+**Files:** `Dockerfile.server`, `Dockerfile.web`, `nginx.conf`, `docker-compose.yml`, `.env.example`
 
-- `Dockerfile.server` — Bun runtime + system Chromium for Puppeteer; runs `bun run src/index.ts` from `/app/apps/server`
-- `Dockerfile.web` — Vite build → Nginx alpine; proxies `/rpc` and `/api` to `server` container
-- `nginx.conf` — SPA fallback + reverse proxy to `http://server:8787`
-- `docker-compose.yml` — `server` + `web` services; named volumes for SQLite db and PDFs
-- `.env.example` — documents all env vars
+**Critical gotchas learned:**
 
-**Key decisions:**
+- Dokploy domain config must match compose service name exactly → web service named `reginfo` (not `web`)
+- Dokploy manages ports via its own Traefik reverse proxy → do NOT use `ports:` in compose
+- Copy ALL workspace `package.json` files before `bun install` (server + web + shared) — otherwise lockfile mismatch
+- Puppeteer postinstall downloads Chrome; use `--ignore-scripts` in Docker for both Dockerfiles
+- For local dev, `prepare` script in `apps/server/package.json`: `"puppeteer browsers install chrome"`
+- `generate:biip` script: use `bunx` not `npx` — Docker image has no npx
+- `scripts/` dir must NOT be in `.dockerignore` — needed for `bun run generate:biip` in builder
+- No healthcheck needed — simple `depends_on: - server` is sufficient
+- After any `package.json` change, run `bun install` locally and commit the updated `bun.lock`
 
-- `PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true` + system `chromium` package to avoid re-downloading Chrome in Docker
-- `PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium` set in server container
-- Set `DISABLE_PDF=true` to skip Chromium entirely (lighter image)
-- Database: `DATABASE_URL=file:./prisma/dev.db` for SQLite (needs volume) or Turso cloud URL (`libsql://...?authToken=...`) for stateless prod
+**Dokploy setup:**
 
-**Dokploy setup steps:**
-
-1. Push files to GitHub
-2. Dokploy → New → Compose → GitHub repo → branch `main`
-3. Set env vars: `DATABASE_URL`, `BIIP_BASE_URL`, `DISABLE_PDF`, `WEB_PORT`
-4. Deploy; Dokploy builds both images and starts stack
+1. New → Compose → GitHub repo → branch `main`
+2. Env vars: `DATABASE_URL`, `BIIP_BASE_URL`, `DISABLE_PDF`
+3. Domain → assign to `reginfo` service → port 80
