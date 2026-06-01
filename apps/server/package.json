@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "prepare": "puppeteer browsers install chrome",
     "check-env": "bun run ./src/env.ts",
     "dev": "bun run check-env && bun --watch src/index.ts",
     "build": "bun run check-env && bun build ./src/index.ts --outdir ./dist --target bun",
@@ -26,8 +27,5 @@
     "prisma": "latest",
     "typescript": "latest",
     "@types/bun": "latest"
-  },
-  "puppeteer": {
-    "skipDownload": true
   }
 }

@@ -18,7 +18,9 @@ COPY package.json bun.lock ./
 COPY apps/server/package.json ./apps/server/
 COPY apps/web/package.json ./apps/web/
 COPY packages/shared/package.json ./packages/shared/
-RUN bun install --frozen-lockfile
+# Skip postinstall scripts – puppeteer uses system chromium (set via PUPPETEER_EXECUTABLE_PATH)
+# Prisma client is generated explicitly in the build stage
+RUN bun install --frozen-lockfile --ignore-scripts
 
 # ─── Build ────────────────────────────────────────────────────────────────────
 FROM server-deps AS server-builder
