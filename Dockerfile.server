@@ -25,6 +25,8 @@ RUN bun install --frozen-lockfile --ignore-scripts
 # ─── Build ────────────────────────────────────────────────────────────────────
 FROM server-deps AS server-builder
 COPY . .
+# Generate BIIP SDK from OpenAPI spec
+RUN bun run generate:biip
 # Generate Prisma client
 RUN cd apps/server && bunx prisma generate
 
