@@ -499,7 +499,11 @@ export async function renderReportPdf(report: ParcelReport): Promise<string | un
   const output = join(outDir, `${safeId}.pdf`);
 
   try {
-    const browser = await puppeteer.launch({ headless: true });
+    const browser = await puppeteer.launch({
+      headless: true,
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
     try {
       const page = await browser.newPage();
       const html = buildReportHtml(report);
