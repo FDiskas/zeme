@@ -46,4 +46,4 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 WORKDIR /app/apps/server
 EXPOSE 8787
 
-CMD ["bun", "run", "src/index.ts"]
+CMD ["sh", "-c", "bunx prisma db push --skip-generate && bun run src/index.ts"]
