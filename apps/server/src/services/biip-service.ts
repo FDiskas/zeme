@@ -226,7 +226,7 @@ export async function resolveAddressFromBiip(
     for (let page = 0; page < MAX_PAGES; page++) {
       const response = await addressesSearch({
         client: biipClient,
-        query: { srid: WGS84, size: MAX_PAGE_SIZE, cursor },
+        query: { srid: WGS84, size: MAX_PAGE_SIZE, cursor, geometry_output_format: "ewkt" },
         body: {
           filters: [{ geometry: { method: "intersects", ewkt: ewktGeometry } }],
         },
@@ -353,7 +353,7 @@ export async function searchBiipAddressByQuery(query: string): Promise<BiipAddre
   try {
     const response = await addressesSearch({
       client: biipClient,
-      query: { srid: WGS84, size: 10 },
+      query: { srid: WGS84, size: 10, geometry_output_format: "ewkt" },
       body: { filters: [filterRequest] },
     });
 
