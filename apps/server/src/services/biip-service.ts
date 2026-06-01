@@ -1,6 +1,6 @@
 import { biipClient } from "./biip-client";
 import { parcelsSearch, addressesSearch, eldershipsSearch, roomsSearch } from "./biip/sdk.gen";
-import type { Parcel } from "./biip/types.gen";
+import type { Parcel, AddressesFilter, AddressesSearchFilterRequest } from "./biip/types.gen";
 import type { ParcelSearchItem } from "@zeme/shared";
 
 // BIIP search endpoints default to SRID 3346 (LKS-94); we request 4326 (WGS 84)
@@ -323,6 +323,59 @@ export async function resolveRoomsFromBiip(ewktGeometry: string): Promise<BiipRo
     return rooms;
   } catch (err) {
     console.error("Error fetching rooms from BIIP API:", err);
+    return [];
+  }
+}
+
+/**
+ * Parse a free-text Lithuanian address query and search BIIP for matching address points.
+ * Extracts postal code, street name, and plot number from the query string.
+ */
+export async function searchBiipAddressByQuery(query: string): Promise<BiipAddressPoint[]> {
+  const postalMatch = query.match(/\bLT-?(\d{5})\b/i);
+  const postalCode = postalMatch ? `LT-${postalMatch[1]}` : null;
+
+  const streetMatch = query.match(/(\S+)\s+(?:g\.|pr\.|al\.|pl\.|tv\.|skg\.)/i);
+  const streetName = streetMatch ? streetMatch[1] : null;
+
+  const plotMatch = query.match(/(?:g\.|pr\.|al\.|pl\.|tv\.|skg\.)\s+(\d+[A-Za-z]?)/i);
+  const plotNumber = plotMatch ? plotMatch[1] : null;
+
+  if (!postalCode && !streetName) return [];
+
+  const addressFilter: AddressesFilter = {};
+  if (postalCode) addressFilter.postal_code = { exact: postalCode };
+  if (plotNumber) addressFilter.plot_or_building_number = { exact: plotNumber };
+
+  const filterRequest: AddressesSearchFilterRequest = { addresses: addressFilter };
+  if (streetName) filterRequest.streets = { name: { starts: streetName } };
+
+  try {
+    const response = await addressesSearch({
+      client: biipClient,
+      query: { srid: WGS84, size: 10 },
+      body: { filters: [filterRequest] },
+    });
+
+    const items = response.data?.items || [];
+    return items
+      .map((item) => ({
+        fullAddress: formatAddress({
+          municipality: item.municipality?.name || "",
+          residentialArea: item.residential_area?.name || "",
+          street: item.street?.name || "",
+          plotNo: item.plot_or_building_number || "",
+        }),
+        plotOrBuildingNumber: item.plot_or_building_number || "",
+        street: item.street?.name || "",
+        residentialArea: item.residential_area?.name || "",
+        municipality: item.municipality?.name || "",
+        postalCode: item.postal_code || "",
+        point: parseEwktPoint(item.geometry?.data || ""),
+      }))
+      .filter((a): a is BiipAddressPoint => a.point !== null);
+  } catch (err) {
+    console.error("[BIIP] Address text search failed:", err);
     return [];
   }
 }

@@ -20,6 +20,8 @@ import {
   resolveAddressFromBiip,
   resolveParcelByCoordinates,
   normalizeCadastralRegNo as biipNormalize,
+  searchBiipAddressByQuery,
+  type BiipAddressPoint,
 } from "./biip-service";
 import { fetchOspParcelData } from "./osp-service";
 
@@ -194,6 +196,31 @@ async function searchNominatim(query: string): Promise<NominatimResult[]> {
   return Array.isArray(data) ? data : [];
 }
 
+async function buildFromBiipAddress(addr: BiipAddressPoint): Promise<ParcelSearchItem | null> {
+  if (!addr.point) return null;
+  const [lon, lat] = addr.point;
+
+  const parcel = await resolveParcelByCoordinates(lon, lat);
+  if (!parcel) return null;
+
+  await prisma.parcelReport.upsert({
+    where: { cadastralRegNo: parcel.cadastralRegNo },
+    update: { address: addr.fullAddress, coordinates: JSON.stringify(parcel.geometry) },
+    create: {
+      cadastralRegNo: parcel.cadastralRegNo,
+      address: addr.fullAddress,
+      coordinates: JSON.stringify(parcel.geometry),
+      reportData: "{}",
+    },
+  });
+
+  return {
+    cadastralRegNo: parcel.cadastralRegNo,
+    address: addr.fullAddress,
+    center: parcel.center,
+  };
+}
+
 export async function searchAddressAutocomplete(
   query: string
 ): Promise<ParcelSearchItem[]> {
@@ -209,8 +236,19 @@ export async function searchAddressAutocomplete(
 
   try {
     const addresses = await searchNominatim(query);
+    if (addresses.length > 0) {
+      const results = await Promise.all(addresses.map(buildFromNominatim));
+      const filtered = results.filter((item): item is ParcelSearchItem => item !== null);
+      if (filtered.length > 0) return filtered;
+    }
+  } catch {
+    // fall through to BIIP address search
+  }
 
-    const results = await Promise.all(addresses.map(buildFromNominatim));
+  // Nominatim returned no results — try BIIP direct address search by postal code / street / plot
+  try {
+    const biipAddresses = await searchBiipAddressByQuery(query);
+    const results = await Promise.all(biipAddresses.map(buildFromBiipAddress));
     return results.filter((item): item is ParcelSearchItem => item !== null);
   } catch {
     return [];
