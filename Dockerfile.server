@@ -5,7 +5,6 @@ WORKDIR /app
 # Install Chromium for Puppeteer PDF generation.
 # Remove this block (and set DISABLE_PDF=true) if you don't need PDF reports.
 RUN apt-get update && apt-get install -y \
-    curl \
     chromium \
     fonts-liberation \
     fonts-noto \
