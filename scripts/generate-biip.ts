@@ -39,7 +39,7 @@ async function main() {
   console.log("Generating SDK using openapi-ts...");
   const outputDir = path.resolve("apps", "server", "src", "services", "biip");
 
-  await $`npx openapi-ts -i ${schemaPath} -o ${outputDir}`;
+  await $`bunx openapi-ts -i ${schemaPath} -o ${outputDir}`;
   console.log(`SDK generated successfully at: ${outputDir}`);
 }
 
