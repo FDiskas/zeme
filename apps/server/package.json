@@ -26,5 +26,8 @@
     "prisma": "latest",
     "typescript": "latest",
     "@types/bun": "latest"
+  },
+  "puppeteer": {
+    "skipDownload": true
   }
 }
