@@ -83,7 +83,8 @@
 	/* Soft emerald horizon glow — fresh, not loud. */
 	background-image:
 		radial-gradient(ellipse 70% 45% at 50% -8%, #e3f7ee 0%, transparent 62%);
-	background-attachment: fixed;
+	/* No `background-attachment: fixed` — it causes repaint jank and broken
+	   positioning on iOS Safari. The glow sits at the top and scrolls naturally. */
 	-webkit-font-smoothing: antialiased;
 	text-rendering: optimizeLegibility;
 }

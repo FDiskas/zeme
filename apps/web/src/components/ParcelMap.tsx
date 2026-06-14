@@ -210,8 +210,11 @@ export function ParcelMap({ report }: Props) {
 
   return (
     <div className="overflow-hidden rounded-3xl border border-mist-200 bg-white shadow-soft">
-      <div className="relative h-130 w-full">
-        <MapContainer center={center} zoom={16} className="h-full w-full">
+      <div className="relative h-96 w-full md:h-130">
+        {/* scrollWheelZoom off so scrolling the page over the map doesn't hijack
+            into a zoom (desktop) — pinch-zoom + the +/- controls still work on
+            touch. Keeps the map cooperative inside a vertically-scrolling page. */}
+        <MapContainer center={center} zoom={16} scrollWheelZoom={false} className="h-full w-full">
           <FitToParcel positions={polygon} />
           <ViewportParcelsLayer excludeIds={excludeIds} onNavigate={navigateToParcel} />
           <TileLayer

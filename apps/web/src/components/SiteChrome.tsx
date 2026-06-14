@@ -46,7 +46,7 @@ export function Footer() {
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 text-center md:flex-row md:px-8 md:text-left">
         <p className="max-w-xl text-base text-mist-600">
           reginfo.lt — žemės sklypų ir pastatų informacija iš viešų Lietuvos registrų.
-          Duomenys teikiami susipažinti ir nėra oficialus dokumentas.
+          Duomenys pateikiami pažintiniams tikslams ir nėra oficialus dokumentas.
         </p>
         <a
           href="https://github.com/FDiskas/zeme"
@@ -55,7 +55,7 @@ export function Footer() {
           className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-mist-300 bg-white px-4 py-2.5 text-base font-semibold text-mist-800 transition hover:border-forest-300 hover:text-forest-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600"
         >
           <GitHubIcon className="h-5 w-5" />
-          Projektas GitHub
+          GitHub
         </a>
       </div>
     </footer>

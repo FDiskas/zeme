@@ -45,7 +45,8 @@ export function formatUniqueNumber(value: string): string {
 
 export function isNoiseValue(value: unknown): boolean {
   if (value === null || value === undefined) return true;
-  if (typeof value === "string") return NOISE_VALUES.has(value.trim().toLowerCase());
+  if (typeof value === "string")
+    return NOISE_VALUES.has(value.trim().toLowerCase());
   return false;
 }
 
@@ -170,18 +171,54 @@ const FIELD_RULES: Record<string, Record<string, FieldRule>> = {
 // small and muted at the bottom of each expanded panel — trustworthy, not loud.
 type SourceInfo = { name: string; api: string };
 const PANEL_SOURCES: Record<string, SourceInfo> = {
-  "osp-parcel-summary": { name: "Nekilnojamojo turto registras (VDA / OSP)", api: "OSP · ntr_sklypai" },
-  "biip-boundary": { name: "BĮIP – sklypų ribos ir paskirtis", api: "biip.lt · boundaries" },
-  "biip-addresses": { name: "BĮIP – adresų registras", api: "biip.lt · addresses" },
-  "grpk-buildings": { name: "Georeferencinio pagrindo kadastras (GRPK)", api: "geoportal.lt · GRPK (sujungta su BĮIP / OSP)" },
-  "pdbis-building-data": { name: "Pastatų duomenų bankas", api: "OSP · pastatai_geo" },
-  "geoportal-constraints": { name: "Saugomų teritorijų kadastras (VSTT)", api: "OSP · vstt_stvk" },
-  "kvr-heritage": { name: "Kultūros vertybių registras (KVR)", api: "OSP · KPD / kvr" },
-  "asgr-regulations": { name: "Teritorijų planavimo dokumentų registras (TPDR)", api: "planuojustatau.lt · ASGR" },
-  "szns-restrictions": { name: "Specialiosios žemės naudojimo sąlygos (Registrų centras)", api: "geoportal.lt · rc_szns" },
-  "osp-building-permits": { name: "Infostatyba – statybos leidimai", api: "OSP · infostatyba" },
-  "osp-pollution-risks": { name: "Potencialūs taršos židiniai", api: "OSP · potencialus_tarsos_zidiniai" },
-  "rc-masvert": { name: "Registrų centras – masinis vertinimas", api: "registrucentras.lt · masvert" },
+  "osp-parcel-summary": {
+    name: "Nekilnojamojo turto registras (VDA / OSP)",
+    api: "OSP · ntr_sklypai",
+  },
+  "biip-boundary": {
+    name: "BĮIP – sklypų ribos ir paskirtis",
+    api: "biip.lt · boundaries",
+  },
+  "biip-addresses": {
+    name: "BĮIP – adresų registras",
+    api: "biip.lt · addresses",
+  },
+  "grpk-buildings": {
+    name: "Georeferencinio pagrindo kadastras (GRPK)",
+    api: "geoportal.lt · GRPK (sujungta su BĮIP / OSP)",
+  },
+  "pdbis-building-data": {
+    name: "Pastatų duomenų bankas",
+    api: "OSP · pastatai_geo",
+  },
+  "geoportal-constraints": {
+    name: "Saugomų teritorijų kadastras (VSTT)",
+    api: "OSP · vstt_stvk",
+  },
+  "kvr-heritage": {
+    name: "Kultūros vertybių registras (KVR)",
+    api: "OSP · KPD / kvr",
+  },
+  "asgr-regulations": {
+    name: "Teritorijų planavimo dokumentų registras (TPDR)",
+    api: "planuojustatau.lt · ASGR",
+  },
+  "szns-restrictions": {
+    name: "Specialiosios žemės naudojimo sąlygos (Registrų centras)",
+    api: "geoportal.lt · rc_szns",
+  },
+  "osp-building-permits": {
+    name: "Infostatyba – statybos leidimai",
+    api: "OSP · infostatyba",
+  },
+  "osp-pollution-risks": {
+    name: "Potencialūs taršos židiniai",
+    api: "OSP · potencialus_tarsos_zidiniai",
+  },
+  "rc-masvert": {
+    name: "Registrų centras – masinis vertinimas",
+    api: "registrucentras.lt · masvert",
+  },
 };
 
 // Lithuanian panel titles (server titles are English / mixed).
@@ -201,33 +238,39 @@ const PANEL_TITLES: Record<string, string> = {
 };
 
 // Four reader-friendly groups instead of 12 loose panels.
-export const CATEGORIES: { id: string; title: string; panelKeys: string[] }[] = [
-  {
-    id: "sklypas",
-    title: "Sklypas ir adresai",
-    panelKeys: ["biip-boundary", "osp-parcel-summary", "rc-masvert", "biip-addresses"],
-  },
-  {
-    id: "pastatai",
-    title: "Pastatai",
-    panelKeys: ["grpk-buildings", "pdbis-building-data"],
-  },
-  {
-    id: "statyba",
-    title: "Statyba ir planavimas",
-    panelKeys: ["osp-building-permits", "asgr-regulations"],
-  },
-  {
-    id: "apribojimai",
-    title: "Apribojimai ir saugomos teritorijos",
-    panelKeys: [
-      "geoportal-constraints",
-      "kvr-heritage",
-      "szns-restrictions",
-      "osp-pollution-risks",
-    ],
-  },
-];
+export const CATEGORIES: { id: string; title: string; panelKeys: string[] }[] =
+  [
+    {
+      id: "sklypas",
+      title: "Sklypas ir adresai",
+      panelKeys: [
+        "biip-boundary",
+        "osp-parcel-summary",
+        "rc-masvert",
+        "biip-addresses",
+      ],
+    },
+    {
+      id: "pastatai",
+      title: "Pastatai",
+      panelKeys: ["grpk-buildings", "pdbis-building-data"],
+    },
+    {
+      id: "statyba",
+      title: "Statyba ir planavimas",
+      panelKeys: ["osp-building-permits", "asgr-regulations"],
+    },
+    {
+      id: "apribojimai",
+      title: "Apribojimai ir saugomos teritorijos",
+      panelKeys: [
+        "geoportal-constraints",
+        "kvr-heritage",
+        "szns-restrictions",
+        "osp-pollution-risks",
+      ],
+    },
+  ];
 
 export type CuratedField = { label: string; value: string; isLink?: boolean };
 export type CuratedItem = { heading?: string; fields: CuratedField[] };
@@ -240,7 +283,11 @@ export type CuratedPanel = {
   items: CuratedItem[];
   source?: SourceInfo;
 };
-export type CuratedCategory = { id: string; title: string; panels: CuratedPanel[] };
+export type CuratedCategory = {
+  id: string;
+  title: string;
+  panels: CuratedPanel[];
+};
 
 function formatScalar(value: unknown, unit?: string): string {
   let out: string;
@@ -250,7 +297,9 @@ function formatScalar(value: unknown, unit?: string): string {
   return unit ? `${out} ${unit}` : out;
 }
 
-function curatePanel(panel: ParcelReport["reportPanels"][number]): CuratedPanel {
+function curatePanel(
+  panel: ParcelReport["reportPanels"][number],
+): CuratedPanel {
   const title = PANEL_TITLES[panel.key] ?? panel.title;
   const rules = FIELD_RULES[panel.key] ?? {};
   const source = PANEL_SOURCES[panel.key];
@@ -261,7 +310,7 @@ function curatePanel(panel: ParcelReport["reportPanels"][number]): CuratedPanel 
       title,
       state: "unavailable",
       count: 0,
-      message: "Šių duomenų šiuo metu gauti nepavyko.",
+      message: "Įrašų nerasta.",
       items: [],
       source,
     };
@@ -358,7 +407,9 @@ function dataCount(report: ParcelReport, key: string): number {
 // Geometric centre of the parcel outline, used as an honest secondary locator
 // when there is no street address. Undefined when the outline is unknown (the
 // server sends an empty polygon rather than a fabricated point).
-export function parcelCenter(report: ParcelReport): { lat: number; lng: number } | undefined {
+export function parcelCenter(
+  report: ParcelReport,
+): { lat: number; lng: number } | undefined {
   const ring = report.coordinates.coordinates[0] ?? [];
   if (ring.length === 0) return undefined;
   let sumLng = 0;
@@ -372,7 +423,9 @@ export function parcelCenter(report: ParcelReport): { lat: number; lng: number }
 
 // Parcel's unique registry number ("unikalus daikto numeris"), shown next to the
 // cadastral number in the summary header. Lives on the BIIP boundary item.
-export function findParcelUniqueNumber(report: ParcelReport): string | undefined {
+export function findParcelUniqueNumber(
+  report: ParcelReport,
+): string | undefined {
   const value = firstItem(report, "biip-boundary")?.uniqueNumber;
   if (value == null || isNoiseValue(value)) return undefined;
   return formatUniqueNumber(String(value));
@@ -389,7 +442,10 @@ export function buildSummary(report: ParcelReport): ReportSummary {
     (boundary?.areaHectares as number | undefined) ??
     (ospSummary?.registeredAreaHa as number | undefined);
   if (areaHa != null && !isNoiseValue(areaHa)) {
-    facts.push({ label: "Sklypo plotas", value: `${areaHa.toLocaleString("lt-LT")} ha` });
+    facts.push({
+      label: "Sklypo plotas",
+      value: `${areaHa.toLocaleString("lt-LT")} ha`,
+    });
   }
 
   // Paskirtis — derived from "Naudojimo būdas" (landUse): the specific permitted
@@ -403,7 +459,9 @@ export function buildSummary(report: ParcelReport): ReportSummary {
   // Pastatų skaičius — footprints drawn on the map are the most trustworthy count.
   const buildingCount =
     report.buildings?.length ??
-    (typeof ospSummary?.buildingsCount === "number" ? ospSummary.buildingsCount : undefined);
+    (typeof ospSummary?.buildingsCount === "number"
+      ? ospSummary.buildingsCount
+      : undefined);
   if (buildingCount != null) {
     facts.push({
       label: "Pastatai sklype",

@@ -32,9 +32,9 @@ export function RecentlyViewed({ history, showEmptyState = false }: Props) {
       {history.length === 0 ? (
         <p className="mt-4 text-lg text-mist-600">Peržiūrų istorijos dar nėra.</p>
       ) : (
-        <ul className="mt-5 grid gap-3 sm:grid-cols-2">
+        <ul className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
           {history.map((item) => (
-            <li key={`${item.id}-${item.timestamp}`}>
+            <li key={`${item.id}-${item.timestamp}`} className="min-w-0">
               <Link
                 to={`/parcel/${encodeURIComponent(item.id)}`}
                 className="flex items-center justify-between gap-3 rounded-2xl border border-mist-200 bg-mist-50 p-4 transition hover:-translate-y-0.5 hover:border-forest-300 hover:bg-forest-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600"
