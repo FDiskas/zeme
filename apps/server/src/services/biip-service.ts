@@ -25,6 +25,19 @@ export function normalizeCadastralRegNo(value: string): string | null {
   return `${area}/${paddedBlock}:${paddedParcel}`;
 }
 
+// "Unikalus daikto numeris" — the 12-digit Registrų centras unique object number,
+// canonically rendered as three dash-separated groups of four digits
+// (e.g. "4400-4756-6034"). The dash separators are what distinguish it from a
+// cadastral number; a cadastral number uses "/" and ":". We require the dashed
+// form here so the two never collide during query routing.
+const UNIQUE_NUMBER_PATTERN = /^\s*(\d{4})-(\d{4})-(\d{4})\s*$/;
+
+export function normalizeUniqueNumber(value: string): string | null {
+  const match = value.match(UNIQUE_NUMBER_PATTERN);
+  if (!match) return null;
+  return `${match[1]}-${match[2]}-${match[3]}`;
+}
+
 export interface ResolvedBiipParcel {
   cadastralRegNo: string;
   uniqueNumber: number;
@@ -178,6 +191,42 @@ export async function resolveParcelFromBiip(cadastralRegNo: string): Promise<Res
     return mapParcel(raw, normalized);
   } catch (err) {
     console.error("Error fetching parcel from BIIP API:", err);
+    return null;
+  }
+}
+
+// Resolve a parcel by its "unikalus daikto numeris" (unique object number).
+// BIIP stores this as an integer (`unique_number`), so we strip the dashes and
+// filter via `unique_numbers`. The resolved parcel carries its own cadastral
+// number, which is the key the rest of the app persists and navigates by.
+export async function resolveParcelByUniqueNumber(uniqueNumber: string): Promise<ResolvedBiipParcel | null> {
+  const digits = uniqueNumber.replace(/\D/g, "");
+  if (digits.length !== 12) return null;
+
+  const numeric = Number(digits);
+  if (!Number.isSafeInteger(numeric)) return null;
+
+  try {
+    const response = await parcelsSearch({
+      client: biipClient,
+      query: { srid: WGS84, geometry_output_format: "ewkt" },
+      body: {
+        filters: [
+          {
+            parcels: {
+              unique_numbers: [numeric],
+            },
+          },
+        ],
+      },
+    });
+
+    const raw = response.data?.items?.[0];
+    if (!raw) return null;
+
+    return mapParcel(raw);
+  } catch (err) {
+    console.error("Error fetching parcel by unique number from BIIP API:", err);
     return null;
   }
 }

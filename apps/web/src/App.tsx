@@ -36,7 +36,7 @@ function HomePage() {
       setResults(data);
       if (data.length === 0) {
         setSearchNote(
-          "Pagal adresą ieškoti šiuo metu negalime. Įveskite kadastrinį numerį, pavyzdžiui 4400/0001:0007.",
+          "Nieko neradome. Įveskite kadastrinį numerį (pvz. 4400/0001:0007) arba unikalų daikto numerį (pvz. 4400-4756-6034).",
         );
       }
     } catch {
@@ -66,8 +66,8 @@ function HomePage() {
             <span className="text-forest-700">žemės sklypą</span>
           </h1>
           <p className="mt-5 max-w-2xl text-xl leading-relaxed text-mist-600">
-            Įveskite adresą arba kadastrinį numerį ir gaukite aiškią sklypo apžvalgą:
-            ribas žemėlapyje, plotą, paskirtį, pastatus ir galimus apribojimus.
+            Įveskite adresą, kadastrinį arba unikalų daikto numerį ir gaukite aiškią
+            sklypo apžvalgą: ribas žemėlapyje, plotą, paskirtį, pastatus ir galimus apribojimus.
           </p>
 
           <div className="mt-8 flex flex-col gap-3 md:flex-row">
@@ -79,8 +79,8 @@ function HomePage() {
                 onKeyDown={(event) => {
                   if (event.key === "Enter") onSearch();
                 }}
-                placeholder="Adresas arba kadastrinis numeris"
-                aria-label="Adresas arba kadastrinis numeris"
+                placeholder="Adresas, kadastrinis arba unikalus numeris"
+                aria-label="Adresas, kadastrinis arba unikalus numeris"
                 className="w-full rounded-2xl border border-mist-300 bg-white py-4 pl-13 pr-5 text-lg text-mist-900 shadow-sm outline-none transition placeholder:text-mist-400 focus-visible:border-forest-400 focus-visible:ring-4 focus-visible:ring-forest-500/20"
               />
             </div>

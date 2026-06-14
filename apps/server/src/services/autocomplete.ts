@@ -13,24 +13,60 @@ interface NominatimResult {
 
 import {
   resolveParcelFromBiip,
+  resolveParcelByUniqueNumber,
   resolveAddressFromBiip,
   resolveParcelByCoordinates,
   normalizeCadastralRegNo as biipNormalize,
+  normalizeUniqueNumber,
   searchBiipAddressByQuery,
   type BiipAddressPoint,
 } from "./biip-service";
 import { fetchOspParcelData } from "./osp-service";
 
-const CADASTRAL_REG_NO_PATTERN =
-  /^(?<area>\d{4})[\s/-]*(?<block>\d{4})[\s:/-]*(?<parcel>\d{1,6})$/;
-
 function normalizeCadastralRegNo(value: string): string | null {
   return biipNormalize(value);
 }
 
+// Centroid of a GeoJSON Polygon's outer ring — used to pin the map when a
+// registry returns boundary geometry but no explicit center point.
+function polygonCenter(polygon: any): [number, number] | undefined {
+  const ring = polygon?.coordinates?.[0];
+  if (!Array.isArray(ring) || ring.length === 0) return undefined;
+  let sumLon = 0;
+  let sumLat = 0;
+  for (const [lon, lat] of ring) {
+    sumLon += lon;
+    sumLat += lat;
+  }
+  return [sumLon / ring.length, sumLat / ring.length];
+}
+
+// OSP returns an administrative-area label only (not a street address).
+function ospAreaLabel(ospData: { sav_pavad?: string; sen_pavad?: string }): string {
+  return ospData.sen_pavad
+    ? `${ospData.sav_pavad}, ${ospData.sen_pavad}`
+    : (ospData.sav_pavad ?? "");
+}
+
+async function persistParcel(cadastralRegNo: string, address: string, polygon: any): Promise<void> {
+  await prisma.parcelReport.upsert({
+    where: { cadastralRegNo },
+    update: {
+      address,
+      coordinates: JSON.stringify(polygon),
+    },
+    create: {
+      cadastralRegNo,
+      address,
+      coordinates: JSON.stringify(polygon),
+      reportData: "{}",
+    },
+  });
+}
+
 async function handleDirectParcelMatch(cadastralRegNo: string): Promise<ParcelSearchItem> {
   const normalized = normalizeCadastralRegNo(cadastralRegNo) || cadastralRegNo;
-  
+
   let center: [number, number] | undefined;
   let polygon: any;
   let address = "";
@@ -48,44 +84,14 @@ async function handleDirectParcelMatch(cadastralRegNo: string): Promise<ParcelSe
     const ospData = await fetchOspParcelData(normalized);
     if (ospData) {
       polygon = ospData.geometry;
-      // OSP gives an administrative-area label only (not a street address).
-      address = ospData.sen_pavad
-        ? `${ospData.sav_pavad}, ${ospData.sen_pavad}`
-        : (ospData.sav_pavad ?? "");
-      
-      if (polygon && polygon.coordinates && polygon.coordinates[0]) {
-        let sumLon = 0;
-        let sumLat = 0;
-        const ring = polygon.coordinates[0];
-        for (const [lon, lat] of ring) {
-          sumLon += lon;
-          sumLat += lat;
-        }
-        center = [sumLon / ring.length, sumLat / ring.length];
-      }
+      address = ospAreaLabel(ospData);
+      center = polygonCenter(polygon);
     }
   }
 
   if (polygon && center) {
-    await prisma.parcelReport.upsert({
-      where: { cadastralRegNo: normalized },
-      update: {
-        address,
-        coordinates: JSON.stringify(polygon),
-      },
-      create: {
-        cadastralRegNo: normalized,
-        address,
-        coordinates: JSON.stringify(polygon),
-        reportData: "{}",
-      },
-    });
-
-    return {
-      cadastralRegNo: normalized,
-      address,
-      center,
-    };
+    await persistParcel(normalized, address, polygon);
+    return { cadastralRegNo: normalized, address, center };
   }
 
   // Not found in any registry. We do NOT fabricate an address or outline — the
@@ -95,6 +101,46 @@ async function handleDirectParcelMatch(cadastralRegNo: string): Promise<ParcelSe
     cadastralRegNo: normalized,
     address: "",
   };
+}
+
+// Resolve a search by "unikalus daikto numeris" (12-digit unique object number).
+// Unlike a cadastral search, we don't know the cadastral number up front — BIIP
+// (then OSP) resolves it for us, and that resolved cadastral number is what we
+// persist and return so the rest of the app keys on it consistently. Returns
+// null when no registry knows the number, rather than fabricating a result.
+async function handleUniqueNumberMatch(uniqueNumber: string): Promise<ParcelSearchItem | null> {
+  let cadastralRegNo = "";
+  let center: [number, number] | undefined;
+  let polygon: any;
+  let address = "";
+
+  const parcel = await resolveParcelByUniqueNumber(uniqueNumber);
+  if (parcel) {
+    cadastralRegNo = parcel.cadastralRegNo;
+    const addressDetails = await resolveAddressFromBiip(parcel.ewkt);
+    address = addressDetails?.fullAddress || "";
+    polygon = parcel.geometry;
+    center = parcel.center;
+  } else {
+    // OSP ntr_sklypai stores the dashed unique number in `unikalus_nr`, so the
+    // raw query value matches directly.
+    console.log(`[Autocomplete] Unique number not found in BIIP. Querying OSP: ${uniqueNumber}`);
+    const ospData = await fetchOspParcelData(uniqueNumber);
+    if (ospData?.kadastro_nr) {
+      cadastralRegNo = ospData.kadastro_nr;
+      polygon = ospData.geometry;
+      address = ospAreaLabel(ospData);
+      center = polygonCenter(polygon);
+    }
+  }
+
+  if (cadastralRegNo && polygon && center) {
+    await persistParcel(cadastralRegNo, address, polygon);
+    return { cadastralRegNo, address, center };
+  }
+
+  console.warn(`[Autocomplete] Unique number not found in BIIP or OSP: ${uniqueNumber}`);
+  return null;
 }
 
 async function buildFromNominatim(result: NominatimResult): Promise<ParcelSearchItem | null> {
@@ -204,6 +250,19 @@ async function buildFromBiipAddress(addr: BiipAddressPoint): Promise<ParcelSearc
 export async function searchAddressAutocomplete(
   query: string
 ): Promise<ParcelSearchItem[]> {
+  // A dash-separated 12-digit value is a "unikalus daikto numeris". Checked
+  // before the cadastral pattern because the cadastral matcher would otherwise
+  // greedily (mis)interpret the same digits as area/block/parcel.
+  const uniqueNumber = normalizeUniqueNumber(query);
+  if (uniqueNumber) {
+    try {
+      const match = await handleUniqueNumberMatch(uniqueNumber);
+      return match ? [match] : [];
+    } catch {
+      return [];
+    }
+  }
+
   const normalizedDirectMatch = normalizeCadastralRegNo(query);
   if (normalizedDirectMatch) {
     try {
