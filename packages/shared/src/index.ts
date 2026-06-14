@@ -69,6 +69,11 @@ export const neighborParcelSchema = z.object({
 export const parcelReportSchema = z.object({
   cadastralRegNo: z.string(),
   address: z.string(),
+  // True only when `address` is a resolved street address. False/absent means the
+  // parcel has no street address (e.g. rural land) — `address` is then an
+  // administrative-area label or empty, and the UI shows the parcel-centre
+  // coordinates instead. Never carries a fabricated address.
+  hasStreetAddress: z.boolean().optional(),
   coordinates: geometrySchema,
   buildings: z.array(buildingFootprintSchema).optional(),
   neighbors: z.array(neighborParcelSchema).optional(),

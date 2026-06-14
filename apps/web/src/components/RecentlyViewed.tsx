@@ -23,27 +23,29 @@ export function RecentlyViewed({ history, showEmptyState = false }: Props) {
   if (history.length === 0 && !showEmptyState) return null;
 
   return (
-    <section className="rounded-2xl border border-sand-200 bg-white p-6 shadow-sm md:p-7">
-      <h2 className="flex items-center gap-2.5 font-serif text-2xl font-bold text-sand-900">
-        <PinIcon className="h-6 w-6 text-clay-600" />
+    <section className="rounded-3xl border border-mist-200 bg-white p-6 shadow-soft md:p-7">
+      <h2 className="flex items-center gap-2.5 font-display text-2xl font-bold tracking-tight text-mist-900">
+        <PinIcon className="h-6 w-6 text-forest-600" />
         Neseniai peržiūrėta
       </h2>
 
       {history.length === 0 ? (
-        <p className="mt-4 text-lg text-sand-600">Peržiūrų istorijos dar nėra.</p>
+        <p className="mt-4 text-lg text-mist-600">Peržiūrų istorijos dar nėra.</p>
       ) : (
         <ul className="mt-5 grid gap-3 sm:grid-cols-2">
           {history.map((item) => (
             <li key={`${item.id}-${item.timestamp}`}>
               <Link
                 to={`/parcel/${encodeURIComponent(item.id)}`}
-                className="flex items-center justify-between gap-3 rounded-xl border border-sand-200 bg-sand-50 p-4 transition hover:border-clay-300 hover:bg-clay-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clay-600"
+                className="flex items-center justify-between gap-3 rounded-2xl border border-mist-200 bg-mist-50 p-4 transition hover:-translate-y-0.5 hover:border-forest-300 hover:bg-forest-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-lg font-semibold text-sand-900">{item.address}</p>
-                  <p className="truncate text-base text-sand-500">{item.id}</p>
+                  <p className="truncate text-lg font-semibold text-mist-900">
+                    {item.address && item.address.trim() !== "" ? item.address : "Žemės sklypas be adreso"}
+                  </p>
+                  <p className="truncate text-base text-mist-500">{item.id}</p>
                 </div>
-                <ChevronRight className="h-5 w-5 shrink-0 text-sand-400" />
+                <ChevronRight className="h-5 w-5 shrink-0 text-mist-400" />
               </Link>
             </li>
           ))}

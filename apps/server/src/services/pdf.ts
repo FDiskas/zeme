@@ -448,7 +448,7 @@ function buildReportHtml(report: ParcelReport): string {
 
           <div class="doc-title">
             <h1>Nekilnojamojo turto patikros ataskaita</h1>
-            <p class="doc-title__address">${escapeHtml(report.address)}</p>
+            <p class="doc-title__address">${escapeHtml(report.address?.trim() ? report.address : "Žemės sklypas be priskirto adreso")}</p>
             <p class="doc-title__cadastral">Kadastro Nr.: ${escapeHtml(report.cadastralRegNo)}</p>
           </div>
 

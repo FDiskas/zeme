@@ -4,7 +4,7 @@
  * One family, one visual language: every outline icon uses a 24×24 viewBox and
  * `stroke-width: 2`, so they stay consistent wherever they appear (ui-ux rule
  * icon-style-consistent). Size and colour come from `className` via Tailwind
- * (e.g. `h-6 w-6 text-clay-600`) — the icons never hard-code either.
+ * (e.g. `h-6 w-6 text-forest-600`) — the icons never hard-code either.
  */
 
 type IconProps = { className?: string };
@@ -159,7 +159,7 @@ export function Spinner({ className }: IconProps) {
     <span
       className={
         className ??
-        "h-10 w-10 animate-spin rounded-full border-4 border-sand-200 border-t-clay-600 motion-reduce:animate-none"
+        "h-10 w-10 animate-spin rounded-full border-4 border-mist-200 border-t-forest-600 motion-reduce:animate-none"
       }
       role="status"
       aria-label="Kraunama"

@@ -36,7 +36,7 @@ function getArcgisGeometry(geometry: any) {
   return null;
 }
 
-function formatUniqueNumber(unikalusNr: string | number | undefined | null): string {
+export function formatUniqueNumber(unikalusNr: string | number | undefined | null): string {
   if (!unikalusNr) return "";
   const str = String(unikalusNr).replace(/[^0-9]/g, "");
   if (str.length === 12) {
@@ -345,6 +345,7 @@ export async function fetchOspBuildingPermits(
 
 export interface OspBuildingPoint {
   point: [number, number] | null;
+  uniqueNumber: string | null;
   address: string;
   apartments: number | null;
   nonResidential: number | null;
@@ -383,6 +384,9 @@ export async function fetchOspBuildingPoints(geometry: any): Promise<OspBuilding
         typeof a.statybos_metai === "number" ? new Date(a.statybos_metai).getUTCFullYear() : null;
       return {
         point: g && typeof g.x === "number" ? [g.x, g.y] : null,
+        // "unikalus daikto numeris" — field name varies across OSP datasets;
+        // probe the conventions seen in this registry. Often absent (sparse data).
+        uniqueNumber: a.unikalus_numeris ?? a.unikalus_nr ?? null,
         address: `${a.gatve || ""} ${a.namo_nr || ""}`.trim(),
         apartments: a.butu_sk ?? null,
         nonResidential: a.negyvenamu_sk ?? null,

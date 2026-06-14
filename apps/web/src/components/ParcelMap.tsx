@@ -82,12 +82,12 @@ function FitToParcel({ positions }: { positions: [number, number][] }) {
   return null;
 }
 
-// Map colours follow the theme tokens: neighbours sit quietly in sand, the
-// subject parcel is olive (the land), buildings are clay (terracotta).
-const NEIGHBOR_STYLE = { color: "#b8ac95", weight: 1, fillColor: "#d6cdbb", fillOpacity: 0.15, className: "cursor-pointer" };
-const NEIGHBOR_HOVER_STYLE = { color: "#4d7c0f", weight: 2, fillColor: "#bccd73", fillOpacity: 0.35, className: "cursor-pointer" };
-const PARCEL_STYLE = { color: "#4d7c0f", weight: 3, fillColor: "#a0b449", fillOpacity: 0.2 };
-const BUILDING_STYLE = { color: "#92400e", weight: 1, fillColor: "#d4824a", fillOpacity: 0.55 };
+// Map colours follow the theme tokens: neighbours sit quietly in mist, the
+// subject parcel is forest (the land), buildings stand out in warm amber.
+const NEIGHBOR_STYLE = { color: "#9aa8a0", weight: 1, fillColor: "#cbd6cf", fillOpacity: 0.15, className: "cursor-pointer" };
+const NEIGHBOR_HOVER_STYLE = { color: "#047857", weight: 2, fillColor: "#6dd6a8", fillOpacity: 0.35, className: "cursor-pointer" };
+const PARCEL_STYLE = { color: "#047857", weight: 3, fillColor: "#34c084", fillOpacity: 0.22 };
+const BUILDING_STYLE = { color: "#b45309", weight: 1, fillColor: "#f59e0b", fillOpacity: 0.55 };
 
 // The minimum zoom at which the viewport parcel layer kicks in.
 // Below this level there are too many parcels to load and show usefully.
@@ -168,7 +168,7 @@ function ViewportParcelsLayer({
         >
           <Tooltip sticky>
             {s.cadastralRegNo}
-            <span className="block text-sand-500">Spustelėkite, kad pamatytumėte ataskaitą</span>
+            <span className="block text-mist-500">Spustelėkite, kad pamatytumėte ataskaitą</span>
           </Tooltip>
         </Polygon>
       ))}
@@ -198,7 +198,7 @@ export function ParcelMap({ report }: Props) {
 
   if (polygon.length === 0) {
     return (
-      <div className="rounded-2xl border border-sand-200 bg-sand-50 p-6 text-lg text-sand-700">
+      <div className="rounded-3xl border border-mist-200 bg-mist-50 p-6 text-lg text-mist-700">
         Šio sklypo vietos žemėlapyje parodyti negalime – viešuose duomenų šaltiniuose nėra jo ribų.
       </div>
     );
@@ -209,7 +209,7 @@ export function ParcelMap({ report }: Props) {
   const hasNeighbors = neighbors.length > 0;
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-sand-200 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-3xl border border-mist-200 bg-white shadow-soft">
       <div className="relative h-130 w-full">
         <MapContainer center={center} zoom={16} className="h-full w-full">
           <FitToParcel positions={polygon} />
@@ -233,7 +233,7 @@ export function ParcelMap({ report }: Props) {
             >
               <Tooltip sticky>
                 {n.cadastralRegNo}
-                <span className="block text-sand-500">Spustelėkite, kad pamatytumėte ataskaitą</span>
+                <span className="block text-mist-500">Spustelėkite, kad pamatytumėte ataskaitą</span>
               </Tooltip>
             </Polygon>
           ))}
@@ -255,26 +255,26 @@ export function ParcelMap({ report }: Props) {
       </div>
 
       {/* Legend so the colours on the map mean something at a glance. */}
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-sand-200 px-5 py-3.5 text-base text-sand-700">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-mist-200 px-5 py-3.5 text-base text-mist-700">
         <span className="flex items-center gap-2">
-          <span className="inline-block h-4 w-4 rounded-sm border-2 border-olive-600 bg-olive-400/30" aria-hidden="true" />
+          <span className="inline-block h-4 w-4 rounded-sm border-2 border-forest-600 bg-forest-400/40" aria-hidden="true" />
           Jūsų sklypas
         </span>
         {hasBuildings ? (
           <span className="flex items-center gap-2">
-            <span className="inline-block h-4 w-4 rounded-sm border border-clay-700 bg-clay-400/70" aria-hidden="true" />
+            <span className="inline-block h-4 w-4 rounded-sm border border-amber-700 bg-amber-200" aria-hidden="true" />
             Pastatai
           </span>
         ) : null}
         {hasNeighbors ? (
           <span className="flex items-center gap-2">
-            <span className="inline-block h-4 w-4 rounded-sm border border-sand-400 bg-sand-300/50" aria-hidden="true" />
+            <span className="inline-block h-4 w-4 rounded-sm border border-mist-400 bg-mist-300/50" aria-hidden="true" />
             Gretimi sklypai – spustelėkite norėdami atidaryti
           </span>
         ) : null}
       </div>
 
-      <p className="border-t border-sand-100 px-5 py-3 text-base text-sand-500">
+      <p className="border-t border-mist-100 px-5 py-3 text-base text-mist-500">
         Artėjant žemėlapį (zoom ≥ 15) matomi visi aplinkiniai sklypai — spustelėkite bet kurį.
       </p>
     </div>

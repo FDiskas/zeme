@@ -17,33 +17,11 @@ import {
   getOspPollutionRisksPanel,
   fetchOspBuildingPermits,
   fetchNeighborParcels,
+  formatUniqueNumber,
 } from "./osp-service";
+import { getMarketValuePanel } from "./masvert-service";
 
 const SIX_MONTHS_MS = 1000 * 60 * 60 * 24 * 30 * 6;
-
-export function getDeterministicCenter(cadastralRegNo: string): [number, number] {
-  let hash = 0;
-  for (let i = 0; i < cadastralRegNo.length; i++) {
-    hash = (hash << 5) - hash + cadastralRegNo.charCodeAt(i);
-    hash |= 0;
-  }
-  hash = Math.abs(hash);
-
-  const cities: [number, number][] = [
-    [25.2878, 54.6866], // Vilnius Cathedral
-    [25.2635, 54.6901], // Vilnius Seimas
-    [23.9036, 54.8985], // Kaunas Laisvės al.
-    [21.1315, 55.7068], // Klaipėda Theatre Square
-    [23.3137, 55.9341], // Šiauliai
-    [24.3575, 55.7344], // Panevėžys
-  ];
-
-  const baseCenter = cities[hash % cities.length]!;
-  const offsetLon = ((hash % 100) - 50) * 0.0001;
-  const offsetLat = (((hash >> 4) % 100) - 50) * 0.0001;
-
-  return [baseCenter[0] + offsetLon, baseCenter[1] + offsetLat];
-}
 
 export function generateRealisticPolygon(center: [number, number]) {
   const [lon, lat] = center;
@@ -67,26 +45,17 @@ export function hasUsableGeometry(coordinates: ParcelReport["coordinates"]): boo
   return ring.length >= 4;
 }
 
-export function buildUnknownAddress(cadastralRegNo: string): string {
-  // Let's resolve a nice deterministic Lithuanian address for unknown ones!
-  let hash = 0;
-  for (let i = 0; i < cadastralRegNo.length; i++) {
-    hash = (hash << 5) - hash + cadastralRegNo.charCodeAt(i);
-    hash |= 0;
-  }
-  hash = Math.abs(hash);
-
-  const streets = ["Gedimino pr.", "Laisvės al.", "Pilies g.", "Savanorių pr.", "Didžioji g.", "Maironio g."];
-  const cities = ["Vilnius", "Kaunas", "Klaipėda", "Šiauliai", "Panevėžys"];
-  const street = streets[hash % streets.length]!;
-  const city = cities[(hash >> 2) % cities.length]!;
-  const houseNo = (hash % 88) + 1;
-
-  return `${street} ${houseNo}, ${city}, Lithuania`;
-}
-
+// Detects legacy/placeholder addresses that must never be shown as real. Empty
+// string is NOT a placeholder — it is the honest "this parcel has no street
+// address" state. We never fabricate addresses, so new reports only ever carry a
+// real address, an administrative-area label, or "".
 export function isPlaceholderAddress(address: string): boolean {
-  return /^Parcel\s+.+,\s+Lithuania$/i.test(address) || address.startsWith("Address unavailable for");
+  if (!address) return false;
+  return (
+    /^Parcel\s+.+$/i.test(address) ||
+    /^Parcel\s+.+,\s+Lithuania$/i.test(address) ||
+    address.startsWith("Address unavailable for")
+  );
 }
 
 export function cacheAgeDays(from: Date): number {
@@ -109,7 +78,11 @@ export async function buildComprehensiveReport(
   address: string,
   existingCoordinates?: any,
 ): Promise<ParcelReport> {
-  let resolvedAddress = address;
+  // Resolved purely from this run's registry lookups — we never trust an incoming
+  // address as a street address, and never fabricate one. hasStreetAddress stays
+  // false unless BIIP gives us a real full address.
+  let resolvedAddress = "";
+  let hasStreetAddress = false;
   let resolvedCoordinates = existingCoordinates;
 
   let parcel = await resolveParcelFromBiip(cadastralRegNo);
@@ -136,13 +109,22 @@ export async function buildComprehensiveReport(
     addressDetails = await resolveAddressFromBiip(parcel.ewkt);
     if (addressDetails?.fullAddress) {
       resolvedAddress = addressDetails.fullAddress;
+      hasStreetAddress = true;
     }
   } else if (ospParcel && ospParcel.geometry) {
-    // High-fidelity fallback from official State Data Agency (OSP)
+    // High-fidelity geometry from the State Data Agency (OSP). OSP gives only an
+    // administrative-area label (savivaldybė / seniūnija), not a street address —
+    // so this is an area label, not a street address.
     resolvedCoordinates = ospParcel.geometry;
     resolvedAddress = ospParcel.sen_pavad
-      ? `${ospParcel.sav_pavad}, ${ospParcel.sen_pavad}, Lithuania`
-      : `${ospParcel.sav_pavad}, Lithuania`;
+      ? `${ospParcel.sav_pavad}, ${ospParcel.sen_pavad}`
+      : (ospParcel.sav_pavad ?? "");
+  }
+
+  // Last resort: a non-placeholder address the caller already had (e.g. from a
+  // prior cache). Shown as a label only — not treated as a verified street address.
+  if (!resolvedAddress && !isPlaceholderAddress(address)) {
+    resolvedAddress = address;
   }
 
   const targetCadastralRegNo = parcel ? parcel.cadastralRegNo : (ospParcel ? ospParcel.kadastro_nr : cadastralRegNo);
@@ -152,6 +134,12 @@ export async function buildComprehensiveReport(
   // already-resolved addressDetails (no extra call).
   const ospBuildingPoints = await fetchOspBuildingPoints(resolvedCoordinates);
   const biipAddressPoints = addressDetails?.addresses ?? [];
+
+  // Dashed unique object number (e.g. 4400-4756-6034) for the RC mass-valuation
+  // lookup. Empty when neither registry resolved a unique number → no value.
+  const uniqueNrFormatted = formatUniqueNumber(
+    ospParcel?.unikalus_nr || parcel?.uniqueNumber,
+  );
 
   const [
     biipBoundary,
@@ -165,7 +153,8 @@ export async function buildComprehensiveReport(
     ospParcelSummary,
     ospPollutionRisks,
     ospPermits,
-    neighbors
+    neighbors,
+    marketValue
   ] = await Promise.all([
     fetchBiipBoundary(targetCadastralRegNo, resolvedAddress),
     fetchBiipAddresses(targetCadastralRegNo, resolvedCoordinates, addressDetails),
@@ -181,7 +170,8 @@ export async function buildComprehensiveReport(
       targetCadastralRegNo,
       ospParcel?.unikalus_nr || parcel?.uniqueNumber?.toString()
     ).catch(() => [] as any[]),
-    fetchNeighborParcels(resolvedCoordinates, targetCadastralRegNo).catch(() => [])
+    fetchNeighborParcels(resolvedCoordinates, targetCadastralRegNo).catch(() => []),
+    getMarketValuePanel(uniqueNrFormatted)
   ]);
 
   const ospPermitsPanel: UpstreamPanel = {
@@ -195,30 +185,17 @@ export async function buildComprehensiveReport(
       : `Rasta ${ospPermits.length} statybos leidimo įrašų Infostatyba registre.`
   };
 
-  let center: [number, number] | null = null;
-  if (resolvedCoordinates) {
-    const ring = resolvedCoordinates.coordinates?.[0] ?? [];
-    if (ring.length > 0) {
-      let sumLon = 0;
-      let sumLat = 0;
-      for (const [lon, lat] of ring) {
-        sumLon += lon;
-        sumLat += lat;
-      }
-      center = [sumLon / ring.length, sumLat / ring.length];
-    }
-  }
-  if (!center) {
-    center = getDeterministicCenter(targetCadastralRegNo);
-  }
-
-  const coordinates = (resolvedCoordinates && hasUsableGeometry(resolvedCoordinates))
-    ? resolvedCoordinates
-    : { type: "Polygon" as const, coordinates: [[center]] };
+  // No usable geometry → honest empty polygon (no rings). The client then shows a
+  // "location unknown" state instead of a confident pin at a fabricated point.
+  const coordinates: ParcelReport["coordinates"] =
+    resolvedCoordinates && hasUsableGeometry(resolvedCoordinates)
+      ? resolvedCoordinates
+      : { type: "Polygon", coordinates: [] };
 
   return {
     cadastralRegNo: targetCadastralRegNo,
     address: resolvedAddress,
+    hasStreetAddress,
     coordinates,
     buildings: grpkBuildings.footprints,
     neighbors,
@@ -233,11 +210,13 @@ export async function buildComprehensiveReport(
       "PDBIS",
       "OSP ntr_sklypai",
       "OSP infostatyba",
-      "OSP tarsos_zidiniai"
+      "OSP tarsos_zidiniai",
+      "Registrų centras masinis vertinimas"
     ],
     reportPanels: [
       ospParcelSummary,
       biipBoundary,
+      marketValue,
       biipAddresses,
       grpkBuildings.panel,
       geoportal,

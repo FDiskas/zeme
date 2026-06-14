@@ -13,7 +13,6 @@ import {
   neighborParcelSchema,
 } from "@zeme/shared";
 import {
-  buildUnknownAddress,
   buildComprehensiveReport,
   cacheAgeDays,
   hasUsableGeometry,
@@ -71,7 +70,7 @@ const getReport = os
       input.cadastralRegNo,
       existing?.address && !isPlaceholderAddress(existing.address)
         ? existing.address
-        : buildUnknownAddress(input.cadastralRegNo),
+        : "",
       parsedCoordinates,
     );
 

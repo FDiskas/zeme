@@ -15,6 +15,6 @@ updated: 2026-06-14
 - Show only relevant info; remove clutter, fill genuine gaps. Avoid "everything at once" dumps.
 - Favor large legible type, high contrast, generous spacing, obvious affordances.
 - Reduce cognitive load — progressive disclosure over walls of data.
-- Carry a modern but warm, grounded aesthetic around the land/buildings theme (earthy tones, parcel/terrain motifs) — not sterile or trendy at the cost of legibility.
-- Follow [[redesign-approach]] for methodology (SOLID + ui-ux-pro-max + codebase MCP).
+- Visual direction is **"Fresh Natural Green"** (chosen 2026-06-14): modern, crisp, map-forward — deep emerald (forest) primary, lime accent, cool mist neutrals; Space Grotesk display + Inter body. Theme = land/buildings without rustic heaviness.
+- Follow [[redesign-approach]] for methodology (SOLID + ui-ux-pro-max + codebase MCP). Design tokens live in [[design-system-tokens]].
 - Pair with [[agent-memory-workflow]]; relates to the ReportPanel and map rendering work.

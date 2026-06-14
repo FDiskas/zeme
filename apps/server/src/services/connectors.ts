@@ -627,6 +627,7 @@ export async function fetchGrpkBuildings(
         address: address || "N/A",
         purposeCode: purposeCode || "N/A",
         areaSqM: areaSqM !== undefined ? Number(areaSqM).toFixed(1) : "N/A",
+        uniqueBuildingNo: osp?.uniqueNumber ?? "N/A",
         floors: osp?.floors ?? "N/A",
         apartments: osp?.apartments ?? "N/A",
         constructionYear: osp?.constructionYear ?? "N/A",

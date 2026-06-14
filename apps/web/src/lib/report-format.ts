@@ -34,6 +34,15 @@ const NOISE_VALUES = new Set([
   "—",
 ]);
 
+// Display formatting for a registry "unikalus daikto numeris": group every 4
+// digits with dashes (440047566034 → 4400-4756-6034). The backend value stays
+// raw; this only affects how it is shown. Non-numeric values are left unchanged.
+export function formatUniqueNumber(value: string): string {
+  const trimmed = value.trim();
+  if (!/^\d{8,}$/.test(trimmed)) return trimmed;
+  return trimmed.replace(/(\d{4})(?=\d)/g, "$1-");
+}
+
 export function isNoiseValue(value: unknown): boolean {
   if (value === null || value === undefined) return true;
   if (typeof value === "string") return NOISE_VALUES.has(value.trim().toLowerCase());
@@ -45,6 +54,7 @@ type FieldRule = {
   unit?: string;
   isHeading?: boolean; // use this field as the card's heading instead of a row
   isLink?: boolean;
+  isUniqueNumber?: boolean; // format as 4400-4756-6034 (grouped registry number)
 };
 
 // Per-panel field rules. A field absent from its panel's map is HIDDEN by
@@ -79,6 +89,7 @@ const FIELD_RULES: Record<string, Record<string, FieldRule>> = {
   "grpk-buildings": {
     address: { label: "Adresas", isHeading: true },
     areaSqM: { label: "Užstatytas plotas", unit: "m²" },
+    uniqueBuildingNo: { label: "Unikalus Nr.", isUniqueNumber: true },
     floors: { label: "Aukštų skaičius" },
     apartments: { label: "Butų skaičius" },
     constructionYear: { label: "Statybos metai" },
@@ -139,6 +150,11 @@ const FIELD_RULES: Record<string, Record<string, FieldRule>> = {
     address: { label: "Adresas" },
     projectYear: { label: "Projekto metai" },
   },
+  "rc-masvert": {
+    marketValueEur: { label: "Daikto vertė", unit: "€" },
+    valuationDate: { label: "Vertinimo data" },
+    note: { label: "Pastaba" },
+  },
   "osp-pollution-risks": {
     siteType: { label: "Objekto tipas", isHeading: true },
     address: { label: "Adresas" },
@@ -165,6 +181,7 @@ const PANEL_SOURCES: Record<string, SourceInfo> = {
   "szns-restrictions": { name: "Specialiosios žemės naudojimo sąlygos (Registrų centras)", api: "geoportal.lt · rc_szns" },
   "osp-building-permits": { name: "Infostatyba – statybos leidimai", api: "OSP · infostatyba" },
   "osp-pollution-risks": { name: "Potencialūs taršos židiniai", api: "OSP · potencialus_tarsos_zidiniai" },
+  "rc-masvert": { name: "Registrų centras – masinis vertinimas", api: "registrucentras.lt · masvert" },
 };
 
 // Lithuanian panel titles (server titles are English / mixed).
@@ -180,6 +197,7 @@ const PANEL_TITLES: Record<string, string> = {
   "szns-restrictions": "Specialiosios žemės naudojimo sąlygos",
   "osp-building-permits": "Statybos leidimai (Infostatyba)",
   "osp-pollution-risks": "Taršos ir aplinkos rizikos",
+  "rc-masvert": "Vidutinė rinkos vertė (masinis vertinimas)",
 };
 
 // Four reader-friendly groups instead of 12 loose panels.
@@ -187,7 +205,7 @@ export const CATEGORIES: { id: string; title: string; panelKeys: string[] }[] = 
   {
     id: "sklypas",
     title: "Sklypas ir adresai",
-    panelKeys: ["biip-boundary", "osp-parcel-summary", "biip-addresses"],
+    panelKeys: ["biip-boundary", "osp-parcel-summary", "rc-masvert", "biip-addresses"],
   },
   {
     id: "pastatai",
@@ -262,7 +280,9 @@ function curatePanel(panel: ParcelReport["reportPanels"][number]): CuratedPanel 
       }
       fields.push({
         label: rule.label,
-        value: formatScalar(value, rule.unit),
+        value: rule.isUniqueNumber
+          ? formatUniqueNumber(String(value))
+          : formatScalar(value, rule.unit),
         isLink: rule.isLink,
       });
     }
@@ -311,6 +331,7 @@ export type SummaryFlag = {
   label: string;
   state: "clear" | "present" | "info";
   detail: string;
+  panelKey?: string; // the detailed panel this flag jumps to when clicked
 };
 export type ReportSummary = {
   facts: SummaryFact[];
@@ -334,6 +355,29 @@ function dataCount(report: ParcelReport, key: string): number {
   return (panel.items as RawItem[]).length;
 }
 
+// Geometric centre of the parcel outline, used as an honest secondary locator
+// when there is no street address. Undefined when the outline is unknown (the
+// server sends an empty polygon rather than a fabricated point).
+export function parcelCenter(report: ParcelReport): { lat: number; lng: number } | undefined {
+  const ring = report.coordinates.coordinates[0] ?? [];
+  if (ring.length === 0) return undefined;
+  let sumLng = 0;
+  let sumLat = 0;
+  for (const [lng, lat] of ring) {
+    sumLng += lng;
+    sumLat += lat;
+  }
+  return { lat: sumLat / ring.length, lng: sumLng / ring.length };
+}
+
+// Parcel's unique registry number ("unikalus daikto numeris"), shown next to the
+// cadastral number in the summary header. Lives on the BIIP boundary item.
+export function findParcelUniqueNumber(report: ParcelReport): string | undefined {
+  const value = firstItem(report, "biip-boundary")?.uniqueNumber;
+  if (value == null || isNoiseValue(value)) return undefined;
+  return formatUniqueNumber(String(value));
+}
+
 export function buildSummary(report: ParcelReport): ReportSummary {
   const facts: SummaryFact[] = [];
 
@@ -348,8 +392,10 @@ export function buildSummary(report: ParcelReport): ReportSummary {
     facts.push({ label: "Sklypo plotas", value: `${areaHa.toLocaleString("lt-LT")} ha` });
   }
 
-  // Paskirtis — what the land may be used for, in plain words.
-  const purpose = boundary?.landPurpose ?? boundary?.landUse;
+  // Paskirtis — derived from "Naudojimo būdas" (landUse): the specific permitted
+  // use says more to a reader than the broad purpose group. Fall back to the
+  // purpose group only when the use method is missing.
+  const purpose = boundary?.landUse ?? boundary?.landPurpose;
   if (purpose && !isNoiseValue(purpose)) {
     facts.push({ label: "Paskirtis", value: String(purpose) });
   }
@@ -365,6 +411,15 @@ export function buildSummary(report: ParcelReport): ReportSummary {
     });
   }
 
+  // Vidutinė rinkos vertė — RC mass valuation (registrucentras.lt masvert).
+  const marketValue = firstItem(report, "rc-masvert")?.marketValueEur;
+  if (typeof marketValue === "number" && marketValue > 0) {
+    facts.push({
+      label: "Vidutinė rinkos vertė",
+      value: `${marketValue.toLocaleString("lt-LT")} €`,
+    });
+  }
+
   // Flags — the yes/no answers a buyer/owner worries about.
   const flags: SummaryFlag[] = [];
 
@@ -373,6 +428,7 @@ export function buildSummary(report: ParcelReport): ReportSummary {
     label: "Saugomos teritorijos",
     state: protectedCount > 0 ? "present" : "clear",
     detail: protectedCount > 0 ? `Yra (${protectedCount})` : "Nėra",
+    panelKey: "geoportal-constraints",
   });
 
   const heritageCount = dataCount(report, "kvr-heritage");
@@ -380,6 +436,7 @@ export function buildSummary(report: ParcelReport): ReportSummary {
     label: "Kultūros paveldas",
     state: heritageCount > 0 ? "present" : "clear",
     detail: heritageCount > 0 ? `Yra (${heritageCount})` : "Nėra",
+    panelKey: "kvr-heritage",
   });
 
   const pollutionCount = dataCount(report, "osp-pollution-risks");
@@ -387,6 +444,7 @@ export function buildSummary(report: ParcelReport): ReportSummary {
     label: "Taršos rizika",
     state: pollutionCount > 0 ? "present" : "clear",
     detail: pollutionCount > 0 ? `Yra (${pollutionCount})` : "Nėra",
+    panelKey: "osp-pollution-risks",
   });
 
   // SŽNS feature data is gated upstream — be honest rather than imply "Nėra".
@@ -396,6 +454,7 @@ export function buildSummary(report: ParcelReport): ReportSummary {
       label: "Specialiosios naudojimo sąlygos",
       state: "info",
       detail: "Tikrinti atskirai",
+      panelKey: "szns-restrictions",
     });
   }
 

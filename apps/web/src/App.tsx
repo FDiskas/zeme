@@ -49,63 +49,75 @@ function HomePage() {
 
   return (
     <main className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-10 md:px-8">
-      <section className="overflow-hidden rounded-3xl border border-sand-200 bg-gradient-to-br from-clay-50 via-sand-50 to-olive-50 p-6 shadow-sm md:p-10">
-        <p className="inline-flex items-center gap-2 rounded-full border border-olive-200 bg-white/70 px-3 py-1 text-base font-semibold text-olive-700">
-          Vieša Lietuvos žemės ir pastatų informacija
-        </p>
-        <h1 className="mt-5 max-w-3xl font-serif text-3xl font-bold leading-tight text-sand-900 md:text-5xl">
-          Sužinokite viską apie žemės sklypą
-        </h1>
-        <p className="mt-4 max-w-2xl text-xl leading-relaxed text-sand-700">
-          Įveskite adresą arba kadastrinį numerį ir gaukite aiškią sklypo apžvalgą:
-          ribas žemėlapyje, plotą, paskirtį, pastatus ir galimus apribojimus.
-        </p>
+      <section className="relative animate-rise overflow-hidden rounded-3xl border border-mist-200 bg-white shadow-soft">
+        {/* Survey-grid texture + emerald wash for a calm "maps" feel. */}
+        <div className="survey-grid pointer-events-none absolute inset-0 opacity-70" aria-hidden="true" />
+        <div
+          className="pointer-events-none absolute inset-0 bg-linear-to-br from-forest-50/80 via-white/40 to-lime-50/60"
+          aria-hidden="true"
+        />
+        <div className="relative p-6 md:p-12">
+          <p className="inline-flex items-center gap-2 rounded-full border border-forest-200 bg-forest-50/80 px-3.5 py-1.5 text-base font-semibold text-forest-700">
+            <span className="h-2 w-2 rounded-full bg-lime-500" aria-hidden="true" />
+            Vieša Lietuvos žemės ir pastatų informacija
+          </p>
+          <h1 className="mt-5 max-w-3xl font-display text-4xl font-bold leading-[1.08] tracking-tight text-mist-900 md:text-6xl">
+            Sužinokite viską apie{" "}
+            <span className="text-forest-700">žemės sklypą</span>
+          </h1>
+          <p className="mt-5 max-w-2xl text-xl leading-relaxed text-mist-600">
+            Įveskite adresą arba kadastrinį numerį ir gaukite aiškią sklypo apžvalgą:
+            ribas žemėlapyje, plotą, paskirtį, pastatus ir galimus apribojimus.
+          </p>
 
-        <div className="mt-8 flex flex-col gap-3 md:flex-row">
-          <div className="relative flex-1">
-            <SearchIcon className="pointer-events-none absolute left-4 top-1/2 h-6 w-6 -translate-y-1/2 text-sand-500" />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") onSearch();
-              }}
-              placeholder="Adresas arba kadastrinis numeris"
-              aria-label="Adresas arba kadastrinis numeris"
-              className="w-full rounded-xl border border-sand-300 bg-white py-4 pl-13 pr-5 text-lg text-sand-900 shadow-sm outline-none transition placeholder:text-sand-500 focus-visible:border-clay-400 focus-visible:ring-2 focus-visible:ring-clay-500/40"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={onSearch}
-            disabled={loading}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-clay-600 px-7 py-4 text-lg font-semibold text-white shadow-sm transition hover:bg-clay-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clay-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            <SearchIcon className="h-5 w-5" />
-            {loading ? "Ieškoma…" : "Ieškoti"}
-          </button>
-        </div>
-
-        <div className="mt-6 grid gap-3">
-          {searchNote ? (
-            <p className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-lg text-amber-900">
-              {searchNote}
-            </p>
-          ) : null}
-
-          {results.map((result) => (
+          <div className="mt-8 flex flex-col gap-3 md:flex-row">
+            <div className="relative flex-1">
+              <SearchIcon className="pointer-events-none absolute left-4 top-1/2 h-6 w-6 -translate-y-1/2 text-mist-400" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") onSearch();
+                }}
+                placeholder="Adresas arba kadastrinis numeris"
+                aria-label="Adresas arba kadastrinis numeris"
+                className="w-full rounded-2xl border border-mist-300 bg-white py-4 pl-13 pr-5 text-lg text-mist-900 shadow-sm outline-none transition placeholder:text-mist-400 focus-visible:border-forest-400 focus-visible:ring-4 focus-visible:ring-forest-500/20"
+              />
+            </div>
             <button
-              key={result.cadastralRegNo}
               type="button"
-              onClick={() => navigate(`/parcel/${encodeURIComponent(result.cadastralRegNo)}`)}
-              className="rounded-xl border border-sand-200 bg-white px-5 py-4 text-left shadow-sm transition hover:border-clay-300 hover:bg-clay-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clay-600 active:scale-[0.99]"
+              onClick={onSearch}
+              disabled={loading}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-forest-700 px-7 py-4 text-lg font-semibold text-white shadow-soft transition hover:bg-forest-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
             >
-              <p className="text-lg font-semibold text-sand-900">
-                {result.address ?? "Adreso viešuose šaltiniuose nėra"}
-              </p>
-              <p className="text-base text-sand-600">{result.cadastralRegNo}</p>
+              <SearchIcon className="h-5 w-5" />
+              {loading ? "Ieškoma…" : "Ieškoti"}
             </button>
-          ))}
+          </div>
+
+          <div className="mt-6 grid gap-3">
+            {searchNote ? (
+              <p className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-lg text-amber-900">
+                {searchNote}
+              </p>
+            ) : null}
+
+            {results.map((result) => (
+              <button
+                key={result.cadastralRegNo}
+                type="button"
+                onClick={() => navigate(`/parcel/${encodeURIComponent(result.cadastralRegNo)}`)}
+                className="rounded-2xl border border-mist-200 bg-white px-5 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-forest-300 hover:shadow-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600"
+              >
+                <p className="text-lg font-semibold text-mist-900">
+                  {result.address && result.address.trim() !== ""
+                    ? result.address
+                    : "Adreso viešuose šaltiniuose nėra"}
+                </p>
+                <p className="text-base text-mist-500">{result.cadastralRegNo}</p>
+              </button>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -197,7 +209,7 @@ function ParcelPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
           to="/"
-          className="inline-flex items-center gap-2 rounded-lg px-1 py-1 text-lg font-semibold text-clay-700 transition hover:text-clay-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clay-600"
+          className="inline-flex items-center gap-2 rounded-lg px-1 py-1 text-lg font-semibold text-forest-700 transition hover:text-forest-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600"
         >
           <ChevronLeft className="h-5 w-5" />
           Atgal į paiešką
@@ -206,7 +218,7 @@ function ParcelPage() {
           <button
             type="button"
             onClick={onRefresh}
-            className="inline-flex items-center gap-2 rounded-xl border border-sand-300 bg-white px-5 py-3 text-lg font-semibold text-sand-900 transition hover:bg-sand-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clay-600 active:scale-[0.98]"
+            className="inline-flex items-center gap-2 rounded-xl border border-mist-300 bg-white px-5 py-3 text-lg font-semibold text-mist-900 transition hover:bg-mist-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600 active:scale-[0.98]"
           >
             <RefreshIcon className="h-5 w-5" />
             {loading ? "Atnaujinama…" : "Atnaujinti"}
@@ -216,7 +228,7 @@ function ParcelPage() {
               type="button"
               onClick={onDownloadPdf}
               disabled={pdfLoading}
-              className="inline-flex items-center gap-2 rounded-xl bg-clay-600 px-5 py-3 text-lg font-semibold text-white shadow-sm transition hover:bg-clay-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clay-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
+              className="inline-flex items-center gap-2 rounded-xl bg-forest-700 px-5 py-3 text-lg font-semibold text-white shadow-soft transition hover:bg-forest-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
             >
               <DownloadIcon className="h-5 w-5" />
               {pdfLoading ? "Generuojama…" : "Atsisiųsti PDF"}
@@ -226,22 +238,24 @@ function ParcelPage() {
       </div>
 
       {!report && loading ? (
-        <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-sand-200 bg-white p-12 text-center">
+        <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-mist-200 bg-white p-12 text-center">
           <Spinner />
-          <p className="text-xl text-sand-600">Renkame sklypo duomenis…</p>
+          <p className="text-xl text-mist-600">Renkame sklypo duomenis…</p>
         </div>
       ) : null}
 
       {report ? (
-        <>
+        <div className="grid animate-rise gap-6">
           <SummaryCard report={report} />
           <ParcelMap report={report} />
           <section className="grid gap-6">
-            <h2 className="font-serif text-2xl font-bold text-sand-900">Detali informacija</h2>
+            <h2 className="font-display text-2xl font-bold tracking-tight text-mist-900">
+              Detali informacija
+            </h2>
             <ReportPanel report={report} />
           </section>
-          <p className="text-base text-sand-500">{freshness}</p>
-        </>
+          <p className="text-base text-mist-500">{freshness}</p>
+        </div>
       ) : null}
 
       <RecentlyViewed history={history} showEmptyState />
@@ -259,7 +273,7 @@ function ParcelPageRoute() {
 
 function App() {
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className="flex min-h-dvh flex-col text-mist-900">
       <Header />
       <div className="flex-1">
         <Routes>

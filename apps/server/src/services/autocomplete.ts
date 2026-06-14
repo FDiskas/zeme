@@ -1,10 +1,6 @@
 import type { ParcelSearchItem } from "@zeme/shared";
 import { prisma } from "../db";
-import {
-  getDeterministicCenter,
-  generateRealisticPolygon,
-  buildUnknownAddress,
-} from "./report-service";
+import { generateRealisticPolygon } from "./report-service";
 
 const NOMINATIM_SEARCH = "https://nominatim.openstreetmap.org/search";
 
@@ -42,7 +38,8 @@ async function handleDirectParcelMatch(cadastralRegNo: string): Promise<ParcelSe
   const parcel = await resolveParcelFromBiip(normalized);
   if (parcel) {
     const addressDetails = await resolveAddressFromBiip(parcel.ewkt);
-    address = addressDetails?.fullAddress || `Parcel ${normalized}`;
+    // Empty when the parcel has no street address — never a fabricated one.
+    address = addressDetails?.fullAddress || "";
     polygon = parcel.geometry;
     center = parcel.center;
   } else {
@@ -51,9 +48,10 @@ async function handleDirectParcelMatch(cadastralRegNo: string): Promise<ParcelSe
     const ospData = await fetchOspParcelData(normalized);
     if (ospData) {
       polygon = ospData.geometry;
+      // OSP gives an administrative-area label only (not a street address).
       address = ospData.sen_pavad
-        ? `${ospData.sav_pavad}, ${ospData.sen_pavad}, Lithuania`
-        : `${ospData.sav_pavad}, Lithuania`;
+        ? `${ospData.sav_pavad}, ${ospData.sen_pavad}`
+        : (ospData.sav_pavad ?? "");
       
       if (polygon && polygon.coordinates && polygon.coordinates[0]) {
         let sumLon = 0;
@@ -90,30 +88,12 @@ async function handleDirectParcelMatch(cadastralRegNo: string): Promise<ParcelSe
     };
   }
 
-  // Final fallback to deterministic mock if not found anywhere
-  console.warn(`[Autocomplete] Parcel not found in BIIP or OSP. Using simulated fallback for: ${cadastralRegNo}`);
-  const finalCenter = getDeterministicCenter(cadastralRegNo);
-  const finalPolygon = generateRealisticPolygon(finalCenter);
-  const finalAddress = buildUnknownAddress(cadastralRegNo);
-
-  await prisma.parcelReport.upsert({
-    where: { cadastralRegNo },
-    update: {
-      address: finalAddress,
-      coordinates: JSON.stringify(finalPolygon),
-    },
-    create: {
-      cadastralRegNo,
-      address: finalAddress,
-      coordinates: JSON.stringify(finalPolygon),
-      reportData: "{}",
-    },
-  });
-
+  // Not found in any registry. We do NOT fabricate an address or outline — the
+  // user can still open the report, which will honestly report no location/address.
+  console.warn(`[Autocomplete] Parcel not found in BIIP or OSP: ${normalized}`);
   return {
-    cadastralRegNo,
-    address: finalAddress,
-    center: finalCenter,
+    cadastralRegNo: normalized,
+    address: "",
   };
 }
 

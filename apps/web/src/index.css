@@ -1,74 +1,88 @@
 @import "tailwindcss";
 
 /* ===========================================================================
-   Design tokens — "Land & Buildings" earthy theme
+   Design tokens — "Fresh Natural Green" (modern)
    ---------------------------------------------------------------------------
-   Single source of truth for the whole UI. Components must use these scales
+   Single source of truth for the whole UI. Components use these scales by name
    (never raw hex), so a palette change happens in exactly one place.
 
    Semantic roles:
-     clay   → primary action / accent (terracotta, "soil")   — buttons, links
-     olive  → land / positive ("the field is clear")          — parcel, "no risk"
-     sand   → warm neutral surfaces, borders, text            — paper, dividers
-     amber  → caution flag (something present to check)       — warnings
-   All foreground/background pairs below are chosen for WCAG AA (>=4.5:1 body,
-   >=3:1 large text), which matters more here than usual: the audience is
-   older readers, so type is large and contrast is deliberately high.
+     forest → primary action / brand (deep emerald, "the land")  — buttons, links
+     lime   → vivid accent / highlight                            — badges, marks
+     mist   → cool neutral surfaces, borders, text                — cards, dividers
+     amber  → caution flag (something present to check)           — warnings
+   Pairs below target WCAG AA (>=4.5:1 body, >=3:1 large text). The audience is
+   older readers, so type is large and contrast is deliberately generous.
    =========================================================================== */
 @theme {
 	--font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
-	--font-serif: "Bitter", Georgia, "Times New Roman", serif;
+	--font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
 
-	/* Clay — primary accent (terracotta) */
-	--color-clay-50: #fdf6ef;
-	--color-clay-100: #f9e7d6;
-	--color-clay-200: #f0cbad;
-	--color-clay-300: #e3a87a;
-	--color-clay-400: #d4824a;
-	--color-clay-500: #c2662f;
-	--color-clay-600: #b45309;
-	--color-clay-700: #92400e;
-	--color-clay-800: #743410;
-	--color-clay-900: #5f2c0f;
+	/* Forest — primary (emerald) */
+	--color-forest-50: #ecfdf5;
+	--color-forest-100: #d0f5e3;
+	--color-forest-200: #a4e9c8;
+	--color-forest-300: #6dd6a8;
+	--color-forest-400: #34c084;
+	--color-forest-500: #12a06a;
+	--color-forest-600: #059669;
+	--color-forest-700: #047857;
+	--color-forest-800: #065f46;
+	--color-forest-900: #064e3b;
 
-	/* Olive — land / positive (green) */
-	--color-olive-50: #f6f8ec;
-	--color-olive-100: #eaf0d2;
-	--color-olive-200: #d6e2a8;
-	--color-olive-300: #bccd73;
-	--color-olive-400: #a0b449;
-	--color-olive-500: #819a30;
-	--color-olive-600: #4d7c0f;
-	--color-olive-700: #3d630f;
-	--color-olive-800: #324e11;
-	--color-olive-900: #2b4213;
+	/* Lime — vivid accent */
+	--color-lime-50: #f7fee7;
+	--color-lime-100: #ecfccb;
+	--color-lime-200: #d9f99d;
+	--color-lime-300: #bef264;
+	--color-lime-400: #a3e635;
+	--color-lime-500: #84cc16;
+	--color-lime-600: #65a30d;
+	--color-lime-700: #4d7c0f;
 
-	/* Sand — warm neutrals: surfaces, borders, text */
-	--color-sand-50: #faf7f0;
-	--color-sand-100: #f3ede0;
-	--color-sand-200: #e7e1d5;
-	--color-sand-300: #d6cdbb;
-	--color-sand-400: #b8ac95;
-	--color-sand-500: #948872;
-	--color-sand-600: #756a57;
-	--color-sand-700: #564f40;
-	--color-sand-800: #393429;
-	--color-sand-900: #292524;
+	/* Mist — cool neutrals: surfaces, borders, text (forest ink at 900) */
+	--color-mist-50: #f8faf9;
+	--color-mist-100: #f0f4f2;
+	--color-mist-200: #e2e9e5;
+	--color-mist-300: #cbd6cf;
+	--color-mist-400: #9aa8a0;
+	--color-mist-500: #6b7a72;
+	--color-mist-600: #4c5a53;
+	--color-mist-700: #38433d;
+	--color-mist-800: #232b27;
+	--color-mist-900: #14201b;
 
-	/* Amber — caution (kept distinct from clay so accent != warning) */
+	/* Amber — caution (distinct from accent so accent != warning) */
 	--color-amber-50: #fffbeb;
 	--color-amber-100: #fef3c7;
 	--color-amber-200: #fde68a;
 	--color-amber-700: #b45309;
 	--color-amber-900: #78350f;
+
+	/* Modern soft elevation scale (cool-tinted, not muddy black). */
+	--shadow-soft: 0 1px 2px rgb(20 32 27 / 0.04), 0 8px 24px -12px rgb(20 32 27 / 0.12);
+	--shadow-lift: 0 2px 4px rgb(20 32 27 / 0.05), 0 18px 40px -18px rgb(20 32 27 / 0.22);
+
+	--animate-rise: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+	@keyframes rise {
+		from {
+			opacity: 0;
+			transform: translateY(10px);
+		}
+		to {
+			opacity: 1;
+			transform: none;
+		}
+	}
 }
 
 :root {
-	color: var(--color-sand-900);
-	background-color: var(--color-sand-50);
-	/* Subtle "land" warmth: a faint horizon glow, not a loud gradient. */
+	color: var(--color-mist-900);
+	background-color: var(--color-mist-50);
+	/* Soft emerald horizon glow — fresh, not loud. */
 	background-image:
-		radial-gradient(ellipse 80% 50% at 50% -10%, #f3ecdc 0%, transparent 60%);
+		radial-gradient(ellipse 70% 45% at 50% -8%, #e3f7ee 0%, transparent 62%);
 	background-attachment: fixed;
 	-webkit-font-smoothing: antialiased;
 	text-rendering: optimizeLegibility;
@@ -81,8 +95,15 @@
 body {
 	margin: 0;
 	font-family: var(--font-sans);
-	/* Comfortable default line-height for older readers (ux: line-height 1.5+). */
 	line-height: 1.6;
+}
+
+/* Faint survey-grid texture — used behind the hero for a "maps" feel. */
+.survey-grid {
+	background-image:
+		linear-gradient(to right, rgb(5 150 105 / 0.06) 1px, transparent 1px),
+		linear-gradient(to bottom, rgb(5 150 105 / 0.06) 1px, transparent 1px);
+	background-size: 28px 28px;
 }
 
 /* Collapsible report panels: hide the native marker and rotate our own chevron. */
@@ -110,8 +131,8 @@ body {
 	}
 }
 
-/* Leaflet sits inside rounded cards — keep the warm border consistent. */
+/* Leaflet sits inside rounded cards — keep typography + neutral consistent. */
 .leaflet-container {
 	font-family: var(--font-sans);
-	background: var(--color-sand-100);
+	background: var(--color-mist-100);
 }
