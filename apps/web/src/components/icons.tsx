@@ -111,6 +111,22 @@ export function ChevronDown({ className }: IconProps) {
   );
 }
 
+export function MenuIcon({ className }: IconProps) {
+  return (
+    <Outline className={className}>
+      <path d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
+    </Outline>
+  );
+}
+
+export function CloseIcon({ className }: IconProps) {
+  return (
+    <Outline className={className}>
+      <path d="M6 18L18 6M6 6l12 12" />
+    </Outline>
+  );
+}
+
 export function CheckIcon({ className }: IconProps) {
   return (
     <Outline className={className}>

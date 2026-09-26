@@ -1,5 +1,12 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { GitHubIcon, LogoMark } from "./icons";
+import { CloseIcon, GitHubIcon, LogoMark, MenuIcon } from "./icons";
+
+const NAV_LINKS = [
+  { to: "/", label: "Pradžia" },
+  { to: "/zemelapis", label: "Žemėlapis" },
+  { to: "/duomenu-saltiniai", label: "Duomenų šaltiniai" },
+];
 
 /** Wordmark — reused by the header and anywhere the brand needs to appear. */
 function Brand() {
@@ -22,32 +29,52 @@ function Brand() {
   );
 }
 
+const NAV_LINK_CLASS =
+  "rounded-lg px-3 py-2 text-lg font-semibold text-mist-700 transition hover:bg-mist-100 hover:text-forest-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600";
+
 export function Header() {
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
     <header className="sticky top-0 z-40 w-full border-b border-mist-200/80 bg-mist-50/75 backdrop-blur-xl">
       <div className="mx-auto flex h-18 max-w-6xl items-center justify-between px-4 md:px-8">
         <Brand />
-        <nav className="flex items-center gap-1">
-          <Link
-            to="/"
-            className="rounded-lg px-3 py-2 text-lg font-semibold text-mist-700 transition hover:bg-mist-100 hover:text-forest-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600"
-          >
-            Pradžia
-          </Link>
-          <Link
-            to="/zemelapis"
-            className="rounded-lg px-3 py-2 text-lg font-semibold text-mist-700 transition hover:bg-mist-100 hover:text-forest-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600"
-          >
-            Žemėlapis
-          </Link>
-          <Link
-            to="/duomenu-saltiniai"
-            className="rounded-lg px-3 py-2 text-lg font-semibold text-mist-700 transition hover:bg-mist-100 hover:text-forest-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600"
-          >
-            Duomenų šaltiniai
-          </Link>
+
+        {/* Desktop nav — full width, everything fits above md. */}
+        <nav className="hidden items-center gap-1 md:flex">
+          {NAV_LINKS.map((link) => (
+            <Link key={link.to} to={link.to} className={NAV_LINK_CLASS}>
+              {link.label}
+            </Link>
+          ))}
         </nav>
+
+        {/* Mobile: a hamburger toggle instead of squeezing links into the bar. */}
+        <button
+          type="button"
+          onClick={() => setMenuOpen((open) => !open)}
+          aria-expanded={menuOpen}
+          aria-label={menuOpen ? "Uždaryti meniu" : "Atverti meniu"}
+          className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-mist-700 transition hover:bg-mist-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600 md:hidden"
+        >
+          {menuOpen ? <CloseIcon className="h-6 w-6" /> : <MenuIcon className="h-6 w-6" />}
+        </button>
       </div>
+
+      {menuOpen ? (
+        <nav className="flex flex-col gap-1 border-t border-mist-200/80 bg-mist-50 px-4 py-3 md:hidden">
+          {NAV_LINKS.map((link) => (
+            <Link
+              key={link.to}
+              to={link.to}
+              onClick={() => setMenuOpen(false)}
+              className={`${NAV_LINK_CLASS} block`}
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+      ) : null}
     </header>
   );
 }
