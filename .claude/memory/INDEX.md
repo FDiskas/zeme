@@ -11,6 +11,7 @@
 
 ## feedback/
 
+- [always-load-auto-memory](feedback/always-load-auto-memory.md) — invoke /auto-memory at start of every task, no exceptions, even when urgent. keywords: auto-memory, skill, startup, always, protocol
 - [redesign-approach](feedback/redesign-approach.md) — redesign method: apply /solid + /ui-ux-pro-max skills; use codebase MCP to analyze code first. keywords: redesign, approach, solid, ui-ux-pro-max, codebase, mcp, methodology
 - [prefer-simple-cache-repair](feedback/prefer-simple-cache-repair.md) — for pure-cache tables, wipe-and-rebuild beats a targeted verify-and-delete script. keywords: cache, repair, cleanup, simplicity, wipe, rebuild, ParcelReport
 
@@ -22,5 +23,5 @@
 - [report-display-rules](decisions/report-display-rules.md) — show Unikalus Nr. by cadastral/built-up area; Paskirtis from Naudojimo būdas; Šaltinis only in expanded panels. keywords: report, unikalus numeris, paskirtis, naudojimo būdas, šaltinis, įrašų nerasta, display
 - [no-fabricated-address-or-geometry](decisions/no-fabricated-address-or-geometry.md) — never fake address/outline; hasStreetAddress flag; buildFromNominatim cadastral-collision bug FIXED 2026-09-26 + clear-parcel-report-cache script. keywords: address, fabricated, fake, placeholder, hasStreetAddress, geometry, cache poisoning, buildFromNominatim
 - [rc-masvert-market-value](decisions/rc-masvert-market-value.md) — market value scraped from RC masinis vertinimas (CSRF GET+POST, HTML parse). keywords: vidutinė rinkos vertė, market value, masvert, registrucentras, csrf, scraping, daikto vertė
-- [dokploy-deployment](decisions/dokploy-deployment.md) — Confirmed working: Dokploy Compose, reginfo service name, no ports, --ignore-scripts, bunx, scripts/ in context. keywords: dokploy, deploy, docker, docker-compose, bun, puppeteer, nginx
+- [dokploy-deployment](decisions/dokploy-deployment.md) — Confirmed working: Dokploy Compose, reginfo service name, no ports, --ignore-scripts, bunx, scripts/ in context; avoid "latest" pins for typescript/prisma (broke builds twice). keywords: dokploy, deploy, docker, docker-compose, bun, puppeteer, nginx, typescript, latest, openapi-ts
 - [autocomplete-biip-address-fallback](decisions/autocomplete-biip-address-fallback.md) — BIIP addressesSearch fallback when Nominatim returns 0 results for Lithuanian address text. keywords: autocomplete, nominatim, biip, address, search, fallback, postal code, street
