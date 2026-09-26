@@ -35,6 +35,12 @@ export function Header() {
             Pradžia
           </Link>
           <Link
+            to="/zemelapis"
+            className="rounded-lg px-3 py-2 text-lg font-semibold text-mist-700 transition hover:bg-mist-100 hover:text-forest-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600"
+          >
+            Žemėlapis
+          </Link>
+          <Link
             to="/duomenu-saltiniai"
             className="rounded-lg px-3 py-2 text-lg font-semibold text-mist-700 transition hover:bg-mist-100 hover:text-forest-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600"
           >

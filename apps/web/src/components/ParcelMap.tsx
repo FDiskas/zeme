@@ -176,6 +176,55 @@ function ViewportParcelsLayer({
   );
 }
 
+// Lithuania's rough geographic centre — a reasonable default view for
+// browsing the whole country before the user has picked anything.
+const LITHUANIA_CENTER: [number, number] = [55.33, 23.88];
+const LITHUANIA_ZOOM = 8;
+
+// Shows the current "zoom in to see parcels" hint on the standalone explore
+// map, since ViewportParcelsLayer silently renders nothing below the
+// threshold and the user otherwise has no clue why.
+function ZoomHint() {
+  const [zoom, setZoom] = useState(LITHUANIA_ZOOM);
+  const map = useMapEvents({
+    zoomend: () => setZoom(map.getZoom()),
+  });
+
+  if (zoom >= MIN_ZOOM_FOR_VIEWPORT) return null;
+  return (
+    <div className="pointer-events-none absolute left-1/2 top-4 z-1000 -translate-x-1/2 rounded-xl bg-mist-900/85 px-4 py-2 text-base font-semibold text-white shadow-soft">
+      Priartinkite žemėlapį, kad pamatytumėte sklypus
+    </div>
+  );
+}
+
+// A full-country map for free browsing: no subject parcel, just the viewport
+// layer so panning/zooming around Lithuania reveals clickable sklypai.
+export function ExploreMap() {
+  const navigate = useNavigate();
+
+  function navigateToParcel(cadastralRegNo: string) {
+    navigate(`/parcel/${encodeURIComponent(cadastralRegNo)}`);
+  }
+
+  return (
+    <div className="overflow-hidden rounded-3xl border border-mist-200 bg-white shadow-soft">
+      <div className="relative h-[70vh] w-full">
+        <MapContainer center={LITHUANIA_CENTER} zoom={LITHUANIA_ZOOM} className="h-full w-full">
+          <ZoomHint />
+          <ViewportParcelsLayer excludeIds={EMPTY_IDS} onNavigate={navigateToParcel} />
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          />
+        </MapContainer>
+      </div>
+    </div>
+  );
+}
+
+const EMPTY_IDS: ReadonlySet<string> = new Set();
+
 // Empty-map clicks on a polygon ask the server which parcel is underneath.
 // Leaflet doesn't fire map `click` for clicks that land on an interactive layer,
 // so clicking a neighbour/your parcel still uses that layer's own handler.

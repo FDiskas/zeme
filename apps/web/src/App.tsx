@@ -5,6 +5,7 @@ import { ParcelMap } from "./components/ParcelMap";
 import { ReportPanel } from "./components/ReportPanel";
 import { SummaryCard } from "./components/SummaryCard";
 import { DataSourcesPage } from "./components/DataSourcesPage";
+import { MapExplorePage } from "./components/MapExplorePage";
 import { Footer, Header } from "./components/SiteChrome";
 import { RecentlyViewed, type SearchHistoryItem } from "./components/RecentlyViewed";
 import {
@@ -279,6 +280,7 @@ function App() {
       <div className="flex-1">
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/zemelapis" element={<MapExplorePage />} />
           <Route path="/parcel/:cadastralRegNo" element={<ParcelPageRoute />} />
           <Route path="/duomenu-saltiniai" element={<DataSourcesPage />} />
         </Routes>
