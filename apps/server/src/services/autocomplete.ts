@@ -1,6 +1,5 @@
 import type { ParcelSearchItem } from "@zeme/shared";
 import { prisma } from "../db";
-import { generateRealisticPolygon } from "./report-service";
 
 const NOMINATIM_SEARCH = "https://nominatim.openstreetmap.org/search";
 
@@ -149,52 +148,49 @@ async function buildFromNominatim(result: NominatimResult): Promise<ParcelSearch
   if (isNaN(lat) || isNaN(lon)) return null;
 
   const candidateKeys = ["ref:LT:cadastral", "cadastral", "ref"];
-  let cadastralRegNo = "";
+  let taggedCadastralRegNo = "";
 
   for (const key of candidateKeys) {
     const normalized = normalizeCadastralRegNo(result.extratags?.[key] ?? "");
     if (normalized) {
-      cadastralRegNo = normalized;
+      taggedCadastralRegNo = normalized;
       break;
     }
   }
 
   const address = result.display_name;
 
-  // Fallback: Generate a deterministic cadastral number if none is present in OSM
-  if (!cadastralRegNo) {
-    let hash = 0;
-    const str = address;
-    for (let i = 0; i < str.length; i++) {
-      hash = (hash << 5) - hash + str.charCodeAt(i);
-      hash |= 0;
+  if (taggedCadastralRegNo) {
+    // OSM tagged this result with a real cadastral number — resolve its actual
+    // geometry rather than fabricating one.
+    const parcel = await resolveParcelFromBiip(taggedCadastralRegNo);
+    if (parcel) {
+      await persistParcel(taggedCadastralRegNo, address, parcel.geometry);
+      return { cadastralRegNo: taggedCadastralRegNo, address, center: parcel.center };
     }
-    const parcelId = Math.abs(hash % 9999) + 1;
-    const paddedParcelId = String(parcelId).padStart(4, "0");
-    cadastralRegNo = `4400/0001:${paddedParcelId}`;
+    const ospData = await fetchOspParcelData(taggedCadastralRegNo);
+    if (ospData) {
+      const center = polygonCenter(ospData.geometry) ?? [lon, lat];
+      await persistParcel(taggedCadastralRegNo, address, ospData.geometry);
+      return { cadastralRegNo: taggedCadastralRegNo, address, center };
+    }
+    return null;
   }
 
-  const center: [number, number] = [lon, lat];
-  const polygon = generateRealisticPolygon(center);
+  // No cadastral tag on the OSM result — resolve the real parcel that contains
+  // this point instead of fabricating a cadastral number. A fabricated number
+  // (previously a hash of the address string modulo 9999) could collide with an
+  // unrelated real parcel's cadastral number and silently overwrite its cached
+  // address/geometry.
+  const parcel = await resolveParcelByCoordinates(lon, lat);
+  if (!parcel) return null;
 
-  await prisma.parcelReport.upsert({
-    where: { cadastralRegNo },
-    update: {
-      address,
-      coordinates: JSON.stringify(polygon),
-    },
-    create: {
-      cadastralRegNo,
-      address,
-      coordinates: JSON.stringify(polygon),
-      reportData: "{}",
-    },
-  });
+  await persistParcel(parcel.cadastralRegNo, address, parcel.geometry);
 
   return {
-    cadastralRegNo,
+    cadastralRegNo: parcel.cadastralRegNo,
     address,
-    center,
+    center: parcel.center,
   };
 }
 

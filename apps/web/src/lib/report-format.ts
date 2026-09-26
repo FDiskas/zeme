@@ -1,4 +1,5 @@
 import type { ParcelReport } from "@zeme/shared";
+import { DATA_SOURCES } from "./data-sources";
 
 // ---------------------------------------------------------------------------
 // Curation layer
@@ -164,62 +165,27 @@ const FIELD_RULES: Record<string, Record<string, FieldRule>> = {
     evaluationDate: { label: "Vertinimo data" },
     siteNumber: { label: "Objekto Nr." },
   },
+  "forest-cutting-permits": {
+    cuttingType: { label: "Kirtimo rūšis", isHeading: true },
+    validFrom: { label: "Galioja nuo" },
+    validTo: { label: "Galioja iki" },
+    areaHa: { label: "Kertamas plotas", unit: "ha" },
+    dominantSpecies: { label: "Vyraujantys medžiai" },
+    forestDistrict: { label: "Girininkija" },
+    ownershipForm: { label: "Nuosavybės forma" },
+    status: { label: "Statusas" },
+  },
 };
 
 // Per-panel data provenance. `name` is the human-readable registry a citizen
 // can recognise; `api` is the technical endpoint/dataset for verification. Shown
 // small and muted at the bottom of each expanded panel — trustworthy, not loud.
+// Derived from the single DATA_SOURCES catalog (data-sources.ts) so the panel
+// footer and the /duomenu-saltiniai page can never name a source differently.
 type SourceInfo = { name: string; api: string };
-const PANEL_SOURCES: Record<string, SourceInfo> = {
-  "osp-parcel-summary": {
-    name: "Nekilnojamojo turto registras (VDA / OSP)",
-    api: "OSP · ntr_sklypai",
-  },
-  "biip-boundary": {
-    name: "BĮIP – sklypų ribos ir paskirtis",
-    api: "biip.lt · boundaries",
-  },
-  "biip-addresses": {
-    name: "BĮIP – adresų registras",
-    api: "biip.lt · addresses",
-  },
-  "grpk-buildings": {
-    name: "Georeferencinio pagrindo kadastras (GRPK)",
-    api: "geoportal.lt · GRPK (sujungta su BĮIP / OSP)",
-  },
-  "pdbis-building-data": {
-    name: "Pastatų duomenų bankas",
-    api: "OSP · pastatai_geo",
-  },
-  "geoportal-constraints": {
-    name: "Saugomų teritorijų kadastras (VSTT)",
-    api: "OSP · vstt_stvk",
-  },
-  "kvr-heritage": {
-    name: "Kultūros vertybių registras (KVR)",
-    api: "OSP · KPD / kvr",
-  },
-  "asgr-regulations": {
-    name: "Teritorijų planavimo dokumentų registras (TPDR)",
-    api: "planuojustatau.lt · ASGR",
-  },
-  "szns-restrictions": {
-    name: "Specialiosios žemės naudojimo sąlygos (Registrų centras)",
-    api: "geoportal.lt · rc_szns",
-  },
-  "osp-building-permits": {
-    name: "Infostatyba – statybos leidimai",
-    api: "OSP · infostatyba",
-  },
-  "osp-pollution-risks": {
-    name: "Potencialūs taršos židiniai",
-    api: "OSP · potencialus_tarsos_zidiniai",
-  },
-  "rc-masvert": {
-    name: "Registrų centras – masinis vertinimas",
-    api: "registrucentras.lt · masvert",
-  },
-};
+const PANEL_SOURCES: Record<string, SourceInfo> = Object.fromEntries(
+  DATA_SOURCES.filter((s) => s.panelKey).map((s) => [s.panelKey as string, { name: s.name, api: s.api }]),
+);
 
 // Lithuanian panel titles (server titles are English / mixed).
 const PANEL_TITLES: Record<string, string> = {
@@ -235,6 +201,7 @@ const PANEL_TITLES: Record<string, string> = {
   "osp-building-permits": "Statybos leidimai (Infostatyba)",
   "osp-pollution-risks": "Taršos ir aplinkos rizikos",
   "rc-masvert": "Vidutinė rinkos vertė (masinis vertinimas)",
+  "forest-cutting-permits": "Miško kirtimo leidimai",
 };
 
 // Four reader-friendly groups instead of 12 loose panels.
@@ -258,7 +225,7 @@ export const CATEGORIES: { id: string; title: string; panelKeys: string[] }[] =
     {
       id: "statyba",
       title: "Statyba ir planavimas",
-      panelKeys: ["osp-building-permits", "asgr-regulations"],
+      panelKeys: ["osp-building-permits", "asgr-regulations", "forest-cutting-permits"],
     },
     {
       id: "apribojimai",

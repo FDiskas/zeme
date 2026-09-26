@@ -19,3 +19,44 @@ model ParcelReport {
     @@index([cadastralRegNo])
     @@index([address])
 }
+
+// Miško kirtimo leidimai (forest-cutting permits/stands) — a nationwide bulk
+// snapshot from lkmp.alisas.lt (~147k features, no live filtered query API).
+// Stored in SQLite instead of held in memory to keep RAM flat; bbox columns are
+// indexed for a cheap SQL pre-filter, and the exact polygon-intersection test
+// runs in JS only against the handful of rows that pass it.
+model ForestCuttingPermit {
+    id              String  @id
+    tipas           String
+    galiojaNuo      String?
+    galiojaIki      String?
+    kadastrinisNr   String?
+    padalinys       String?
+    girininkija     String?
+    kvartalas       String?
+    sklypas         String?
+    kertamasPlotas  Float?
+    vyraujantysMedziai String?
+    kirtimoRusis    String?
+    atkurimoBudas   String?
+    nuosavybesForma String?
+    leidBusena      String?
+    turis           Float?
+    savivaldybe     String?
+    minLng          Float
+    minLat          Float
+    maxLng          Float
+    maxLat          Float
+    geometry        String
+
+    @@index([kadastrinisNr])
+    @@index([minLng, maxLng])
+    @@index([minLat, maxLat])
+}
+
+// Single-row marker of when ForestCuttingPermit was last refreshed from
+// lkmp.alisas.lt, so a refresh can be skipped until the data is >24h old.
+model ForestCuttingDatasetMeta {
+    id        Int      @id @default(1)
+    fetchedAt DateTime
+}

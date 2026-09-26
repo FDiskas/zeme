@@ -295,17 +295,37 @@ export async function fetchOspParcelData(queryStr: string): Promise<OspParcelDat
   }
 }
 
+// Infostatyba's kadastro_nr field is not consistently zero-padded: most records
+// store the plot segment at its natural width (".../0001:369"), but some carry a
+// zero-padded width matching our own normalized cadastralRegNo (".../0001:0094").
+// An exact match on only one form silently misses real permits (confirmed live:
+// "4177/0100:0369" returns 0 rows, "4177/0100:369" returns 9). Query both.
+function unpaddedCadastralVariant(cadastralRegNo: string): string | null {
+  const match = cadastralRegNo.match(/^(\d{4})\/(\d{4}):(\d+)$/);
+  if (!match) return null;
+  const [, area, block, plot] = match;
+  const unpadded = String(Number(plot));
+  return unpadded === plot ? null : `${area}/${block}:${unpadded}`;
+}
+
 export async function fetchOspBuildingPermits(
   cadastralRegNo: string,
   unikalusNr?: string
 ): Promise<any[]> {
   const serviceUrl = "https://osp-sdg.stat.gov.lt/arcgis/rest/services/infostatyba_duomenys/FeatureServer";
-  
-  let where = `kadastro_nr = '${cadastralRegNo}'`;
+
+  const cadastralClauses = [`kadastro_nr = '${cadastralRegNo}'`];
+  const altCadastralRegNo = unpaddedCadastralVariant(cadastralRegNo);
+  if (altCadastralRegNo) {
+    cadastralClauses.push(`kadastro_nr = '${altCadastralRegNo}'`);
+  }
+
+  let where = cadastralClauses.join(" OR ");
   if (unikalusNr) {
     const formatted = formatUniqueNumber(unikalusNr);
     if (formatted) {
-      where = `kadastro_nr = '${cadastralRegNo}' OR unikalus_numeris = '${formatted}' OR unikalus_numeris = '${unikalusNr}'`;
+      cadastralClauses.push(`unikalus_numeris = '${formatted}'`, `unikalus_numeris = '${unikalusNr}'`);
+      where = cadastralClauses.join(" OR ");
     }
   }
 

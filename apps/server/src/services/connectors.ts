@@ -1,6 +1,7 @@
 import type { ParcelReport, BuildingFootprint } from "@zeme/shared";
 import type { BiipAddressPoint } from "./biip-service";
 import type { OspBuildingPoint } from "./osp-service";
+import { findForestCuttingPermits } from "./lkmp-service";
 
 export type UpstreamPanel = ParcelReport["reportPanels"][number];
 
@@ -654,5 +655,70 @@ export async function fetchGrpkBuildings(
     return errorPanel(
       `Klaida tikrinant GRPK pastatų kontūrus: ${err instanceof Error ? err.message : String(err)}`,
     );
+  }
+}
+
+// Miško kirtimo leidimai (forest-cutting permits) — lkmp-service.ts. The
+// data.gov.lt "Leidimų kirsti mišką statistika" dataset (tried first) only
+// covers permits that already carry a cadastral number, which misses most
+// state-forest cuttings: those are addressed by kvartalas/sklypas with no
+// cadastral number at all, and only show up via a real polygon intersection
+// against lkmp.alisas.lt's daily geometry dump (verified live: a confirmed
+// "Atrankinis sanitarinis kirtimas" permit on a real parcel had
+// kadastrinis_nr: null and only matched by intersecting its "biržė" polygon).
+const LEID_BUSENA_LABELS: Record<string, string> = {
+  ISSUED: "Išduotas",
+  EXTENDED: "Pratęstas",
+};
+
+export async function fetchForestCuttingPermits(
+  cadastralRegNo: string,
+  geometry: any,
+): Promise<UpstreamPanel> {
+  const base: Pick<UpstreamPanel, "key" | "title" | "source"> = {
+    key: "forest-cutting-permits",
+    title: "Miško kirtimo leidimai",
+    source: "lkmp.alisas.lt (VMT/ALIS, atviri geometriniai duomenys)",
+  };
+
+  const outerRing = geometry?.type === "Polygon" ? geometry.coordinates?.[0] : undefined;
+  if (!outerRing || outerRing.length < 4) {
+    return {
+      ...base,
+      status: "error",
+      items: [],
+      note: "Sklypo geometrija nepasiekiama; negalima tikrinti miško kirtimo leidimų.",
+    };
+  }
+
+  try {
+    const matches = await findForestCuttingPermits(cadastralRegNo, outerRing);
+
+    const items = matches.map((p) => ({
+      cuttingType: p.kirtimo_rusis ?? "N/A",
+      validFrom: p.galioja_nuo ?? "N/A",
+      validTo: p.galioja_iki ?? "N/A",
+      areaHa: p.kertamas_plotas ?? "N/A",
+      dominantSpecies: p.vyraujantys_medziai ?? "N/A",
+      forestDistrict: p.girininkija ? `${p.girininkija} girininkija, ${p.padalinys ?? "N/A"}` : "N/A",
+      ownershipForm: p.nuosavybes_forma ?? "N/A",
+      status: p.leid_busena ? (LEID_BUSENA_LABELS[p.leid_busena] ?? p.leid_busena) : "N/A",
+    }));
+
+    return {
+      ...base,
+      status: "ok",
+      items,
+      note: items.length === 0
+        ? "Šiam sklypui miško kirtimo leidimų nerasta."
+        : `Rasta ${items.length} miško kirtimo leidimo įrašų.`,
+    };
+  } catch (err: any) {
+    return {
+      ...base,
+      status: "error",
+      items: [],
+      note: `Klaida tikrinant miško kirtimo leidimus: ${err instanceof Error ? err.message : String(err)}`,
+    };
   }
 }

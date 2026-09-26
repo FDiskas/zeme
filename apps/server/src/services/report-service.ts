@@ -7,6 +7,7 @@ import {
   fetchSznsRestrictions,
   fetchAsgrRegulations,
   fetchKvrData,
+  fetchForestCuttingPermits,
   buildPdbisPanel,
   type UpstreamPanel,
 } from "./connectors";
@@ -154,7 +155,8 @@ export async function buildComprehensiveReport(
     ospPollutionRisks,
     ospPermits,
     neighbors,
-    marketValue
+    marketValue,
+    forestCuttingPermits
   ] = await Promise.all([
     fetchBiipBoundary(targetCadastralRegNo, resolvedAddress),
     fetchBiipAddresses(targetCadastralRegNo, resolvedCoordinates, addressDetails),
@@ -171,7 +173,8 @@ export async function buildComprehensiveReport(
       ospParcel?.unikalus_nr || parcel?.uniqueNumber?.toString()
     ).catch(() => [] as any[]),
     fetchNeighborParcels(resolvedCoordinates, targetCadastralRegNo).catch(() => []),
-    getMarketValuePanel(uniqueNrFormatted)
+    getMarketValuePanel(uniqueNrFormatted),
+    fetchForestCuttingPermits(targetCadastralRegNo, resolvedCoordinates)
   ]);
 
   const ospPermitsPanel: UpstreamPanel = {
@@ -211,7 +214,8 @@ export async function buildComprehensiveReport(
       "OSP ntr_sklypai",
       "OSP infostatyba",
       "OSP tarsos_zidiniai",
-      "Registrų centras masinis vertinimas"
+      "Registrų centras masinis vertinimas",
+      "lkmp.alisas.lt miško kirtimo leidimai"
     ],
     reportPanels: [
       ospParcelSummary,
@@ -225,7 +229,8 @@ export async function buildComprehensiveReport(
       kvr,
       pdbis,
       ospPermitsPanel,
-      ospPollutionRisks
+      ospPollutionRisks,
+      forestCuttingPermits
     ],
   };
 }
