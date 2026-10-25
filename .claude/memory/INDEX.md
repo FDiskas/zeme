@@ -8,7 +8,7 @@
 - [geoportal-metadata-catalog](project/geoportal-metadata-catalog.md) — metadata-catalog REST = dataset DISCOVERY (632 records); open-data routes around SŽNS gap (TPDR reglamentai, potvynių zonos). keywords: geoportal, metadata, catalog, open data, SŽNS, reglamentai, TPDR, potvyniai, flood, discovery
 - [ux-goal-elderly-readability](project/ux-goal-elderly-readability.md) — full redesign: modern + comfortable for elderly; theme = land & buildings; direction = Fresh Natural Green. keywords: ux, ui, redesign, modern, theme, land, buildings, readability, elderly, accessibility, design-goal, green
 - [forest-fish-and-infostatyba-sources](project/forest-fish-and-infostatyba-sources.md) — forest-cutting permits OPEN via lkmp.alisas.lt geometry dump (not data.gov.lt — that misses state forest); fish stocking gated; Infostatyba kadastro_nr padding bug fixed. keywords: miskas, kirtimo leidimai, zuvinimas, infostatyba, kadastro_nr, padding, lkmp, amvmt, biip
-- [neighbourhood-data-sources](project/neighbourhood-data-sources.md) — crime grids (IRD NVZR), schools+kindergartens, health, flood-risk INTEGRATED in neighbourhood-service.ts; population, apartment deals, broadband, noise, soil still open. keywords: nusikalstamumas, crime, mokyklos, darzeliai, gydymo istaigos, triuksmas, potvyniai, overpass
+- [neighbourhood-data-sources](project/neighbourhood-data-sources.md) — integrated crime/public-order, schools, health, flood, census households, broadband; rejected apartment-deal grid + bad population grids + stale EIIS; noise/soil need ZIP ingest. keywords: nusikalstamumas, crime, mokyklos, darzeliai, gydymo istaigos, triuksmas, potvyniai, overpass
 
 ## feedback/
 

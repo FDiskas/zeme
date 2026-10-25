@@ -23,7 +23,13 @@ import {
 import { resolveParcelByCoordinates } from "./services/biip-service";
 import { fetchParcelByPoint, fetchParcelsByBbox, formatUniqueNumber } from "./services/osp-service";
 import { getMarketValuePanel } from "./services/masvert-service";
-import { fetchNearbyServices, fetchCrimeStats, fetchFloodRisk } from "./services/neighbourhood-service";
+import {
+  fetchNearbyServices,
+  fetchCrimeStats,
+  fetchFloodRisk,
+  fetchCensusHouseholds,
+  fetchBroadband,
+} from "./services/neighbourhood-service";
 import { searchAddressAutocomplete } from "./services/autocomplete";
 
 function shouldReuseCachedReport(report: { address: string; reportData: string; updatedAt: Date }): boolean {
@@ -81,12 +87,21 @@ const NEIGHBOURHOOD_PANELS = {
   "nearby-services": fetchNearbyServices,
   "crime-stats": fetchCrimeStats,
   "flood-risk": fetchFloodRisk,
+  "census-households": fetchCensusHouseholds,
+  broadband: fetchBroadband,
 } as const;
 
 // A cached panel from an older build that lacks data the UI now relies on:
-// nearby places without coordinates can't link to their parcel.
+// nearby places without coordinates can't link to their parcel, and crime
+// stats without the public-order offence counts.
+const REQUIRED_ITEM_FIELD: Record<string, string> = {
+  "nearby-services": "lat",
+  "crime-stats": "publicOrderOffences",
+};
+
 function isOutdatedPanel(panel: ParcelReport["reportPanels"][number]): boolean {
-  return panel.key === "nearby-services" && panel.items.some((item) => typeof item.lat !== "number");
+  const field = REQUIRED_ITEM_FIELD[panel.key];
+  return field !== undefined && panel.items.some((item) => !(field in item));
 }
 
 // Reports cached before the neighbourhood panels / locality existed get them

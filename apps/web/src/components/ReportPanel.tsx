@@ -50,10 +50,13 @@ function FieldValue({ value, isLink, href }: { value: string; isLink?: boolean; 
   return <span>{value}</span>;
 }
 
-function ItemBlock({ item, showHeading }: { item: CuratedItem; showHeading: boolean }) {
+// A heading exists only where a field rule opted in (isHeading), so it is
+// shown even for a panel's single item — it carries data (a permit's type, a
+// broadband technology), not a repeat of the panel title.
+function ItemBlock({ item }: { item: CuratedItem }) {
   return (
     <div className="rounded-2xl border border-mist-200 bg-mist-50 p-4">
-      {showHeading && item.heading ? (
+      {item.heading ? (
         <p className="mb-3 text-lg font-semibold text-mist-900">{item.heading}</p>
       ) : null}
       <dl className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
@@ -78,15 +81,13 @@ function Panel({ panel }: { panel: CuratedPanel }) {
   if (panel.state !== "ok") {
     return (
       <div id={`panel-${panel.key}`} className="scroll-mt-24 rounded-2xl border border-mist-200 bg-white px-5 py-4">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
           <span className="text-lg font-medium text-mist-700">{panel.title}</span>
-          <span className="shrink-0 text-base text-mist-500">{panel.message}</span>
+          <span className="text-base text-mist-500">{panel.message}</span>
         </div>
       </div>
     );
   }
-
-  const showHeadings = panel.items.length > 1;
 
   return (
     <details
@@ -104,8 +105,9 @@ function Panel({ panel }: { panel: CuratedPanel }) {
       </summary>
       <div className="grid gap-3 border-t border-mist-200 p-5">
         {panel.items.map((item, i) => (
-          <ItemBlock key={i} item={item} showHeading={showHeadings} />
+          <ItemBlock key={i} item={item} />
         ))}
+        {panel.note ? <p className="text-base text-mist-600">{panel.note}</p> : null}
         {panel.source ? (
           <div className="border-t border-mist-100 pt-3">
             <SourceLine source={panel.source} />

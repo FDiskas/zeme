@@ -170,13 +170,13 @@ export const DATA_SOURCES: DataSource[] = [
   },
   {
     panelKey: "crime-stats",
-    name: "Nusikalstamų veikų žinybinis registras",
+    name: "Nusikalstamų veikų žinybinis ir Administracinių nusižengimų registrai",
     publisher: "Informatikos ir ryšių departamentas prie VRM (IRD)",
-    api: "maps.ird.lt · NVZRGIS/Gardeles",
+    api: "maps.ird.lt · NVZRGIS/Gardeles, ANRGIS/Gardeles",
     url: "https://maps.ird.lt",
     coverage:
-      "Užregistruotos nusikalstamos veikos (visos, vagystės, nusikaltimai gyvybei ir sveikatai) " +
-      "1×1 km kvadrate, kuriame yra sklypas, palyginti su 5×5 km apylinkių vidurkiu.",
+      "Užregistruotos nusikalstamos veikos (visos, vagystės, nusikaltimai gyvybei ir sveikatai) ir " +
+      "viešosios tvarkos pažeidimai 1×1 km kvadrate, kuriame yra sklypas, palyginti su 5×5 km apylinkių vidurkiu.",
     updateFrequency: "Šaltinis atnaujinamas kas pusmetį; tikrinama kiekvienos ataskaitos metu.",
     status: "live",
     caveat:
@@ -194,6 +194,43 @@ export const DATA_SOURCES: DataSource[] = [
     status: "live",
     caveat:
       "Rodo tik sutapimą su rizikos gardele, ne tikslias užliejimo ribas ar tikimybę – jas reikia tikrinti oficialiame žemėlapyje.",
+  },
+  {
+    panelKey: "census-households",
+    name: "2021 m. gyventojų ir būstų surašymas",
+    publisher: "Lietuvos statistikos departamentas (OSP)",
+    api: "OSP · CENSUS2021_HOUSEHOLDS_GRID1000",
+    url: "https://osp.stat.gov.lt",
+    coverage:
+      "Namų ūkių skaičius, šeimų su vaikais ir vieno asmens namų ūkių dalis 1×1 km kvadrate, " +
+      "palyginti su Lietuvos vidurkiu.",
+    updateFrequency: "Surašymas vyksta kas 10 metų; naujausi duomenys – 2021 m.",
+    status: "live",
+    caveat: "Kai kvadrate mažiau nei 20 namų ūkių, procentai ir palyginimas nerodomi.",
+  },
+  {
+    panelKey: "broadband",
+    name: "Fiksuotojo ryšio tinklų išvystymas",
+    publisher: "Ryšių reguliavimo tarnyba (RRT)",
+    api: "data.gov.lt · rrt/interneto_technologiju_rusys_pastatuose",
+    url: "https://data.gov.lt",
+    coverage:
+      "Kiek pastatų 1×1 km kvadrate turi šviesolaidinį, DSL, kabelinės televizijos ar fiksuotą belaidį interneto ryšį.",
+    updateFrequency: "Operatoriai duomenis teikia kartą per metus; tikrinama kiekvienos ataskaitos metu.",
+    status: "live",
+    caveat: "Rodo, kas yra apylinkėse, o ne konkrečiame pastate – ar ryšys pasiekia sklypą, reikia teirautis operatoriaus.",
+  },
+  {
+    name: "Butų pirkimo sandoriai gardelėse",
+    publisher: "Lietuvos statistikos departamentas (OSP)",
+    api: "OSP · butu_pirkimas_gardelese_geo",
+    url: "https://osp-sdg.stat.gov.lt",
+    coverage: "Butų pirkimo sandorių skaičius ir kainos 1×1 km kvadratuose.",
+    updateFrequency: "—",
+    status: "not-integrated",
+    caveat:
+      "Rinkinyje visoje Lietuvoje 2024 m. – tik apie 500 sandorių, nors rinkoje per metus parduodama dešimtys tūkstančių butų. " +
+      "Tai ne rinkos kainos, todėl neįtraukta, kad neklaidintų. Rinkos vertę rodo Registrų centro masinis vertinimas.",
   },
   {
     name: "Įžuvinimai (žuvų išleidimo įvykiai)",

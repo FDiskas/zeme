@@ -3,8 +3,9 @@ import { parcelCentre } from "./geometry";
 
 // Neighbourhood context — what surrounds the parcel rather than the parcel
 // itself: nearest schools / kindergartens / health facilities, registered crime
-// in the surrounding 1 km grid cell, and flood-risk overlap. All three sources
-// are keyless ArcGIS REST services queried live per report.
+// and public-order offences, census households and broadband in the
+// surrounding 1 km grid cell, and flood-risk overlap. All sources are keyless
+// public APIs queried live per report.
 
 const IRD_NVZR = "https://maps.ird.lt/server/rest/services/NVZRGIS";
 const EDUCATION_LAYER = `${IRD_NVZR}/UGDYMOISTAIGOS/FeatureServer/0`;
@@ -12,6 +13,11 @@ const EDUCATION_LAYER = `${IRD_NVZR}/UGDYMOISTAIGOS/FeatureServer/0`;
 const CRIME_GRID_1KM = `${IRD_NVZR}/Gardeles/FeatureServer/3`;
 const CRIME_GRID_5KM = `${IRD_NVZR}/Gardeles/FeatureServer/5`;
 const CRIME_GRID_10KM = `${IRD_NVZR}/Gardeles/FeatureServer/6`;
+// Administrative offences (ANR), same grid scheme. Fields SK1–SK19 are the ANK
+// special-part chapters in the order the IRD help lists them (ANRGIS help PDF,
+// §1.1.3.1); SK17 = viešoji tvarka. SK15 (transport — mostly speed-camera
+// fines) dwarfs the rest, so the VISI total says little about a neighbourhood.
+const OFFENCE_GRID_1KM = "https://maps.ird.lt/server/rest/services/ANRGIS/Gardeles/FeatureServer/3";
 const HEALTH_LAYER =
   "https://osp-sdg.stat.gov.lt/arcgis/rest/services/Hosted/Gydymo_%C4%AFstaigos/FeatureServer/0";
 // Aplinkos ministerija flood-risk map: 100 m grid cells where a modelled flood
@@ -238,7 +244,7 @@ export async function fetchCrimeStats(geometry: any): Promise<UpstreamPanel> {
   const base: Pick<UpstreamPanel, "key" | "title" | "source"> = {
     key: "crime-stats",
     title: "Užregistruotos nusikalstamos veikos aplinkoje",
-    source: "IRD Nusikalstamų veikų žinybinis registras (maps.ird.lt NVZRGIS)",
+    source: "IRD Nusikalstamų veikų žinybinis ir Administracinių nusižengimų registrai (maps.ird.lt)",
   };
 
   const centre = parcelCentre(geometry);
@@ -247,10 +253,11 @@ export async function fetchCrimeStats(geometry: any): Promise<UpstreamPanel> {
   }
 
   try {
-    const [periods, cellFeatures, areaFeatures] = await Promise.all([
+    const [periods, cellFeatures, areaFeatures, offenceFeatures] = await Promise.all([
       latestCrimePeriods(),
       queryLayer(CRIME_GRID_1KM, { ...pointParams(centre), where: "1=1", outFields: CRIME_FIELDS, returnGeometry: "false" }),
       queryLayer(CRIME_GRID_5KM, { ...pointParams(centre), where: "PERIOD='M'", outFields: CRIME_FIELDS, returnGeometry: "false" }),
+      queryLayer(OFFENCE_GRID_1KM, { ...pointParams(centre), where: "1=1", outFields: "METAI,PERIOD,SK17", returnGeometry: "false" }),
     ]);
 
     const latestYear = periods.fullYear;
@@ -263,7 +270,18 @@ export async function fetchCrimeStats(geometry: any): Promise<UpstreamPanel> {
     const zero = (year: number, period: string): CrimeRow => ({ year, period, all: 0, thefts: 0, violent: 0 });
     const cellRow = (year: number, period: string) =>
       cell.find((r) => r.year === year && r.period === period) ?? zero(year, period);
-    const counts = (r: CrimeRow) => ({ allCrimes: r.all, thefts: r.thefts, violentCrimes: r.violent });
+    const publicOrder = (year: number, period: string): number => {
+      const row = offenceFeatures.find(
+        (f: any) => Number(f.attributes.METAI) === year && f.attributes.PERIOD === period,
+      );
+      return Number(row?.attributes.SK17) || 0;
+    };
+    const counts = (r: CrimeRow) => ({
+      allCrimes: r.all,
+      thefts: r.thefts,
+      violentCrimes: r.violent,
+      publicOrderOffences: publicOrder(r.year, r.period),
+    });
 
     const latest = cellRow(latestYear, "M");
     const areaLatest = area.find((r) => r.year === latestYear) ?? zero(latestYear, "M");
@@ -349,6 +367,171 @@ export async function fetchFloodRisk(geometry: any): Promise<UpstreamPanel> {
       status: "error",
       items: [],
       note: `Klaida tikrinant potvynių riziką: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
+// 2021 population & housing census, households per 1 km grid cell (OSP). The
+// other OSP population grids were rejected: grid250_asmenys_geo is
+// disclosure-rounded to 5s and GRID1000_D_gdb sums to ~23 billion people.
+const CENSUS_HOUSEHOLDS_LAYER =
+  "https://osp-sdg.stat.gov.lt/arcgis/rest/services/Hosted/CENSUS2021_HOUSEHOLDS_GRID1000/FeatureServer/0";
+// National shares from the same layer (1 238 580 households in total).
+const NATIONAL_WITH_CHILDREN_PCT = 26.7;
+const NATIONAL_SINGLE_PERSON_PCT = 36.5;
+// Below this many households a percentage swings on a handful of homes.
+const MIN_HOUSEHOLDS_FOR_SHARES = 20;
+
+const formatPct = (value: number) => value.toLocaleString("lt-LT", { maximumFractionDigits: 1 });
+
+async function censusCellAt(centre: LonLat): Promise<Record<string, any> | null> {
+  const features = await queryLayer(CENSUS_HOUSEHOLDS_LAYER, {
+    ...pointParams(centre),
+    where: "1=1",
+    outFields: "grid_id,households,with_minors,one_person",
+    returnGeometry: "false",
+  });
+  return features[0]?.attributes ?? null;
+}
+
+export async function fetchCensusHouseholds(geometry: any): Promise<UpstreamPanel> {
+  const base: Pick<UpstreamPanel, "key" | "title" | "source"> = {
+    key: "census-households",
+    title: "Gyventojai aplinkui (2021 m. surašymas)",
+    source: "OSP, 2021 m. gyventojų ir būstų surašymas (1 km gardelės)",
+  };
+
+  const centre = parcelCentre(geometry);
+  if (!centre) {
+    return { ...base, status: "error", items: [], note: "Sklypo vieta nežinoma; surašymo duomenų parinkti negalima." };
+  }
+
+  try {
+    const cell = await censusCellAt(centre);
+    const households = Number(cell?.households) || 0;
+    if (households === 0) {
+      return { ...base, status: "ok", items: [], note: "Šiame 1×1 km kvadrate 2021 m. surašymo metu namų ūkių nebuvo." };
+    }
+    if (households < MIN_HOUSEHOLDS_FOR_SHARES) {
+      return {
+        ...base,
+        status: "ok",
+        items: [{ households }],
+        note: "Namų ūkių per mažai, kad palyginimas su Lietuvos vidurkiu būtų patikimas.",
+      };
+    }
+
+    const withChildrenPct = (Number(cell!.with_minors) / households) * 100;
+    const singlePersonPct = (Number(cell!.one_person) / households) * 100;
+    const difference = withChildrenPct - NATIONAL_WITH_CHILDREN_PCT;
+    const familyProfile =
+      difference > 5 ? "Daugiau šeimų su vaikais nei vidutiniškai Lietuvoje"
+        : difference < -5 ? "Mažiau šeimų su vaikais nei vidutiniškai Lietuvoje"
+          : "Šeimų su vaikais – panašiai kaip vidutiniškai Lietuvoje";
+
+    return {
+      ...base,
+      status: "ok",
+      items: [
+        {
+          familyProfile,
+          households,
+          withChildrenShare: `${formatPct(withChildrenPct)} % (Lietuvoje – ${formatPct(NATIONAL_WITH_CHILDREN_PCT)} %)`,
+          singlePersonShare: `${formatPct(singlePersonPct)} % (Lietuvoje – ${formatPct(NATIONAL_SINGLE_PERSON_PCT)} %)`,
+        },
+      ],
+      note: "Duomenys – 1×1 km kvadratui, kuriame yra sklypas. Šeimos su vaikais – namų ūkiai su bent vienu nepilnamečiu.",
+    };
+  } catch (err: any) {
+    return {
+      ...base,
+      status: "error",
+      items: [],
+      note: `Klaida gaunant surašymo duomenis: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
+// Fixed-line broadband per building (RRT), published on data.gov.lt with the
+// building's location reduced to the same 1 km grid id the census uses. Each row
+// is one technology in one building for one reporting round, with a building id
+// that is re-hashed every round — so only the newest round is counted.
+const BROADBAND_MODEL =
+  "https://get.data.gov.lt/datasets/gov/rrt/interneto_technologiju_rusys_pastatuose/InternetTechPastatas";
+
+const BROADBAND_LABELS: [RegExp, string][] = [
+  [/aktyv\S* šviesolaid/i, "Šviesolaidis (aktyvus optinis tinklas)"],
+  [/šviesolaid/i, "Šviesolaidis (optinis tinklas)"],
+  [/bendraaš/i, "Kabelinės televizijos tinklas"],
+  [/varin/i, "Telefono linija (DSL)"],
+  [/^FWA$/i, "Fiksuotas belaidis ryšys"],
+];
+
+function broadbandLabel(technology: string): string {
+  return BROADBAND_LABELS.find(([pattern]) => pattern.test(technology))?.[1] ?? technology;
+}
+
+export async function fetchBroadband(geometry: any): Promise<UpstreamPanel> {
+  const base: Pick<UpstreamPanel, "key" | "title" | "source"> = {
+    key: "broadband",
+    title: "Fiksuotas interneto ryšys aplinkui",
+    source: "Ryšių reguliavimo tarnyba (RRT), data.gov.lt",
+  };
+
+  const centre = parcelCentre(geometry);
+  if (!centre) {
+    return { ...base, status: "error", items: [], note: "Sklypo vieta nežinoma; interneto ryšio duomenų parinkti negalima." };
+  }
+
+  try {
+    // The census layer is the only point → grid-id lookup at hand; a cell with
+    // no households has no buildings to report broadband for either.
+    const gridId = (await censusCellAt(centre))?.grid_id;
+    if (!gridId) {
+      return { ...base, status: "ok", items: [], note: "Šiame 1×1 km kvadrate gyvenamųjų pastatų nėra." };
+    }
+
+    const url =
+      `${BROADBAND_MODEL}?grid_id.grid_id=${encodeURIComponent(JSON.stringify(String(gridId)))}` +
+      "&select(interneto_technologija,iraso_sukurimo_data)&limit(20000)&format(json)";
+    const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!response.ok) throw new Error(`HTTP error ${response.status} from data.gov.lt`);
+    const rows: { interneto_technologija?: string; iraso_sukurimo_data?: string }[] =
+      (await response.json())._data ?? [];
+
+    const newestYear = Math.max(0, ...rows.map((r) => Number(r.iraso_sukurimo_data?.slice(0, 4)) || 0));
+    const newest = rows.filter((r) => r.iraso_sukurimo_data?.startsWith(String(newestYear)));
+    if (newest.length === 0) {
+      return { ...base, status: "ok", items: [], note: "Šiame 1×1 km kvadrate fiksuoto interneto ryšio duomenų nėra." };
+    }
+
+    const buildingsByTechnology = new Map<string, number>();
+    for (const row of newest) {
+      const technology = row.interneto_technologija ?? "";
+      buildingsByTechnology.set(technology, (buildingsByTechnology.get(technology) ?? 0) + 1);
+    }
+
+    const items = [...buildingsByTechnology]
+      .sort((a, b) => b[1] - a[1])
+      .map(([technology, buildings]) => ({
+        technology: broadbandLabel(technology),
+        officialName: technology,
+        buildings,
+      }));
+    const latestDate = newest.map((r) => r.iraso_sukurimo_data!).sort().at(-1);
+
+    return {
+      ...base,
+      status: "ok",
+      items,
+      note: `Pastatai 1×1 km kvadrate, kuriuose operatoriai nurodė šią technologiją (duomenys pateikti ${latestDate}).`,
+    };
+  } catch (err: any) {
+    return {
+      ...base,
+      status: "error",
+      items: [],
+      note: `Klaida gaunant interneto ryšio duomenis: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
 }

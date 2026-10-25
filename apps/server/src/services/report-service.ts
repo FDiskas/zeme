@@ -29,7 +29,13 @@ import {
   type ResolvedBiipAddresses,
 } from "./biip-service";
 import { parcelCentre } from "./geometry";
-import { fetchNearbyServices, fetchCrimeStats, fetchFloodRisk } from "./neighbourhood-service";
+import {
+  fetchNearbyServices,
+  fetchCrimeStats,
+  fetchFloodRisk,
+  fetchCensusHouseholds,
+  fetchBroadband,
+} from "./neighbourhood-service";
 
 const SIX_MONTHS_MS = 1000 * 60 * 60 * 24 * 30 * 6;
 
@@ -143,6 +149,8 @@ export async function buildComprehensiveReport(
     nearbyServices,
     crimeStats,
     floodRisk,
+    censusHouseholds,
+    broadband,
     locality,
   ] = await Promise.all([
     fetchBiipBoundary(targetCadastralRegNo, resolvedAddress),
@@ -165,6 +173,8 @@ export async function buildComprehensiveReport(
     fetchNearbyServices(resolvedCoordinates),
     fetchCrimeStats(resolvedCoordinates),
     fetchFloodRisk(resolvedCoordinates),
+    fetchCensusHouseholds(resolvedCoordinates),
+    fetchBroadband(resolvedCoordinates),
     hasStreetAddress ? Promise.resolve("") : resolveLocalityOf(resolvedCoordinates),
   ]);
 
@@ -208,9 +218,11 @@ export async function buildComprehensiveReport(
       "OSP tarsos_zidiniai",
       "Registrų centras masinis vertinimas",
       "lkmp.alisas.lt miško kirtimo leidimai",
-      "IRD ugdymo įstaigos ir nusikalstamų veikų registras",
+      "IRD ugdymo įstaigos, nusikalstamų veikų ir administracinių nusižengimų registrai",
       "OSP gydymo įstaigos",
-      "Aplinkos ministerija potvynių rizikos žemėlapiai"
+      "Aplinkos ministerija potvynių rizikos žemėlapiai",
+      "OSP 2021 m. gyventojų ir būstų surašymas",
+      "RRT fiksuotojo ryšio tinklai (data.gov.lt)"
     ],
     reportPanels: [
       ospParcelSummary,
@@ -228,7 +240,9 @@ export async function buildComprehensiveReport(
       forestCuttingPermits,
       nearbyServices,
       crimeStats,
-      floodRisk
+      floodRisk,
+      censusHouseholds,
+      broadband
     ],
   };
 }

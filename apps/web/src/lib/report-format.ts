@@ -4,7 +4,7 @@ import { DATA_SOURCES } from "./data-sources";
 // ---------------------------------------------------------------------------
 // Curation layer
 //
-// The server returns ~16 raw panels, each a flat record of English machine-named
+// The server returns many raw panels, each a flat record of English machine-named
 // fields straight from the upstream registries (many empty / "N/A" / metadata).
 // Rendering that verbatim is what made the report "padrika, sunkiai skaitoma".
 //
@@ -15,6 +15,17 @@ import { DATA_SOURCES } from "./data-sources";
 // ---------------------------------------------------------------------------
 
 type RawItem = Record<string, unknown>;
+
+// Panels whose server note is a reading guide the numbers need ("per 1×1 km
+// square", data date, where to check exact flood extents) rather than a count
+// that repeats the items. Shown under the items, or as the empty-state message.
+const NOTE_PANEL_KEYS = new Set([
+  "nearby-services",
+  "crime-stats",
+  "census-households",
+  "broadband",
+  "flood-risk",
+]);
 
 // Panels intentionally kept out of the curated view. Empty by design — the
 // fabricated "scraping-fallback" panel was removed at the source. Add a panel
@@ -178,18 +189,32 @@ const FIELD_RULES: Record<string, Record<string, FieldRule>> = {
   },
   "nearby-services": {
     name: { label: "Pavadinimas", isHeading: true },
+    // Always-present fields first, optional "Tipas" (health places have none)
+    // last — so the address sits in the same grid cell on every card.
     category: { label: "Kas tai" },
-    type: { label: "Tipas" },
     distanceKm: { label: "Atstumas tiesia linija", unit: "km" },
     address: { label: "Adresas", linksToParcelAtPoint: true },
+    type: { label: "Tipas" },
   },
   "crime-stats": {
     period: { label: "Laikotarpis", isHeading: true },
     allCrimes: { label: "Visos nusikalstamos veikos" },
     thefts: { label: "Vagystės" },
     violentCrimes: { label: "Nusikaltimai žmogaus gyvybei ir sveikatai" },
+    publicOrderOffences: { label: "Viešosios tvarkos pažeidimai (administraciniai)" },
     areaAveragePerKm2: { label: "Apylinkių vidurkis 1 km²" },
     comparison: { label: "Palyginimas" },
+  },
+  "census-households": {
+    familyProfile: { label: "Apibendrinimas", isHeading: true },
+    households: { label: "Namų ūkių 1 km² plote" },
+    withChildrenShare: { label: "Šeimos su vaikais" },
+    singlePersonShare: { label: "Vieno asmens namų ūkiai" },
+  },
+  broadband: {
+    technology: { label: "Ryšio technologija", isHeading: true },
+    buildings: { label: "Pastatų, kuriuose yra" },
+    officialName: { label: "Oficialus pavadinimas" },
   },
   "flood-risk": {
     floodType: { label: "Potvynio tipas", isHeading: true },
@@ -225,9 +250,11 @@ const PANEL_TITLES: Record<string, string> = {
   "nearby-services": "Mokyklos, darželiai ir gydymo įstaigos",
   "crime-stats": "Nusikalstamumas aplinkoje",
   "flood-risk": "Potvynių rizika",
+  "census-households": "Gyventojai aplinkui (2021 m. surašymas)",
+  broadband: "Interneto ryšys aplinkui",
 };
 
-// Five reader-friendly groups instead of 16 loose panels.
+// A few reader-friendly groups instead of a long list of loose panels.
 export const CATEGORIES: { id: string; title: string; panelKeys: string[] }[] =
   [
     {
@@ -264,7 +291,7 @@ export const CATEGORIES: { id: string; title: string; panelKeys: string[] }[] =
     {
       id: "aplinka",
       title: "Aplinka ir kaimynystė",
-      panelKeys: ["nearby-services", "crime-stats"],
+      panelKeys: ["nearby-services", "crime-stats", "census-households", "broadband"],
     },
   ];
 
@@ -286,6 +313,7 @@ export type CuratedPanel = {
   state: "ok" | "empty" | "unavailable";
   count: number;
   message?: string; // shown when empty / unavailable
+  note?: string; // reading guide under the items (scope, data date)
   items: CuratedItem[];
   source?: SourceInfo;
 };
@@ -352,12 +380,14 @@ function curatePanel(
   // Drop items that ended up entirely empty after filtering.
   const visibleItems = items.filter((it) => it.heading || it.fields.length > 0);
 
+  const note = NOTE_PANEL_KEYS.has(panel.key) ? panel.note : undefined;
   return {
     key: panel.key,
     title,
     state: visibleItems.length > 0 ? "ok" : "empty",
     count: visibleItems.length,
-    message: visibleItems.length === 0 ? "Įrašų nerasta." : undefined,
+    message: visibleItems.length === 0 ? (note ?? "Įrašų nerasta.") : undefined,
+    note: visibleItems.length > 0 ? note : undefined,
     items: visibleItems,
     source,
   };
@@ -558,6 +588,20 @@ export function buildSummary(report: ParcelReport): ReportSummary {
       state: level === "higher" ? "present" : level === "lower" ? "clear" : "info",
       detail: String(crimeYear.comparison),
       panelKey: "crime-stats",
+    });
+  }
+
+  // Šviesolaidis — fibre in the surrounding 1 km² cell. Absence is shown as
+  // neutral info, not a warning: copper/wireless still gives a connection.
+  const broadbandPanel = findPanel(report, "broadband");
+  if (broadbandPanel?.status === "ok") {
+    const technologies = broadbandPanel.items as RawItem[];
+    const hasFibre = technologies.some((item) => String(item.technology).startsWith("Šviesolaidis"));
+    flags.push({
+      label: "Šviesolaidinis internetas aplinkui",
+      state: hasFibre ? "clear" : "info",
+      detail: hasFibre ? "Yra" : technologies.length > 0 ? "Nėra" : "Nėra duomenų",
+      panelKey: "broadband",
     });
   }
 
