@@ -122,7 +122,10 @@ function WheelZoomOnWideScreens() {
 }
 
 // Map colours live in index.css (.map-neighbor, .map-parcel, .map-building) so
-// they follow the theme tokens; Leaflet only gets stroke weights here.
+// they follow the theme tokens; Leaflet only gets stroke weights here. Spread
+// these as props, never as pathOptions: Leaflet reads className only when it
+// creates the SVG path, and react-leaflet applies pathOptions afterwards via
+// setStyle. (Dev hides this: StrictMode re-adds every layer.)
 const NEIGHBOR_STYLE = { weight: 1, className: "map-neighbor" };
 const PARCEL_STYLE = { weight: 3, className: "map-parcel" };
 const BUILDING_STYLE = { weight: 1, className: "map-building" };
@@ -197,7 +200,7 @@ function ViewportParcelsLayer({
         <Polygon
           key={s.cadastralRegNo}
           positions={s.ring}
-          pathOptions={NEIGHBOR_STYLE}
+          {...NEIGHBOR_STYLE}
           eventHandlers={{
             click: () => onNavigate(s.cadastralRegNo),
           }}
@@ -316,7 +319,7 @@ export function ParcelMap({ report }: Props) {
             <Polygon
               key={n.cadastralRegNo}
               positions={n.ring}
-              pathOptions={NEIGHBOR_STYLE}
+              {...NEIGHBOR_STYLE}
               eventHandlers={{
                 click: () => navigateToParcel(n.cadastralRegNo),
               }}
@@ -329,13 +332,13 @@ export function ParcelMap({ report }: Props) {
           ))}
 
           {polygon.length >= 3 ? (
-            <Polygon pathOptions={PARCEL_STYLE} positions={polygon} />
+            <Polygon {...PARCEL_STYLE} positions={polygon} />
           ) : null}
 
           {buildings.map((b, i) => (
             <Polygon
               key={i}
-              pathOptions={BUILDING_STYLE}
+              {...BUILDING_STYLE}
               positions={b.ring}
             >
               {b.label ? <Tooltip sticky>{b.label}</Tooltip> : null}

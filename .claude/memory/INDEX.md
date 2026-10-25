@@ -27,3 +27,7 @@
 - [rc-masvert-market-value](decisions/rc-masvert-market-value.md) — market value scraped from RC masinis vertinimas (CSRF GET+POST, HTML parse); RC outage = 200 maintenance page; missing value re-fetched from cache. keywords: vidutinė rinkos vertė, market value, masvert, registrucentras, csrf, scraping, daikto vertė
 - [dokploy-deployment](decisions/dokploy-deployment.md) — Confirmed working: Dokploy Compose, reginfo service name, no ports, --ignore-scripts, bunx, scripts/ in context; avoid "latest" pins for typescript/prisma (broke builds twice). keywords: dokploy, deploy, docker, docker-compose, bun, puppeteer, nginx, typescript, latest, openapi-ts
 - [autocomplete-biip-address-fallback](decisions/autocomplete-biip-address-fallback.md) — BIIP addressesSearch fallback when Nominatim returns 0 results for Lithuanian address text. keywords: autocomplete, nominatim, biip, address, search, fallback, postal code, street
+
+## gotchas/
+
+- [react-leaflet-classname-prod-only](gotchas/react-leaflet-classname-prod-only.md) — Leaflet className via pathOptions only works in dev (StrictMode); prod shows default blue polygons. Spread as props; verify maps on a prod build. keywords: leaflet, react-leaflet, className, pathOptions, strictmode, production, map colours
