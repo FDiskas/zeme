@@ -1,8 +1,28 @@
 import puppeteer from "puppeteer";
-import { mkdir, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ParcelReport } from "@zeme/shared";
 import { env } from "../env";
+import { renderParcelMapHtml } from "./parcel-map-image";
+
+// Bump whenever the PDF layout changes so already-generated PDFs are re-rendered.
+const PDF_TEMPLATE_VERSION = 2;
+
+function safeFileId(cadastralRegNo: string): string {
+  return cadastralRegNo.replace(/[^a-zA-Z0-9-_.]/g, "_");
+}
+
+// The name carries a hash of the report data and template version, so a
+// refreshed report or a new layout yields a new file (and URL) rather than
+// serving the old PDF.
+export function pdfFileName(cadastralRegNo: string, reportData: string): string {
+  const hash = createHash("sha256")
+    .update(`${PDF_TEMPLATE_VERSION}\n${reportData}`)
+    .digest("hex")
+    .slice(0, 12);
+  return `${safeFileId(cadastralRegNo)}-${hash}.pdf`;
+}
 
 type ReportPanel = ParcelReport["reportPanels"][number];
 type Building = NonNullable<ParcelReport["buildings"]>[number];
@@ -236,7 +256,7 @@ function renderPanel(panel: ReportPanel): string {
   `;
 }
 
-function buildReportHtml(report: ParcelReport): string {
+function buildReportHtml(report: ParcelReport, mapHtml: string): string {
   const metrics = getReportMetrics(report);
   const generatedAt = formatDate(report.fetchedAt);
   const statusCounts = report.reportPanels.reduce(
@@ -351,6 +371,68 @@ function buildReportHtml(report: ParcelReport): string {
             border-bottom: 1px solid #111;
             padding-bottom: 4px;
             margin-bottom: 10px;
+          }
+
+          /* ── Parcel map ──────────────────────────────── */
+          .parcel-map__frame {
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #bbb;
+            background: #f2efe9;
+          }
+
+          .parcel-map__frame img {
+            position: absolute;
+            width: 256px;
+            height: 256px;
+          }
+
+          .parcel-map__frame svg {
+            position: absolute;
+            inset: 0;
+          }
+
+          .parcel-map__scale,
+          .parcel-map__attribution {
+            position: absolute;
+            bottom: 4px;
+            padding: 1px 5px;
+            background: rgba(255, 255, 255, 0.85);
+            font-family: Arial, sans-serif;
+            font-size: 7.5pt;
+          }
+
+          .parcel-map__scale {
+            left: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+          }
+
+          .parcel-map__scale span {
+            height: 6px;
+            border: 1.5px solid #111;
+            border-top: none;
+          }
+
+          .parcel-map__attribution {
+            right: 4px;
+          }
+
+          .parcel-map__legend {
+            display: flex;
+            gap: 18px;
+            margin-top: 6px;
+            font-size: 9pt;
+          }
+
+          .parcel-map__legend i {
+            display: inline-block;
+            width: 14px;
+            height: 10px;
+            margin-right: 6px;
+            border: 1.5px solid;
+            vertical-align: -1px;
           }
 
           /* ── Definition table ────────────────────────── */
@@ -476,6 +558,13 @@ function buildReportHtml(report: ParcelReport): string {
             <p class="doc-title__cadastral">Kadastro Nr.: ${escapeHtml(report.cadastralRegNo)}</p>
           </div>
 
+          ${mapHtml ? `
+          <section class="doc-section">
+            <h2>Sklypas žemėlapyje</h2>
+            ${mapHtml}
+          </section>
+          ` : ""}
+
           <section class="doc-section">
             <h2>Pagrindiniai duomenys</h2>
             ${summaryTable}
@@ -510,7 +599,18 @@ function buildReportHtml(report: ParcelReport): string {
   `;
 }
 
-export async function renderReportPdf(report: ParcelReport): Promise<string | undefined> {
+// Older PDFs of the same parcel (any earlier hash, or the pre-hash `<id>.pdf`).
+async function removeOutdatedPdfs(outDir: string, cadastralRegNo: string, keep: string) {
+  const escapedId = safeFileId(cadastralRegNo).replaceAll(".", "\\.");
+  const sameParcel = new RegExp(`^${escapedId}(-[0-9a-f]{12})?\\.pdf$`);
+  const outdated = (await readdir(outDir)).filter((name) => name !== keep && sameParcel.test(name));
+  await Promise.all(outdated.map((name) => rm(join(outDir, name), { force: true })));
+}
+
+export async function renderReportPdf(
+  report: ParcelReport,
+  fileName: string,
+): Promise<string | undefined> {
   // Keep local development fast: if Chromium is unavailable, the app still returns JSON.
   if (env.DISABLE_PDF) {
     return undefined;
@@ -519,8 +619,7 @@ export async function renderReportPdf(report: ParcelReport): Promise<string | un
   const outDir = join(process.cwd(), "generated", "pdf");
   await mkdir(outDir, { recursive: true });
 
-  const safeId = report.cadastralRegNo.replace(/[^a-zA-Z0-9-_.]/g, "_");
-  const output = join(outDir, `${safeId}.pdf`);
+  const output = join(outDir, fileName);
 
   try {
     const browser = await puppeteer.launch({
@@ -530,11 +629,12 @@ export async function renderReportPdf(report: ParcelReport): Promise<string | un
     });
     try {
       const page = await browser.newPage();
-      const html = buildReportHtml(report);
+      const html = buildReportHtml(report, await renderParcelMapHtml(report));
 
       await page.setContent(html, { waitUntil: "domcontentloaded" });
       const bytes = await page.pdf({ format: "A4", printBackground: true, preferCSSPageSize: true });
       await writeFile(output, bytes);
+      await removeOutdatedPdfs(outDir, report.cadastralRegNo, fileName);
 
       return output;
     } finally {

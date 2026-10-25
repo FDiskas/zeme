@@ -3,7 +3,7 @@ name: ux-goal-elderly-readability
 description: Core UX goal — full redesign: modern, comfortable, readable map+report for elderly users; visual theme = land & buildings
 keywords: ux, ui, map, report, readability, elderly, senyvi, accessibility, organization, design-goal, redesign, modern, theme, land, buildings, zeme, pastatai
 created: 2026-06-01
-updated: 2026-06-14
+updated: 2026-10-25
 ---
 
 **Goal:** Full **redesign** of the product UI. It must feel **modern** yet **comfortable for older/elderly people** (senyvo amžiaus žmonės). The current map + information display is scattered, hard to read, and disorganized — it shows both excessive AND missing information. The visual **theme is "the land and buildings"** (žemė ir pastatai) — fitting for this real-estate/parcel product.
@@ -16,5 +16,6 @@ updated: 2026-06-14
 - Favor large legible type, high contrast, generous spacing, obvious affordances.
 - Reduce cognitive load — progressive disclosure over walls of data.
 - Visual direction is **"Fresh Natural Green"** (chosen 2026-06-14): modern, crisp, map-forward — deep emerald (forest) primary, lime accent, cool mist neutrals; Space Grotesk display + Inter body. Theme = land/buildings without rustic heaviness.
+- User preference (2026-10-25): the **map should be big** and the **information concise**. Main audience is people checking a parcel before buying; it must be intuitive and work on mobile. Parcel page is map-first (sticky full-height map beside a narrow report column on desktop, edge-to-edge map first on phones). Don't shrink the map back or reintroduce tile/card grids for facts.
 - Follow [[redesign-approach]] for methodology (SOLID + ui-ux-pro-max + codebase MCP). Design tokens live in [[design-system-tokens]].
 - Pair with [[agent-memory-workflow]]; relates to the ReportPanel and map rendering work.

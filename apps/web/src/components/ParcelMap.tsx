@@ -38,7 +38,7 @@ function toBuildingShapes(report: ParcelReport): BuildingShape[] {
       if (b.areaSqM != null) parts.push(`${Math.round(b.areaSqM)} m²`);
       if (b.floors != null) parts.push(`${b.floors} a.`);
       if (b.constructionYear != null) parts.push(`${b.constructionYear} m.`);
-      return { ring, label: parts.length ? parts.join(" · ") : null };
+      return { ring, label: parts.length ? parts.join(", ") : null };
     })
     .filter((b) => b.ring.length >= 3);
 }
@@ -74,20 +74,49 @@ function FitToParcel({ positions }: { positions: [number, number][] }) {
     } else if (positions.length === 1) {
       map.setView(positions[0]!, 17);
     }
-    // Trigger map invalidation to ensure full-size layout renders perfectly
-    setTimeout(() => {
-      map.invalidateSize();
-    }, 100);
   }, [positions, map]);
   return null;
 }
 
-// Map colours follow the theme tokens: neighbours sit quietly in mist, the
-// subject parcel is forest (the land), buildings stand out in warm amber.
-const NEIGHBOR_STYLE = { color: "#9aa8a0", weight: 1, fillColor: "#cbd6cf", fillOpacity: 0.15, className: "cursor-pointer" };
-const NEIGHBOR_HOVER_STYLE = { color: "#047857", weight: 2, fillColor: "#6dd6a8", fillOpacity: 0.35, className: "cursor-pointer" };
-const PARCEL_STYLE = { color: "#047857", weight: 3, fillColor: "#34c084", fillOpacity: 0.22 };
-const BUILDING_STYLE = { color: "#b45309", weight: 1, fillColor: "#f59e0b", fillOpacity: 0.55 };
+// The page sizes the map frame (full screen height on desktop, a share of the
+// phone screen), and that size settles after Leaflet has measured it. Re-measure
+// whenever the container resizes so the tiles always fill the frame.
+function FillContainer() {
+  const map = useMap();
+  useEffect(() => {
+    const observer = new ResizeObserver(() => map.invalidateSize());
+    observer.observe(map.getContainer());
+    return () => observer.disconnect();
+  }, [map]);
+  return null;
+}
+
+// From the lg breakpoint the parcel map stays put beside the report, so the
+// mouse wheel over it zooms the map. Below lg the map sits inside the scrolling
+// page, so the wheel keeps scrolling the page and zoom is left to pinch and +/-.
+// Follows the window across the breakpoint (resize, rotate).
+const WIDE_SCREEN = "(min-width: 64rem)";
+
+function WheelZoomOnWideScreens() {
+  const map = useMap();
+  useEffect(() => {
+    const query = window.matchMedia(WIDE_SCREEN);
+    const apply = () => {
+      if (query.matches) map.scrollWheelZoom.enable();
+      else map.scrollWheelZoom.disable();
+    };
+    apply();
+    query.addEventListener("change", apply);
+    return () => query.removeEventListener("change", apply);
+  }, [map]);
+  return null;
+}
+
+// Map colours live in index.css (.map-neighbor, .map-parcel, .map-building) so
+// they follow the theme tokens; Leaflet only gets stroke weights here.
+const NEIGHBOR_STYLE = { weight: 1, className: "map-neighbor" };
+const PARCEL_STYLE = { weight: 3, className: "map-parcel" };
+const BUILDING_STYLE = { weight: 1, className: "map-building" };
 
 // The minimum zoom at which the viewport parcel layer kicks in.
 // Below this level there are too many parcels to load and show usefully.
@@ -162,13 +191,11 @@ function ViewportParcelsLayer({
           pathOptions={NEIGHBOR_STYLE}
           eventHandlers={{
             click: () => onNavigate(s.cadastralRegNo),
-            mouseover: (e) => e.target.setStyle(NEIGHBOR_HOVER_STYLE),
-            mouseout: (e) => e.target.setStyle(NEIGHBOR_STYLE),
           }}
         >
           <Tooltip sticky>
             {s.cadastralRegNo}
-            <span className="block text-mist-500">Spustelėkite, kad pamatytumėte ataskaitą</span>
+            <span className="block text-mist-600">Spustelėkite, kad pamatytumėte ataskaitą</span>
           </Tooltip>
         </Polygon>
       ))}
@@ -181,18 +208,19 @@ function ViewportParcelsLayer({
 const LITHUANIA_CENTER: [number, number] = [55.33, 23.88];
 const LITHUANIA_ZOOM = 8;
 
-// Shows the current "zoom in to see parcels" hint on the standalone explore
-// map, since ViewportParcelsLayer silently renders nothing below the
-// threshold and the user otherwise has no clue why.
+// Shows a "zoom in to see parcels" hint whenever the map is zoomed out past the
+// viewport layer's threshold, since ViewportParcelsLayer silently renders
+// nothing there and the user otherwise has no clue why.
 function ZoomHint() {
-  const [zoom, setZoom] = useState(LITHUANIA_ZOOM);
-  const map = useMapEvents({
+  const map = useMap();
+  const [zoom, setZoom] = useState(() => map.getZoom());
+  useMapEvents({
     zoomend: () => setZoom(map.getZoom()),
   });
 
   if (zoom >= MIN_ZOOM_FOR_VIEWPORT) return null;
   return (
-    <div className="pointer-events-none absolute left-1/2 top-4 z-1000 -translate-x-1/2 rounded-xl bg-mist-900/85 px-4 py-2 text-base font-semibold text-white shadow-soft">
+    <div className="pointer-events-none absolute left-1/2 top-4 z-1000 w-max max-w-[calc(100%-6rem)] -translate-x-1/2 rounded-xl bg-mist-900/90 px-4 py-2 text-center text-base font-semibold text-white shadow-soft">
       Priartinkite žemėlapį, kad pamatytumėte sklypus
     </div>
   );
@@ -208,9 +236,10 @@ export function ExploreMap() {
   }
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-mist-200 bg-white shadow-soft">
-      <div className="relative h-[70vh] w-full">
+    <div className="-mx-4 flex min-h-96 flex-1 flex-col overflow-hidden border-y border-mist-200 bg-white md:mx-0 md:rounded-2xl md:border">
+      <div className="relative min-h-0 flex-1">
         <MapContainer center={LITHUANIA_CENTER} zoom={LITHUANIA_ZOOM} className="h-full w-full">
+          <FillContainer />
           <ZoomHint />
           <ViewportParcelsLayer excludeIds={EMPTY_IDS} onNavigate={navigateToParcel} />
           <TileLayer
@@ -247,24 +276,26 @@ export function ParcelMap({ report }: Props) {
 
   if (polygon.length === 0) {
     return (
-      <div className="rounded-3xl border border-mist-200 bg-mist-50 p-6 text-lg text-mist-700">
-        Šio sklypo vietos žemėlapyje parodyti negalime – viešuose duomenų šaltiniuose nėra jo ribų.
+      <div className="flex min-h-48 items-center rounded-2xl border border-mist-200 bg-white p-6 text-lg text-mist-700 lg:h-full">
+        Šio sklypo vietos žemėlapyje parodyti negalime, nes viešuose duomenų šaltiniuose nėra jo ribų.
       </div>
     );
   }
 
   const center = polygon[0]!;
   const hasBuildings = buildings.length > 0;
-  const hasNeighbors = neighbors.length > 0;
 
+  // Mobile: the map runs edge to edge under the header with the legend below
+  // it. Desktop: the page makes this frame the full height of the screen and
+  // the legend floats over the map's lower-left corner.
   return (
-    <div className="overflow-hidden rounded-3xl border border-mist-200 bg-white shadow-soft">
-      <div className="relative h-96 w-full md:h-130">
-        {/* scrollWheelZoom off so scrolling the page over the map doesn't hijack
-            into a zoom (desktop) — pinch-zoom + the +/- controls still work on
-            touch. Keeps the map cooperative inside a vertically-scrolling page. */}
+    <div className="-mx-4 flex flex-col overflow-hidden border-y border-mist-200 bg-white md:mx-0 md:rounded-2xl md:border lg:h-full">
+      <div className="relative h-[45svh] min-h-72 w-full lg:h-auto lg:min-h-0 lg:flex-1">
         <MapContainer center={center} zoom={16} scrollWheelZoom={false} className="h-full w-full">
+          <WheelZoomOnWideScreens />
+          <FillContainer />
           <FitToParcel positions={polygon} />
+          <ZoomHint />
           <ViewportParcelsLayer excludeIds={excludeIds} onNavigate={navigateToParcel} />
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -279,13 +310,11 @@ export function ParcelMap({ report }: Props) {
               pathOptions={NEIGHBOR_STYLE}
               eventHandlers={{
                 click: () => navigateToParcel(n.cadastralRegNo),
-                mouseover: (e) => e.target.setStyle(NEIGHBOR_HOVER_STYLE),
-                mouseout: (e) => e.target.setStyle(NEIGHBOR_STYLE),
               }}
             >
               <Tooltip sticky>
                 {n.cadastralRegNo}
-                <span className="block text-mist-500">Spustelėkite, kad pamatytumėte ataskaitą</span>
+                <span className="block text-mist-600">Spustelėkite, kad pamatytumėte ataskaitą</span>
               </Tooltip>
             </Polygon>
           ))}
@@ -304,31 +333,39 @@ export function ParcelMap({ report }: Props) {
             </Polygon>
           ))}
         </MapContainer>
+
+        {/* Legend so the colours on the map mean something at a glance. */}
+        {/* Desktop shapes carry their own "spustelėkite" tooltip, so the floating
+            legend stays short and covers as little of the map as it can. */}
+        <ul className="pointer-events-none absolute bottom-3 left-3 z-1000 hidden gap-0.5 rounded-xl border border-mist-200 bg-white/95 px-3 py-2 text-base text-mist-800 shadow-soft lg:grid">
+          <MapLegendItems hasBuildings={hasBuildings} neighborHint={false} />
+        </ul>
       </div>
 
-      {/* Legend so the colours on the map mean something at a glance. */}
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-mist-200 px-5 py-3.5 text-base text-mist-700">
-        <span className="flex items-center gap-2">
-          <span className="inline-block h-4 w-4 rounded-sm border-2 border-forest-600 bg-forest-400/40" aria-hidden="true" />
-          Jūsų sklypas
-        </span>
-        {hasBuildings ? (
-          <span className="flex items-center gap-2">
-            <span className="inline-block h-4 w-4 rounded-sm border border-amber-700 bg-amber-200" aria-hidden="true" />
-            Pastatai
-          </span>
-        ) : null}
-        {hasNeighbors ? (
-          <span className="flex items-center gap-2">
-            <span className="inline-block h-4 w-4 rounded-sm border border-mist-400 bg-mist-300/50" aria-hidden="true" />
-            Gretimi sklypai – spustelėkite norėdami atidaryti
-          </span>
-        ) : null}
-      </div>
-
-      <p className="border-t border-mist-100 px-5 py-3 text-base text-mist-500">
-        Artėjant žemėlapį (zoom ≥ 15) matomi visi aplinkiniai sklypai — spustelėkite bet kurį.
-      </p>
+      <ul className="flex flex-wrap gap-x-5 gap-y-1 border-t border-mist-200 px-4 py-2.5 text-base text-mist-800 lg:hidden">
+        <MapLegendItems hasBuildings={hasBuildings} neighborHint />
+      </ul>
     </div>
+  );
+}
+
+function MapLegendItems({ hasBuildings, neighborHint }: { hasBuildings: boolean; neighborHint: boolean }) {
+  return (
+    <>
+      <li className="flex items-center gap-2">
+        <span className="inline-block h-4 w-4 shrink-0 rounded-sm border-2 border-forest-700 bg-forest-400/40" aria-hidden="true" />
+        Jūsų sklypas
+      </li>
+      {hasBuildings ? (
+        <li className="flex items-center gap-2">
+          <span className="inline-block h-4 w-4 shrink-0 rounded-sm border border-amber-700 bg-amber-400/60" aria-hidden="true" />
+          Pastatai
+        </li>
+      ) : null}
+      <li className="flex items-center gap-2">
+        <span className="inline-block h-4 w-4 shrink-0 rounded-sm border border-mist-500 bg-mist-300/50" aria-hidden="true" />
+        {neighborHint ? "Gretimi sklypai: spustelėkite, kad atidarytumėte" : "Gretimi sklypai"}
+      </li>
+    </>
   );
 }

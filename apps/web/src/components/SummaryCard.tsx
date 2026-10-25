@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { ParcelReport } from "@zeme/shared";
 import { buildSummary, findParcelUniqueNumber, parcelCenter, type SummaryFlag } from "../lib/report-format";
 import { CheckIcon, ChevronRight, InfoIcon, PinIcon, WarningIcon } from "./icons";
@@ -14,15 +15,16 @@ function revealPanel(panelKey: string) {
 
 type Props = {
   report: ParcelReport;
+  /** Report-level actions (PDF, refresh), shown right under the address. */
+  actions?: ReactNode;
 };
 
-// Flag colours map to meaning, never decoration: forest = clear/positive,
-// amber = something present to check, mist = neutral/info. Each also carries an
-// icon so meaning never rests on colour alone (ux: color-not-only).
-const FLAG_STYLES: Record<SummaryFlag["state"], string> = {
-  clear: "border-forest-200 bg-forest-50 text-forest-800",
-  present: "border-amber-200 bg-amber-50 text-amber-900",
-  info: "border-mist-200 bg-mist-50 text-mist-800",
+// Flag meaning rides on the icon and the value's colour, never on colour alone
+// (ux: color-not-only): forest = clear, amber = something to check, mist = info.
+const FLAG_DETAIL_STYLES: Record<SummaryFlag["state"], string> = {
+  clear: "text-forest-800",
+  present: "text-amber-900",
+  info: "text-mist-800",
 };
 
 function FlagIcon({ state }: { state: SummaryFlag["state"] }) {
@@ -31,7 +33,7 @@ function FlagIcon({ state }: { state: SummaryFlag["state"] }) {
   return <InfoIcon className="h-6 w-6 shrink-0 text-mist-500" />;
 }
 
-export function SummaryCard({ report }: Props) {
+export function SummaryCard({ report, actions }: Props) {
   const { facts, flags } = buildSummary(report);
   const uniqueNumber = findParcelUniqueNumber(report);
 
@@ -49,95 +51,96 @@ export function SummaryCard({ report }: Props) {
     : undefined;
 
   return (
-    <section className="overflow-hidden rounded-3xl border border-mist-200 bg-white shadow-soft">
-      {/* Header band — emerald wash ties the address to the brand. */}
-      <div className="flex flex-col gap-4 border-b border-mist-200 bg-linear-to-br from-forest-50 to-lime-50/50 px-6 py-6 sm:flex-row sm:items-start sm:justify-between md:px-8">
-        <div className="min-w-0">
-          <p className="text-base font-semibold uppercase tracking-wide text-forest-700">
-            Sklypo apžvalga
-          </p>
-          <h2 className="mt-1 font-display text-2xl font-bold tracking-tight text-mist-900 md:text-3xl">
+    <section className="overflow-hidden rounded-2xl border border-mist-200 bg-white">
+      <div className="grid gap-4 p-5">
+        <div className="grid gap-1">
+          <h1 className="font-display text-2xl font-bold leading-tight tracking-tight text-mist-900">
             {hasAddress ? report.address : "Žemės sklypas be priskirto adreso"}
-          </h2>
-          {locality ? (
-            <p className="mt-1 text-xl font-semibold text-mist-800">Vietovė: {locality}</p>
-          ) : null}
-          <p className="mt-1 text-lg text-mist-600">Kadastrinis Nr. {report.cadastralRegNo}</p>
-          {uniqueNumber ? (
-            <p className="text-lg text-mist-600">Unikalus Nr. {uniqueNumber}</p>
-          ) : null}
-          {report.hasStreetAddress === false && center ? (
-            <p className="mt-1 text-base text-mist-500">
-              Sklypo centras: {center.lat.toFixed(5)}, {center.lng.toFixed(5)}
-            </p>
+          </h1>
+          {locality ? <p className="text-lg font-semibold text-mist-800">Vietovė: {locality}</p> : null}
+          <dl className="mt-1 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 text-base text-mist-600">
+            <dt>Kadastrinis Nr.</dt>
+            <dd className="font-semibold text-mist-900 tabular-nums">{report.cadastralRegNo}</dd>
+            {uniqueNumber ? (
+              <>
+                <dt>Unikalus Nr.</dt>
+                <dd className="font-semibold text-mist-900 tabular-nums">{uniqueNumber}</dd>
+              </>
+            ) : null}
+            {report.hasStreetAddress === false && center ? (
+              <>
+                <dt>Sklypo centras</dt>
+                <dd className="tabular-nums text-mist-900">
+                  {center.lat.toFixed(5)}, {center.lng.toFixed(5)}
+                </dd>
+              </>
+            ) : null}
+          </dl>
+          {mapsUrl ? (
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-1 inline-flex w-fit items-center gap-1.5 whitespace-nowrap rounded-md text-base font-semibold text-forest-700 underline decoration-forest-300 underline-offset-4 transition-colors hover:text-forest-900 hover:decoration-forest-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600"
+            >
+              <PinIcon className="h-5 w-5 shrink-0" />
+              Žemėlapyje (Google)
+            </a>
           ) : null}
         </div>
 
-        {mapsUrl ? (
-          <a
-            href={mapsUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex shrink-0 items-center gap-2 rounded-2xl border border-forest-200 bg-white px-5 py-3 text-lg font-semibold text-forest-700 shadow-sm transition hover:-translate-y-0.5 hover:border-forest-300 hover:shadow-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600"
-          >
-            <PinIcon className="h-5 w-5 shrink-0" />
-            Žemėlapyje (Google)
-          </a>
-        ) : null}
+        {actions}
       </div>
 
-      <div className="p-6 md:p-8">
-        {facts.length > 0 ? (
-          <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {facts.map((fact) => (
-              <div
-                key={fact.label}
-                className="rounded-2xl border border-mist-200 bg-mist-50 px-5 py-4 transition hover:border-forest-200"
-              >
-                <dt className="text-base text-mist-500">{fact.label}</dt>
-                <dd className="mt-1 font-display text-2xl font-bold tracking-tight text-mist-900">
-                  {fact.value}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        ) : null}
+      {facts.length > 0 ? (
+        <dl className="divide-y divide-mist-200 border-t border-mist-200 px-5">
+          {facts.map((fact) => (
+            <div key={fact.label} className="flex items-baseline justify-between gap-4 py-2.5">
+              <dt className="text-base text-mist-600">{fact.label}</dt>
+              <dd className="text-right text-lg font-semibold text-mist-900 tabular-nums">{fact.value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
 
-        {flags.length > 0 ? (
-          <div className={`grid gap-3 sm:grid-cols-2 ${facts.length > 0 ? "mt-3" : ""}`}>
-            {flags.map((flag) => {
-              const base = `flex items-center gap-3 rounded-2xl border px-5 py-4 ${FLAG_STYLES[flag.state]}`;
-              const body = (
-                <>
-                  <FlagIcon state={flag.state} />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-base font-medium leading-tight">{flag.label}</p>
-                    <p className="text-lg font-bold leading-tight">{flag.detail}</p>
-                  </div>
-                  {flag.panelKey ? (
-                    <ChevronRight className="h-5 w-5 shrink-0 opacity-60" />
-                  ) : null}
-                </>
-              );
+      {flags.length > 0 ? (
+        <ul className="divide-y divide-mist-200 border-t border-mist-200">
+          {flags.map((flag) => {
+            const body = (
+              <>
+                <FlagIcon state={flag.state} />
+                {/* Label and value keep their own columns; a long value wraps
+                    inside its column, beside its label, never under it. */}
+                <span className="grid min-w-0 flex-1 grid-cols-[minmax(min-content,1fr)_minmax(min-content,auto)] items-baseline gap-x-3 text-base">
+                  <span className="text-mist-800">{flag.label}</span>
+                  <span className={`max-w-44 text-right font-semibold ${FLAG_DETAIL_STYLES[flag.state]}`}>
+                    {flag.detail}
+                  </span>
+                </span>
+                {flag.panelKey ? <ChevronRight className="h-5 w-5 shrink-0 text-mist-500" /> : null}
+              </>
+            );
 
-              return flag.panelKey ? (
-                <button
-                  key={flag.label}
-                  type="button"
-                  onClick={() => revealPanel(flag.panelKey!)}
-                  className={`${base} w-full text-left transition hover:-translate-y-0.5 hover:shadow-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600`}
-                >
-                  {body}
-                </button>
-              ) : (
-                <div key={flag.label} className={base}>
-                  {body}
-                </div>
-              );
-            })}
-          </div>
-        ) : null}
-      </div>
+            // Rows that need a closer look keep a quiet amber wash, so they
+            // stand out on a scan the way the old status tiles did.
+            return (
+              <li key={flag.label} className={flag.state === "present" ? "bg-amber-50" : undefined}>
+                {flag.panelKey ? (
+                  <button
+                    type="button"
+                    onClick={() => revealPanel(flag.panelKey!)}
+                    className="flex min-h-12 w-full items-center gap-3 px-5 py-2.5 text-left transition-colors hover:bg-mist-100 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-forest-600 active:bg-mist-200"
+                  >
+                    {body}
+                  </button>
+                ) : (
+                  <div className="flex min-h-12 items-center gap-3 px-5 py-2.5">{body}</div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
     </section>
   );
 }

@@ -1,4 +1,5 @@
 import { os } from "@orpc/server";
+import { basename } from "node:path";
 import { prisma } from "./db";
 import {
   parcelAutocompleteInputSchema,
@@ -222,13 +223,14 @@ const resolveByPoint = os
 
 // On-demand PDF generation. Returns the URL for an already-cached PDF if one
 // exists, otherwise renders a new one and caches the path in the database.
+// The cached file only counts when its name matches the current report data
+// (see pdfFileName) and it is still on disk — a render that raced a report
+// refresh, or a layout change, therefore falls through to a fresh render.
 const generatePdf = os
   .input(parcelPdfInputSchema)
   .output(parcelPdfOutputSchema)
   .handler(async ({ input }) => {
-    const { renderReportPdf } = await import("./services/pdf");
-    const safeId = input.cadastralRegNo.replace(/[^a-zA-Z0-9-_.]/g, "_");
-    const pdfUrl = `/api/pdf/${safeId}.pdf`;
+    const { pdfFileName, renderReportPdf } = await import("./services/pdf");
 
     const existing = await prisma.parcelReport.findUnique({
       where: { cadastralRegNo: input.cadastralRegNo },
@@ -238,12 +240,19 @@ const generatePdf = os
       throw new Error("Report not found. Fetch the report first.");
     }
 
-    if (existing.pdfCachedPath) {
+    const fileName = pdfFileName(input.cadastralRegNo, existing.reportData);
+    const pdfUrl = `/api/pdf/${fileName}`;
+
+    if (
+      existing.pdfCachedPath &&
+      basename(existing.pdfCachedPath) === fileName &&
+      (await Bun.file(existing.pdfCachedPath).exists())
+    ) {
       return { pdfUrl };
     }
 
     const report = parcelReportSchema.parse(JSON.parse(existing.reportData));
-    const pdfPath = await renderReportPdf(report);
+    const pdfPath = await renderReportPdf(report, fileName);
     if (!pdfPath) {
       throw new Error("PDF generation failed.");
     }

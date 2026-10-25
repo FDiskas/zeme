@@ -1,0 +1,29 @@
+[
+ {
+  "mode": "redesign",
+  "depth": "full",
+  "scope": "app",
+  "shape": "app screen",
+  "theme": "brand",
+  "axes": "light/grotesk-sans/chromatic-emerald",
+  "hero": "none (app)",
+  "nav": "kept top bar, current page marked",
+  "footer": "one line, note and GitHub",
+  "imagery": "the product map (Leaflet + OSM)",
+  "photos": [],
+  "entry": "/parcel/:id",
+  "fingerprint": "map-left-sticky/report-ledger-right",
+  "sections": [
+   "parcel workbench",
+   "explore map full height",
+   "home search",
+   "data sources"
+  ],
+  "signature": "the parcel outline on a sticky full-height map",
+  "waived": [
+   "39b"
+  ],
+  "prompt": "Parcel-information portal for people checking land before buying: convenient, intuitive, mobile, bigger map, more concise information",
+  "date": "2026-10-25"
+ }
+]

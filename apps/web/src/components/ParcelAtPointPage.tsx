@@ -41,11 +41,11 @@ export function ParcelAtPointPage() {
   const effectiveState: LookupState = validPoint ? state : "not-found";
 
   return (
-    <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8 md:px-8">
+    <main className="mx-auto grid w-full max-w-shell gap-6 px-4 py-8 md:px-8">
       <button
         type="button"
         onClick={() => navigate(-1)}
-        className="inline-flex w-fit items-center gap-2 rounded-lg px-1 py-1 text-lg font-semibold text-forest-700 transition hover:text-forest-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600"
+        className="inline-flex w-fit items-center gap-1.5 rounded-lg py-1 text-lg font-semibold text-forest-700 transition-colors hover:text-forest-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600"
       >
         <ChevronLeft className="h-5 w-5" />
         Atgal
@@ -55,7 +55,7 @@ export function ParcelAtPointPage() {
         {effectiveState === "searching" ? (
           <>
             <Spinner />
-            <p className="text-xl text-mist-600">Ieškomas šios vietos sklypas…</p>
+            <p className="text-xl text-mist-700">Ieškomas šios vietos sklypas…</p>
           </>
         ) : (
           <>
@@ -66,7 +66,7 @@ export function ParcelAtPointPage() {
             </p>
             <Link
               to="/zemelapis"
-              className="text-lg font-semibold text-forest-700 underline decoration-forest-300 underline-offset-2 hover:text-forest-800"
+              className="rounded-sm text-lg font-semibold text-forest-700 underline decoration-forest-300 underline-offset-4 transition-colors hover:text-forest-900 hover:decoration-forest-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600"
             >
               Ieškoti žemėlapyje
             </Link>

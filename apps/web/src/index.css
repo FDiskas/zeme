@@ -1,18 +1,26 @@
+/* Hallmark · shape: app screen · genre: modern-minimal · theme: brand · redesign: full
+ * paper: oklch(98.3% 0.004 165) · accent: oklch(50.8% 0.118 165) · display: Space Grotesk · body: Inter
+ * nav: kept, top bar with the current page marked · signature: the parcel outline on a sticky full-height map · states: loading, error, full, no geometry
+ * axes: light/grotesk-sans/chromatic-emerald · posture: restrained · contrast: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H5 E4 S4 R4 V3 · weakest: V, the shell and palette are the brand's and stay; the variety is in the workbench, map first and the report as a ledger beside it */
+/* Hallmark · waive 39b · fields and buttons stand 44 to 48px on every screen · the readers are older Lithuanians checking land before a purchase, and a 48px field reads and taps easier than 40px */
+/* Hallmark · dropped onClick={onSearch}, onKeyDown={(event) => { if (event.key === "Enter") onSearch(); }} · both now run through one form onSubmit, so Enter and the button still call onSearch */
+
 @import "tailwindcss";
 
 /* ===========================================================================
-   Design tokens — "Fresh Natural Green" (modern)
+   Design tokens: "Fresh Natural Green"
    ---------------------------------------------------------------------------
    Single source of truth for the whole UI. Components use these scales by name
    (never raw hex), so a palette change happens in exactly one place.
 
    Semantic roles:
-     forest → primary action / brand (deep emerald, "the land")  — buttons, links
-     lime   → vivid accent / highlight                            — badges, marks
-     mist   → cool neutral surfaces, borders, text                — cards, dividers
-     amber  → caution flag (something present to check)           — warnings
-   Pairs below target WCAG AA (>=4.5:1 body, >=3:1 large text). The audience is
-   older readers, so type is large and contrast is deliberately generous.
+     forest → primary action / brand (deep emerald, "the land")  : buttons, links
+     lime   → vivid accent / highlight                            : badges, marks
+     mist   → cool neutral surfaces, borders, text                : cards, dividers
+     amber  → caution flag (something present to check)           : warnings
+   Text uses mist-600 or darker so every pair passes WCAG AA on mist-50 and
+   white; mist-500 is the floor for field edges and icons (3:1).
    =========================================================================== */
 @theme {
 	--font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
@@ -56,55 +64,59 @@
 	--color-amber-50: #fffbeb;
 	--color-amber-100: #fef3c7;
 	--color-amber-200: #fde68a;
+	--color-amber-400: #f59e0b;
 	--color-amber-700: #b45309;
 	--color-amber-900: #78350f;
 
-	/* Modern soft elevation scale (cool-tinted, not muddy black). */
+	/* One page width for the shell and every screen (max-w-shell). */
+	--container-shell: 88rem;
+
+	/* Soft elevation (cool-tinted, not muddy black). */
 	--shadow-soft: 0 1px 2px rgb(20 32 27 / 0.04), 0 8px 24px -12px rgb(20 32 27 / 0.12);
-	--shadow-lift: 0 2px 4px rgb(20 32 27 / 0.05), 0 18px 40px -18px rgb(20 32 27 / 0.22);
+}
 
-	--animate-rise: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
-
-	@keyframes rise {
-		from {
-			opacity: 0;
-			transform: translateY(10px);
-		}
-		to {
-			opacity: 1;
-			transform: none;
-		}
+@layer base {
+	:root {
+		color: var(--color-mist-900);
+		background-color: var(--color-mist-50);
+		-webkit-font-smoothing: antialiased;
+		text-rendering: optimizeLegibility;
 	}
-}
 
-:root {
-	color: var(--color-mist-900);
-	background-color: var(--color-mist-50);
-	/* Soft emerald horizon glow — fresh, not loud. */
-	background-image:
-		radial-gradient(ellipse 70% 45% at 50% -8%, #e3f7ee 0%, transparent 62%);
-	/* No `background-attachment: fixed` — it causes repaint jank and broken
-	   positioning on iOS Safari. The glow sits at the top and scrolls naturally. */
-	-webkit-font-smoothing: antialiased;
-	text-rendering: optimizeLegibility;
-}
+	html,
+	body {
+		overflow-x: clip;
+	}
 
-* {
-	box-sizing: border-box;
-}
+	body {
+		margin: 0;
+		font-family: var(--font-sans);
+		line-height: 1.6;
+	}
 
-body {
-	margin: 0;
-	font-family: var(--font-sans);
-	line-height: 1.6;
-}
+	h1,
+	h2,
+	h3 {
+		overflow-wrap: break-word;
+		min-width: 0;
+		text-wrap: balance;
+	}
 
-/* Faint survey-grid texture — used behind the hero for a "maps" feel. */
-.survey-grid {
-	background-image:
-		linear-gradient(to right, rgb(5 150 105 / 0.06) 1px, transparent 1px),
-		linear-gradient(to bottom, rgb(5 150 105 / 0.06) 1px, transparent 1px);
-	background-size: 28px 28px;
+	p {
+		text-wrap: pretty;
+	}
+
+	/* Every focusable thing (Leaflet controls and <summary> included) gets the
+	   same instant ring; components may restate it with utilities. */
+	:focus-visible {
+		outline: 2px solid var(--color-forest-600);
+		outline-offset: 2px;
+	}
+
+	::selection {
+		background: var(--color-forest-100);
+		color: var(--color-mist-900);
+	}
 }
 
 /* Collapsible report panels: hide the native marker and rotate our own chevron. */
@@ -132,8 +144,37 @@ body {
 	}
 }
 
-/* Leaflet sits inside rounded cards — keep typography + neutral consistent. */
+/* Leaflet: keep typography + neutral consistent with the app. */
 .leaflet-container {
 	font-family: var(--font-sans);
 	background: var(--color-mist-100);
+}
+
+/* Map shapes. Leaflet writes its default colours as SVG attributes; these
+   class rules override them so the map follows the tokens. Neighbours sit
+   quietly in mist, the subject parcel is forest (the land), buildings amber. */
+.leaflet-interactive.map-neighbor {
+	stroke: var(--color-mist-500);
+	fill: var(--color-mist-300);
+	fill-opacity: 0.15;
+	transition: stroke 120ms cubic-bezier(0.23, 1, 0.32, 1), fill 120ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.leaflet-interactive.map-neighbor:hover {
+	stroke: var(--color-forest-700);
+	stroke-width: 2;
+	fill: var(--color-forest-300);
+	fill-opacity: 0.35;
+}
+
+.map-parcel {
+	stroke: var(--color-forest-700);
+	fill: var(--color-forest-400);
+	fill-opacity: 0.22;
+}
+
+.map-building {
+	stroke: var(--color-amber-700);
+	fill: var(--color-amber-400);
+	fill-opacity: 0.55;
 }

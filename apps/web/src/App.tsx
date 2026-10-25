@@ -11,10 +11,12 @@ import { Footer, Header } from "./components/SiteChrome";
 import { RecentlyViewed, type SearchHistoryItem } from "./components/RecentlyViewed";
 import {
   ChevronLeft,
+  ChevronRight,
   DownloadIcon,
   RefreshIcon,
   SearchIcon,
   Spinner,
+  WarningIcon,
 } from "./components/icons";
 import { orpcClient, getParcelReport, generateParcelPdf } from "./lib/orpc";
 import { useLocalStorage } from "./lib/useLocalStorage";
@@ -51,77 +53,81 @@ function HomePage() {
   }
 
   return (
-    <main className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-10 md:px-8">
-      <section className="relative animate-rise overflow-hidden rounded-3xl border border-mist-200 bg-white shadow-soft">
-        {/* Survey-grid texture + emerald wash for a calm "maps" feel. */}
-        <div className="survey-grid pointer-events-none absolute inset-0 opacity-70" aria-hidden="true" />
-        <div
-          className="pointer-events-none absolute inset-0 bg-linear-to-br from-forest-50/80 via-white/40 to-lime-50/60"
-          aria-hidden="true"
-        />
-        <div className="relative p-6 md:p-12">
-          <p className="inline-flex items-center gap-2 rounded-full border border-forest-200 bg-forest-50/80 px-3.5 py-1.5 text-base font-semibold text-forest-700">
-            <span className="h-2 w-2 rounded-full bg-lime-500" aria-hidden="true" />
-            Vieša Lietuvos žemės ir pastatų informacija
-          </p>
-          <h1 className="mt-5 max-w-3xl font-display text-4xl font-bold leading-[1.08] tracking-tight text-mist-900 md:text-6xl">
-            Sužinokite viską apie{" "}
-            <span className="text-forest-700">žemės sklypą</span>
+    <main
+      className={`mx-auto grid w-full max-w-shell gap-10 px-4 pt-10 pb-16 md:px-8 md:pt-20 lg:gap-16 ${
+        history.length > 0 ? "lg:grid-cols-[minmax(0,1fr)_26rem]" : ""
+      }`}
+    >
+      <section className={`grid w-full max-w-3xl content-start gap-6 ${history.length > 0 ? "" : "lg:mx-auto"}`}>
+        <div className="grid gap-3">
+          <h1 className="font-display text-4xl font-bold leading-[1.06] tracking-tight text-mist-900 md:text-6xl">
+            Sužinokite viską apie žemės sklypą
           </h1>
-          <p className="mt-5 max-w-2xl text-xl leading-relaxed text-mist-600">
-            Įveskite adresą, kadastrinį arba unikalų daikto numerį ir gaukite aiškią
-            sklypo apžvalgą: ribas žemėlapyje, plotą, paskirtį, pastatus ir galimus apribojimus.
+          <p className="max-w-2xl text-xl leading-relaxed text-mist-700">
+            Vieša Lietuvos žemės ir pastatų informacija: ribos žemėlapyje, plotas,
+            paskirtis, pastatai ir galimi apribojimai.
           </p>
-
-          <div className="mt-8 flex flex-col gap-3 md:flex-row">
-            <div className="relative flex-1">
-              <SearchIcon className="pointer-events-none absolute left-4 top-1/2 h-6 w-6 -translate-y-1/2 text-mist-400" />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") onSearch();
-                }}
-                placeholder="Adresas, kadastrinis arba unikalus numeris"
-                aria-label="Adresas, kadastrinis arba unikalus numeris"
-                className="w-full rounded-2xl border border-mist-300 bg-white py-4 pl-13 pr-5 text-lg text-mist-900 shadow-sm outline-none transition placeholder:text-mist-400 focus-visible:border-forest-400 focus-visible:ring-4 focus-visible:ring-forest-500/20"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={onSearch}
-              disabled={loading}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-forest-700 px-7 py-4 text-lg font-semibold text-white shadow-soft transition hover:bg-forest-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              <SearchIcon className="h-5 w-5" />
-              {loading ? "Ieškoma…" : "Ieškoti"}
-            </button>
-          </div>
-
-          <div className="mt-6 grid gap-3">
-            {searchNote ? (
-              <p className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-lg text-amber-900">
-                {searchNote}
-              </p>
-            ) : null}
-
-            {results.map((result) => (
-              <button
-                key={result.cadastralRegNo}
-                type="button"
-                onClick={() => navigate(`/parcel/${encodeURIComponent(result.cadastralRegNo)}`)}
-                className="rounded-2xl border border-mist-200 bg-white px-5 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-forest-300 hover:shadow-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600"
-              >
-                <p className="text-lg font-semibold text-mist-900">
-                  {result.address && result.address.trim() !== ""
-                    ? result.address
-                    : "Adreso viešuose šaltiniuose nėra"}
-                </p>
-                <p className="text-base text-mist-500">{result.cadastralRegNo}</p>
-              </button>
-            ))}
-          </div>
         </div>
+
+        <form
+          role="search"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSearch();
+          }}
+          className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]"
+        >
+          <div className="relative">
+            <SearchIcon className="pointer-events-none absolute left-4 top-1/2 h-6 w-6 -translate-y-1/2 text-mist-500" />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Adresas, kadastrinis arba unikalus numeris"
+              aria-label="Adresas, kadastrinis arba unikalus numeris"
+              enterKeyHint="search"
+              className="h-14 w-full rounded-xl border border-mist-500 bg-white pl-13 pr-4 text-lg text-mist-900 outline-none placeholder:text-mist-600 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-forest-600"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="inline-flex h-14 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-forest-700 px-7 text-lg font-semibold text-white transition-colors hover:bg-forest-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 active:bg-forest-900 disabled:cursor-not-allowed disabled:opacity-55"
+          >
+            {loading ? <Spinner className="h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : <SearchIcon className="h-5 w-5" />}
+            {loading ? "Ieškoma…" : "Ieškoti"}
+          </button>
+        </form>
+
+        {searchNote ? (
+          <p role="status" className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-lg text-amber-900">
+            <WarningIcon className="mt-1 h-5 w-5 shrink-0 text-amber-700" />
+            {searchNote}
+          </p>
+        ) : null}
+
+        {results.length > 0 ? (
+          <ul className="divide-y divide-mist-200 overflow-hidden rounded-2xl border border-mist-200 bg-white">
+            {results.map((result) => (
+              <li key={result.cadastralRegNo}>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/parcel/${encodeURIComponent(result.cadastralRegNo)}`)}
+                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-mist-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-forest-600 active:bg-mist-100"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-lg font-semibold text-mist-900">
+                      {result.address && result.address.trim() !== ""
+                        ? result.address
+                        : "Adreso viešuose šaltiniuose nėra"}
+                    </span>
+                    <span className="block text-base text-mist-600 tabular-nums">{result.cadastralRegNo}</span>
+                  </span>
+                  <ChevronRight className="h-5 w-5 shrink-0 text-mist-500" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </section>
 
       <RecentlyViewed history={history} />
@@ -209,71 +215,102 @@ function ParcelPage() {
 
   const freshness = report
     ? report.cached
-      ? `Duomenys atnaujinti prieš ${report.cacheAgeDays ?? 0} d.`
+      ? report.cacheAgeDays
+        ? `Duomenys atnaujinti prieš ${report.cacheAgeDays} d.`
+        : "Duomenys atnaujinti šiandien"
       : "Duomenys ką tik atnaujinti"
     : "";
 
+  const refreshButton = (
+    <button
+      type="button"
+      onClick={onRefresh}
+      disabled={loading}
+      className="inline-flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-mist-500 bg-white px-4 max-sm:flex-1 text-lg font-semibold text-mist-900 transition-colors hover:bg-mist-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600 active:bg-mist-200 disabled:cursor-not-allowed disabled:opacity-55"
+    >
+      <RefreshIcon className="h-5 w-5" />
+      {loading ? "Atnaujinama…" : "Atnaujinti"}
+    </button>
+  );
+
   return (
-    <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8 md:px-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link
-          to="/"
-          className="inline-flex items-center gap-2 rounded-lg px-1 py-1 text-lg font-semibold text-forest-700 transition hover:text-forest-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600"
-        >
-          <ChevronLeft className="h-5 w-5" />
-          Atgal į paiešką
-        </Link>
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={onRefresh}
-            className="inline-flex items-center gap-2 rounded-xl border border-mist-300 bg-white px-5 py-3 text-lg font-semibold text-mist-900 transition hover:bg-mist-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600 active:scale-[0.98]"
-          >
-            <RefreshIcon className="h-5 w-5" />
-            {loading ? "Atnaujinama…" : "Atnaujinti"}
-          </button>
+    <main className="mx-auto w-full max-w-shell px-4 pt-0 pb-10 md:px-8 md:pt-4 lg:py-4">
+      {/* The workbench: on desktop the map fills the left of the screen and stays
+          put while the report column scrolls beside it; on a phone the map runs
+          edge to edge first and the report follows. */}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-start lg:gap-6 xl:grid-cols-[minmax(0,1fr)_28rem]">
+        <div className="lg:sticky lg:top-20 lg:h-[calc(100dvh-6rem)]">
           {report ? (
-            <button
-              type="button"
-              onClick={onDownloadPdf}
-              disabled={pdfLoading}
-              className="inline-flex items-center gap-2 rounded-xl bg-forest-700 px-5 py-3 text-lg font-semibold text-white shadow-soft transition hover:bg-forest-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              <DownloadIcon className="h-5 w-5" />
-              {pdfLoading ? "Generuojama…" : "Atsisiųsti PDF"}
-            </button>
+            <ParcelMap report={report} />
+          ) : loading ? (
+            <div
+              className="-mx-4 h-[45svh] min-h-72 animate-pulse border-y border-mist-200 bg-mist-100 md:mx-0 md:rounded-2xl md:border lg:h-full"
+              aria-hidden="true"
+            />
           ) : null}
         </div>
+
+        <div className="grid gap-6">
+          <Link
+            to="/"
+            className="inline-flex w-fit items-center gap-1.5 rounded-lg py-1 text-lg font-semibold text-forest-700 transition-colors hover:text-forest-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600"
+          >
+            <ChevronLeft className="h-5 w-5" />
+            Atgal į paiešką
+          </Link>
+
+          {!report && loading ? (
+            <div className="flex items-center gap-4 rounded-2xl border border-mist-200 bg-white p-5">
+              <Spinner className="h-8 w-8 shrink-0 animate-spin rounded-full border-4 border-mist-200 border-t-forest-600" />
+              <p className="text-lg text-mist-700">Renkame sklypo duomenis…</p>
+            </div>
+          ) : null}
+
+          {!report && !loading && loadFailed ? (
+            <div className="grid gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+              <p className="flex gap-3 text-lg text-amber-900">
+                <WarningIcon className="mt-1 h-5 w-5 shrink-0 text-amber-700" />
+                Nepavyko gauti sklypo duomenų. Spauskite „Atnaujinti“ arba bandykite vėliau.
+              </p>
+              <div>{refreshButton}</div>
+            </div>
+          ) : null}
+
+          {report ? (
+            <>
+              <SummaryCard
+                report={report}
+                actions={
+                  <div className="grid gap-2">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={onDownloadPdf}
+                        disabled={pdfLoading}
+                        className="inline-flex h-12 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-forest-700 px-5 text-lg font-semibold text-white transition-colors hover:bg-forest-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 active:bg-forest-900 disabled:cursor-not-allowed disabled:opacity-55"
+                      >
+                        <DownloadIcon className="h-5 w-5" />
+                        {pdfLoading ? "Generuojama…" : "Atsisiųsti PDF"}
+                      </button>
+                      {refreshButton}
+                    </div>
+                    <p className="text-base text-mist-600">{freshness}</p>
+                  </div>
+                }
+              />
+
+              <section className="grid gap-4">
+                <h2 className="font-display text-2xl font-bold tracking-tight text-mist-900">
+                  Detali informacija
+                </h2>
+                <ReportPanel report={report} />
+              </section>
+            </>
+          ) : null}
+
+          <RecentlyViewed history={history} showEmptyState />
+        </div>
       </div>
-
-      {!report && loading ? (
-        <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-mist-200 bg-white p-12 text-center">
-          <Spinner />
-          <p className="text-xl text-mist-600">Renkame sklypo duomenis…</p>
-        </div>
-      ) : null}
-
-      {!report && !loading && loadFailed ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center text-xl text-amber-900">
-          Nepavyko gauti sklypo duomenų. Spauskite „Atnaujinti“ arba bandykite vėliau.
-        </div>
-      ) : null}
-
-      {report ? (
-        <div className="grid animate-rise gap-6">
-          <SummaryCard report={report} />
-          <ParcelMap report={report} />
-          <section className="grid gap-6">
-            <h2 className="font-display text-2xl font-bold tracking-tight text-mist-900">
-              Detali informacija
-            </h2>
-            <ReportPanel report={report} />
-          </section>
-          <p className="text-base text-mist-500">{freshness}</p>
-        </div>
-      ) : null}
-
-      <RecentlyViewed history={history} showEmptyState />
     </main>
   );
 }
