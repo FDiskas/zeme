@@ -1,10 +1,11 @@
 import type { ParcelReport } from "@zeme/shared";
+import { Link } from "react-router-dom";
 import {
   curateReport,
   type CuratedItem,
   type CuratedPanel,
 } from "../lib/report-format";
-import { ChevronDown, SourceIcon } from "./icons";
+import { ChevronDown, PinIcon, SourceIcon } from "./icons";
 
 function SourceLine({ source }: { source: NonNullable<CuratedPanel["source"]> }) {
   return (
@@ -22,7 +23,18 @@ type Props = {
   report: ParcelReport;
 };
 
-function FieldValue({ value, isLink }: { value: string; isLink?: boolean }) {
+function FieldValue({ value, isLink, href }: { value: string; isLink?: boolean; href?: string }) {
+  if (href) {
+    return (
+      <Link
+        to={href}
+        className="inline-flex items-start gap-1.5 text-forest-700 underline decoration-forest-300 underline-offset-2 hover:text-forest-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600"
+      >
+        <PinIcon className="mt-1 h-5 w-5 shrink-0" />
+        <span className="wrap-break-word">{value}</span>
+      </Link>
+    );
+  }
   if (isLink && /^https?:\/\//i.test(value)) {
     return (
       <a
@@ -49,7 +61,7 @@ function ItemBlock({ item, showHeading }: { item: CuratedItem; showHeading: bool
           <div key={field.label} className="flex flex-col">
             <dt className="text-base text-mist-500">{field.label}</dt>
             <dd className="text-lg font-medium text-mist-900">
-              <FieldValue value={field.value} isLink={field.isLink} />
+              <FieldValue value={field.value} isLink={field.isLink} href={field.href} />
             </dd>
           </div>
         ))}

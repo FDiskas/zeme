@@ -1,5 +1,5 @@
 import { biipClient } from "./biip-client";
-import { parcelsSearch, addressesSearch, eldershipsSearch, roomsSearch } from "./biip/sdk.gen";
+import { parcelsSearch, addressesSearch, eldershipsSearch, residentialAreasSearch, roomsSearch } from "./biip/sdk.gen";
 import type { Parcel, AddressesFilter, AddressesSearchFilterRequest } from "./biip/types.gen";
 import type { ParcelSearchItem } from "@zeme/shared";
 
@@ -259,6 +259,35 @@ async function resolveEldership(pointEwkt: string): Promise<string> {
     return response.data?.items?.[0]?.name || "";
   } catch (err) {
     console.error("Error resolving eldership spatially:", err);
+    return "";
+  }
+}
+
+// Administrative locality of a point, for parcels without a street address
+// ("Vilniaus r. sav., Rudaminos sen., Kalviškių k."). Same part order as
+// formatAddress. Residential-area boundaries tile almost the whole country, so
+// even a forest parcel falls inside some village's territory.
+export async function resolveLocality(lon: number, lat: number): Promise<string> {
+  const pointEwkt = `SRID=${WGS84};POINT(${lon} ${lat})`;
+  try {
+    const [areaResponse, eldership] = await Promise.all([
+      residentialAreasSearch({
+        client: biipClient,
+        body: { filters: [{ geometry: { method: "intersects", ewkt: pointEwkt } }] },
+      }),
+      resolveEldership(pointEwkt),
+    ]);
+    const area = areaResponse.data?.items?.[0];
+    if (!area) return "";
+    return formatAddress({
+      municipality: area.municipality.name,
+      eldership,
+      residentialArea: area.name,
+      street: "",
+      plotNo: "",
+    });
+  } catch (err) {
+    console.error("Error resolving locality spatially:", err);
     return "";
   }
 }

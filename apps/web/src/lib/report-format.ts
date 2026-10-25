@@ -4,7 +4,7 @@ import { DATA_SOURCES } from "./data-sources";
 // ---------------------------------------------------------------------------
 // Curation layer
 //
-// The server returns 12 raw panels, each a flat record of English machine-named
+// The server returns ~16 raw panels, each a flat record of English machine-named
 // fields straight from the upstream registries (many empty / "N/A" / metadata).
 // Rendering that verbatim is what made the report "padrika, sunkiai skaitoma".
 //
@@ -57,6 +57,7 @@ type FieldRule = {
   isHeading?: boolean; // use this field as the card's heading instead of a row
   isLink?: boolean;
   isUniqueNumber?: boolean; // format as 4400-4756-6034 (grouped registry number)
+  linksToParcelAtPoint?: boolean; // link the value to the parcel at the item's lat/lng
 };
 
 // Per-panel field rules. A field absent from its panel's map is HIDDEN by
@@ -175,6 +176,25 @@ const FIELD_RULES: Record<string, Record<string, FieldRule>> = {
     ownershipForm: { label: "Nuosavybės forma" },
     status: { label: "Statusas" },
   },
+  "nearby-services": {
+    name: { label: "Pavadinimas", isHeading: true },
+    category: { label: "Kas tai" },
+    type: { label: "Tipas" },
+    distanceKm: { label: "Atstumas tiesia linija", unit: "km" },
+    address: { label: "Adresas", linksToParcelAtPoint: true },
+  },
+  "crime-stats": {
+    period: { label: "Laikotarpis", isHeading: true },
+    allCrimes: { label: "Visos nusikalstamos veikos" },
+    thefts: { label: "Vagystės" },
+    violentCrimes: { label: "Nusikaltimai žmogaus gyvybei ir sveikatai" },
+    areaAveragePerKm2: { label: "Apylinkių vidurkis 1 km²" },
+    comparison: { label: "Palyginimas" },
+  },
+  "flood-risk": {
+    floodType: { label: "Potvynio tipas", isHeading: true },
+    link: { label: "Oficialus potvynių žemėlapis", isLink: true },
+  },
 };
 
 // Per-panel data provenance. `name` is the human-readable registry a citizen
@@ -202,9 +222,12 @@ const PANEL_TITLES: Record<string, string> = {
   "osp-pollution-risks": "Taršos ir aplinkos rizikos",
   "rc-masvert": "Vidutinė rinkos vertė (masinis vertinimas)",
   "forest-cutting-permits": "Miško kirtimo leidimai",
+  "nearby-services": "Mokyklos, darželiai ir gydymo įstaigos",
+  "crime-stats": "Nusikalstamumas aplinkoje",
+  "flood-risk": "Potvynių rizika",
 };
 
-// Four reader-friendly groups instead of 12 loose panels.
+// Five reader-friendly groups instead of 16 loose panels.
 export const CATEGORIES: { id: string; title: string; panelKeys: string[] }[] =
   [
     {
@@ -235,11 +258,27 @@ export const CATEGORIES: { id: string; title: string; panelKeys: string[] }[] =
         "kvr-heritage",
         "szns-restrictions",
         "osp-pollution-risks",
+        "flood-risk",
       ],
+    },
+    {
+      id: "aplinka",
+      title: "Aplinka ir kaimynystė",
+      panelKeys: ["nearby-services", "crime-stats"],
     },
   ];
 
-export type CuratedField = { label: string; value: string; isLink?: boolean };
+export type CuratedField = {
+  label: string;
+  value: string;
+  isLink?: boolean;
+  href?: string; // in-site route the value links to
+};
+
+// In-site route that finds the parcel under a point and opens its report.
+export function parcelAtPointHref(lat: number, lng: number): string {
+  return `/vieta?lat=${lat}&lng=${lng}`;
+}
 export type CuratedItem = { heading?: string; fields: CuratedField[] };
 export type CuratedPanel = {
   key: string;
@@ -300,6 +339,10 @@ function curatePanel(
           ? formatUniqueNumber(String(value))
           : formatScalar(value, rule.unit),
         isLink: rule.isLink,
+        href:
+          rule.linksToParcelAtPoint && typeof raw.lat === "number" && typeof raw.lng === "number"
+            ? parcelAtPointHref(raw.lat, raw.lng)
+            : undefined,
       });
     }
 
@@ -369,6 +412,15 @@ function dataCount(report: ParcelReport, key: string): number {
   const panel = findPanel(report, key);
   if (!panel || panel.status !== "ok") return 0;
   return (panel.items as RawItem[]).length;
+}
+
+// Distance to the nearest place of one category in the nearby-services panel
+// (items arrive sorted nearest-first per category).
+function nearestDistanceKm(report: ParcelReport, category: string): number | undefined {
+  const panel = findPanel(report, "nearby-services");
+  if (!panel || panel.status === "error") return undefined;
+  const item = (panel.items as RawItem[]).find((i) => i.category === category);
+  return typeof item?.distanceKm === "number" ? item.distanceKm : undefined;
 }
 
 // Geometric centre of the parcel outline, used as an honest secondary locator
@@ -445,6 +497,17 @@ export function buildSummary(report: ParcelReport): ReportSummary {
     });
   }
 
+  // Artimiausia mokykla / darželis — the distance a family asks about first.
+  for (const [category, label] of [
+    ["Mokykla", "Artimiausia mokykla"],
+    ["Darželis", "Artimiausias darželis"],
+  ] as const) {
+    const distanceKm = nearestDistanceKm(report, category);
+    if (distanceKm != null) {
+      facts.push({ label, value: `${distanceKm.toLocaleString("lt-LT")} km` });
+    }
+  }
+
   // Flags — the yes/no answers a buyer/owner worries about.
   const flags: SummaryFlag[] = [];
 
@@ -471,6 +534,32 @@ export function buildSummary(report: ParcelReport): ReportSummary {
     detail: pollutionCount > 0 ? `Yra (${pollutionCount})` : "Nėra",
     panelKey: "osp-pollution-risks",
   });
+
+  const floodPanel = findPanel(report, "flood-risk");
+  if (floodPanel?.status === "ok") {
+    const floodCount = floodPanel.items.length;
+    flags.push({
+      label: "Potvynių rizika",
+      state: floodCount > 0 ? "present" : "clear",
+      detail: floodCount > 0 ? "Yra" : "Nėra",
+      panelKey: "flood-risk",
+    });
+  }
+
+  // Crime — the full-year item carries the comparison with the surroundings.
+  const crimePanel = findPanel(report, "crime-stats");
+  const crimeYear = crimePanel?.status === "ok"
+    ? (crimePanel.items as RawItem[]).find((item) => typeof item.comparison === "string")
+    : undefined;
+  if (crimeYear) {
+    const level = crimeYear.comparisonLevel;
+    flags.push({
+      label: "Nusikalstamumas",
+      state: level === "higher" ? "present" : level === "lower" ? "clear" : "info",
+      detail: String(crimeYear.comparison),
+      panelKey: "crime-stats",
+    });
+  }
 
   // SŽNS feature data is gated upstream — be honest rather than imply "Nėra".
   const szns = findPanel(report, "szns-restrictions");

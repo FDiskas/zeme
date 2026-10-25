@@ -533,7 +533,7 @@ export async function getOspPollutionRisksPanel(geometry?: any): Promise<Upstrea
       status: "ok",
       items: sites,
       note: sites.length === 0
-        ? "Sklype nerasta potencialių taršos žldinių ar aplinkosauginių rizikos objektų."
+        ? "Sklype nerasta potencialių taršos židinių ar aplinkosauginių rizikos objektų."
         : `Rasta ${sites.length} potencialių taršos / aplinkosauginių rizikos objektų.`
     };
   } catch (err: any) {

@@ -74,6 +74,10 @@ export const parcelReportSchema = z.object({
   // administrative-area label or empty, and the UI shows the parcel-centre
   // coordinates instead. Never carries a fabricated address.
   hasStreetAddress: z.boolean().optional(),
+  // Only for parcels without a street address: the administrative locality the
+  // parcel lies in ("Vilniaus r. sav., Rudaminos sen., Kalviškių k."), so the
+  // reader still learns where it is. Resolved from registry boundaries.
+  locality: z.string().optional(),
   coordinates: geometrySchema,
   buildings: z.array(buildingFootprintSchema).optional(),
   neighbors: z.array(neighborParcelSchema).optional(),

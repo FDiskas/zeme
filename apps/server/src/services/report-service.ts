@@ -21,25 +21,17 @@ import {
   formatUniqueNumber,
 } from "./osp-service";
 import { getMarketValuePanel } from "./masvert-service";
+import {
+  resolveParcelFromBiip,
+  resolveAddressFromBiip,
+  resolveParcelByCoordinates,
+  resolveLocality,
+  type ResolvedBiipAddresses,
+} from "./biip-service";
+import { parcelCentre } from "./geometry";
+import { fetchNearbyServices, fetchCrimeStats, fetchFloodRisk } from "./neighbourhood-service";
 
 const SIX_MONTHS_MS = 1000 * 60 * 60 * 24 * 30 * 6;
-
-export function generateRealisticPolygon(center: [number, number]) {
-  const [lon, lat] = center;
-  const d = 0.00025;
-  return {
-    type: "Polygon" as const,
-    coordinates: [
-      [
-        [lon - d, lat - d],
-        [lon + d, lat - d * 0.6],
-        [lon + d * 0.9, lat + d],
-        [lon - d * 0.8, lat + d * 0.9],
-        [lon - d, lat - d],
-      ],
-    ],
-  };
-}
 
 export function hasUsableGeometry(coordinates: ParcelReport["coordinates"]): boolean {
   const ring = coordinates.coordinates[0] ?? [];
@@ -67,12 +59,11 @@ export function isCacheFresh(updatedAt: Date): boolean {
   return Date.now() - updatedAt.getTime() <= SIX_MONTHS_MS;
 }
 
-import {
-  resolveParcelFromBiip,
-  resolveAddressFromBiip,
-  resolveParcelByCoordinates,
-  type ResolvedBiipAddresses,
-} from "./biip-service";
+// Locality label for a parcel without a street address; "" when unknown.
+export async function resolveLocalityOf(geometry: any): Promise<string> {
+  const centre = parcelCentre(geometry);
+  return centre ? resolveLocality(centre[0], centre[1]) : "";
+}
 
 export async function buildComprehensiveReport(
   cadastralRegNo: string,
@@ -90,17 +81,9 @@ export async function buildComprehensiveReport(
   let ospParcel = await fetchOspParcelData(cadastralRegNo);
 
   if (!parcel && existingCoordinates) {
-    const ring = existingCoordinates.coordinates?.[0] ?? [];
-    if (ring.length > 0) {
-      let sumLon = 0;
-      let sumLat = 0;
-      for (const [lon, lat] of ring) {
-        sumLon += lon;
-        sumLat += lat;
-      }
-      const centerLon = sumLon / ring.length;
-      const centerLat = sumLat / ring.length;
-      parcel = await resolveParcelByCoordinates(centerLon, centerLat);
+    const centre = parcelCentre(existingCoordinates);
+    if (centre) {
+      parcel = await resolveParcelByCoordinates(centre[0], centre[1]);
     }
   }
 
@@ -156,7 +139,11 @@ export async function buildComprehensiveReport(
     ospPermits,
     neighbors,
     marketValue,
-    forestCuttingPermits
+    forestCuttingPermits,
+    nearbyServices,
+    crimeStats,
+    floodRisk,
+    locality,
   ] = await Promise.all([
     fetchBiipBoundary(targetCadastralRegNo, resolvedAddress),
     fetchBiipAddresses(targetCadastralRegNo, resolvedCoordinates, addressDetails),
@@ -174,7 +161,11 @@ export async function buildComprehensiveReport(
     ).catch(() => [] as any[]),
     fetchNeighborParcels(resolvedCoordinates, targetCadastralRegNo).catch(() => []),
     getMarketValuePanel(uniqueNrFormatted),
-    fetchForestCuttingPermits(targetCadastralRegNo, resolvedCoordinates)
+    fetchForestCuttingPermits(targetCadastralRegNo, resolvedCoordinates),
+    fetchNearbyServices(resolvedCoordinates),
+    fetchCrimeStats(resolvedCoordinates),
+    fetchFloodRisk(resolvedCoordinates),
+    hasStreetAddress ? Promise.resolve("") : resolveLocalityOf(resolvedCoordinates),
   ]);
 
   const ospPermitsPanel: UpstreamPanel = {
@@ -199,6 +190,7 @@ export async function buildComprehensiveReport(
     cadastralRegNo: targetCadastralRegNo,
     address: resolvedAddress,
     hasStreetAddress,
+    ...(locality ? { locality } : {}),
     coordinates,
     buildings: grpkBuildings.footprints,
     neighbors,
@@ -215,7 +207,10 @@ export async function buildComprehensiveReport(
       "OSP infostatyba",
       "OSP tarsos_zidiniai",
       "Registrų centras masinis vertinimas",
-      "lkmp.alisas.lt miško kirtimo leidimai"
+      "lkmp.alisas.lt miško kirtimo leidimai",
+      "IRD ugdymo įstaigos ir nusikalstamų veikų registras",
+      "OSP gydymo įstaigos",
+      "Aplinkos ministerija potvynių rizikos žemėlapiai"
     ],
     reportPanels: [
       ospParcelSummary,
@@ -230,7 +225,10 @@ export async function buildComprehensiveReport(
       pdbis,
       ospPermitsPanel,
       ospPollutionRisks,
-      forestCuttingPermits
+      forestCuttingPermits,
+      nearbyServices,
+      crimeStats,
+      floodRisk
     ],
   };
 }

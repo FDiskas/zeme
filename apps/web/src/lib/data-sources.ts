@@ -155,6 +155,47 @@ export const DATA_SOURCES: DataSource[] = [
     status: "live",
   },
   {
+    panelKey: "nearby-services",
+    name: "Ugdymo ir gydymo įstaigos",
+    publisher: "Informatikos ir ryšių departamentas (IRD); Lietuvos statistikos departamentas (OSP)",
+    api: "maps.ird.lt · NVZRGIS/UGDYMOISTAIGOS; OSP · Gydymo_įstaigos",
+    url: "https://maps.ird.lt",
+    coverage:
+      "Artimiausios veikiančios bendrojo ugdymo mokyklos, darželiai ir gydymo įstaigos; " +
+      "atstumas skaičiuojamas tiesia linija nuo sklypo centro.",
+    updateFrequency: "Tikrinama tiesiogiai kiekvienos ataskaitos metu.",
+    status: "live",
+    caveat:
+      "Gydymo įstaigų sąrašas paskutinį kartą atnaujintas 2022 m., todėl naujesnių įstaigų jame gali nebūti.",
+  },
+  {
+    panelKey: "crime-stats",
+    name: "Nusikalstamų veikų žinybinis registras",
+    publisher: "Informatikos ir ryšių departamentas prie VRM (IRD)",
+    api: "maps.ird.lt · NVZRGIS/Gardeles",
+    url: "https://maps.ird.lt",
+    coverage:
+      "Užregistruotos nusikalstamos veikos (visos, vagystės, nusikaltimai gyvybei ir sveikatai) " +
+      "1×1 km kvadrate, kuriame yra sklypas, palyginti su 5×5 km apylinkių vidurkiu.",
+    updateFrequency: "Šaltinis atnaujinamas kas pusmetį; tikrinama kiekvienos ataskaitos metu.",
+    status: "live",
+    caveat:
+      "Skaičiuojama vieta, kur veika užregistruota, ne kur gyvena jos dalyviai. Mažiau nei 20 veikų per metus " +
+      "1 km² plote laikoma mažu nusikalstamumu.",
+  },
+  {
+    panelKey: "flood-risk",
+    name: "Potvynių grėsmės ir rizikos žemėlapiai",
+    publisher: "Lietuvos Respublikos aplinkos ministerija",
+    api: "ArcGIS Online · Rizika FeatureServer",
+    url: "https://potvyniai.aplinka.lt",
+    coverage: "Ar sklypas kertasi su upių ar priekrantės potvynių rizikos žemėlapio 100×100 m gardelėmis.",
+    updateFrequency: "Tikrinama tiesiogiai kiekvienos ataskaitos metu.",
+    status: "live",
+    caveat:
+      "Rodo tik sutapimą su rizikos gardele, ne tikslias užliejimo ribas ar tikimybę – jas reikia tikrinti oficialiame žemėlapyje.",
+  },
+  {
     name: "Įžuvinimai (žuvų išleidimo įvykiai)",
     publisher: "Aplinkos ministerija (BĮIP žuvinimo modulis)",
     api: "zuvinimas.biip.lt",

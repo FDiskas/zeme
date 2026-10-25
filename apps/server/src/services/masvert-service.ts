@@ -97,13 +97,17 @@ export async function getMarketValuePanel(uniqueNumber: string): Promise<Upstrea
     key: "rc-masvert",
     title: "Vidutinė rinkos vertė",
     source: "registrucentras.lt masinis vertinimas",
-    status: "ok" as const,
+    status: "ok" as UpstreamPanel["status"],
   };
 
   const value = await fetchMarketValue(uniqueNumber);
   if (!value) {
+    // "error", not "ok": the RC page also fails this way while it is down (it
+    // serves a maintenance page with HTTP 200), so the router re-fetches this
+    // panel for cached reports instead of keeping the gap for six months.
     return {
       ...base,
+      status: "error",
       items: [],
       note: "Vidutinės rinkos vertės šiam objektui rasti nepavyko.",
     };

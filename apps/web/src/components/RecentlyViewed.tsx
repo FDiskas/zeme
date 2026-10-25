@@ -4,6 +4,7 @@ import { ChevronRight, PinIcon } from "./icons";
 export type SearchHistoryItem = {
   id: string;
   address: string;
+  locality?: string; // only for parcels without a street address
   timestamp: number;
 };
 
@@ -43,7 +44,9 @@ export function RecentlyViewed({ history, showEmptyState = false }: Props) {
                   <p className="truncate text-lg font-semibold text-mist-900">
                     {item.address && item.address.trim() !== "" ? item.address : "Žemės sklypas be adreso"}
                   </p>
-                  <p className="truncate text-base text-mist-500">{item.id}</p>
+                  <p className="truncate text-base text-mist-500">
+                    {item.locality ? `${item.locality} · ${item.id}` : item.id}
+                  </p>
                 </div>
                 <ChevronRight className="h-5 w-5 shrink-0 text-mist-400" />
               </Link>

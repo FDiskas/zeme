@@ -6,6 +6,7 @@ import { ReportPanel } from "./components/ReportPanel";
 import { SummaryCard } from "./components/SummaryCard";
 import { DataSourcesPage } from "./components/DataSourcesPage";
 import { MapExplorePage } from "./components/MapExplorePage";
+import { ParcelAtPointPage } from "./components/ParcelAtPointPage";
 import { Footer, Header } from "./components/SiteChrome";
 import { RecentlyViewed, type SearchHistoryItem } from "./components/RecentlyViewed";
 import {
@@ -140,12 +141,13 @@ function ParcelPage() {
   // has to set loading synchronously (which would trigger cascading renders).
   const [loading, setLoading] = useState(true);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [history, setHistory] = useLocalStorage<SearchHistoryItem[]>(HISTORY_KEY, []);
 
   function rememberLookup(data: ParcelReport) {
     setHistory((prev) => {
       const next = [
-        { id: data.cadastralRegNo, address: data.address, timestamp: Date.now() },
+        { id: data.cadastralRegNo, address: data.address, locality: data.locality, timestamp: Date.now() },
         ...prev.filter((entry) => entry.id !== data.cadastralRegNo),
       ];
       return next.slice(0, 10);
@@ -156,10 +158,13 @@ function ParcelPage() {
   async function onRefresh() {
     if (!cadastralRegNo) return;
     setLoading(true);
+    setLoadFailed(false);
     try {
       const data = await getParcelReport({ cadastralRegNo, forceRefresh: true });
       setReport(data);
       rememberLookup(data);
+    } catch {
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
@@ -189,6 +194,8 @@ function ParcelPage() {
         if (ignore) return;
         setReport(data);
         rememberLookup(data);
+      } catch {
+        if (!ignore) setLoadFailed(true);
       } finally {
         if (!ignore) setLoading(false);
       }
@@ -246,6 +253,12 @@ function ParcelPage() {
         </div>
       ) : null}
 
+      {!report && !loading && loadFailed ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center text-xl text-amber-900">
+          Nepavyko gauti sklypo duomenų. Spauskite „Atnaujinti“ arba bandykite vėliau.
+        </div>
+      ) : null}
+
       {report ? (
         <div className="grid animate-rise gap-6">
           <SummaryCard report={report} />
@@ -282,6 +295,7 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/zemelapis" element={<MapExplorePage />} />
           <Route path="/parcel/:cadastralRegNo" element={<ParcelPageRoute />} />
+          <Route path="/vieta" element={<ParcelAtPointPage />} />
           <Route path="/duomenu-saltiniai" element={<DataSourcesPage />} />
         </Routes>
       </div>

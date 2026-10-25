@@ -18,9 +18,12 @@ import {
   hasUsableGeometry,
   isPlaceholderAddress,
   isCacheFresh,
+  resolveLocalityOf,
 } from "./services/report-service";
 import { resolveParcelByCoordinates } from "./services/biip-service";
-import { fetchParcelByPoint, fetchParcelsByBbox } from "./services/osp-service";
+import { fetchParcelByPoint, fetchParcelsByBbox, formatUniqueNumber } from "./services/osp-service";
+import { getMarketValuePanel } from "./services/masvert-service";
+import { fetchNearbyServices, fetchCrimeStats, fetchFloodRisk } from "./services/neighbourhood-service";
 import { searchAddressAutocomplete } from "./services/autocomplete";
 
 function shouldReuseCachedReport(report: { address: string; reportData: string; updatedAt: Date }): boolean {
@@ -41,6 +44,89 @@ function shouldReuseCachedReport(report: { address: string; reportData: string; 
   }
 }
 
+type ParcelReport = ReturnType<typeof parcelReportSchema.parse>;
+
+// The RC mass-valuation lookup is the flakiest source (scraped HTML, and RC takes
+// it offline at times). A cached report without a value retries just that panel
+// and saves it on success, rather than keeping the gap for the whole cache lifetime.
+async function refreshMissingMarketValue(
+  cadastralRegNo: string,
+  report: ParcelReport,
+  updatedAt: Date,
+): Promise<ParcelReport> {
+  const index = report.reportPanels.findIndex((p) => p.key === "rc-masvert");
+  if (index < 0 || report.reportPanels[index]!.items.length > 0) return report;
+
+  const summary = report.reportPanels.find((p) => p.key === "osp-parcel-summary");
+  const uniqueNumber = formatUniqueNumber(
+    (summary?.items[0] as { uniqueNumber?: string } | undefined)?.uniqueNumber,
+  );
+  if (!uniqueNumber) return report;
+
+  const panel = await getMarketValuePanel(uniqueNumber);
+  if (panel.items.length === 0) return report;
+
+  const reportPanels = report.reportPanels.map((p, i) => (i === index ? panel : p));
+  const updated = { ...report, reportPanels };
+  // updatedAt is @updatedAt, so pin it explicitly: the rest of the report keeps
+  // its original age and still expires on schedule.
+  await prisma.parcelReport.update({
+    where: { cadastralRegNo },
+    data: { reportData: JSON.stringify(updated), pdfCachedPath: null, updatedAt },
+  });
+  return updated;
+}
+
+const NEIGHBOURHOOD_PANELS = {
+  "nearby-services": fetchNearbyServices,
+  "crime-stats": fetchCrimeStats,
+  "flood-risk": fetchFloodRisk,
+} as const;
+
+// A cached panel from an older build that lacks data the UI now relies on:
+// nearby places without coordinates can't link to their parcel.
+function isOutdatedPanel(panel: ParcelReport["reportPanels"][number]): boolean {
+  return panel.key === "nearby-services" && panel.items.some((item) => typeof item.lat !== "number");
+}
+
+// Reports cached before the neighbourhood panels / locality existed get them
+// added on read instead of waiting out the six-month cache. Saved only when
+// every added piece succeeded, so a transient upstream error is retried on the
+// next view.
+async function upgradeCachedReport(
+  cadastralRegNo: string,
+  report: ParcelReport,
+  updatedAt: Date,
+): Promise<ParcelReport> {
+  if (!hasUsableGeometry(report.coordinates)) return report;
+
+  const stale = Object.entries(NEIGHBOURHOOD_PANELS).filter(([key]) => {
+    const panel = report.reportPanels.find((p) => p.key === key);
+    return !panel || isOutdatedPanel(panel);
+  });
+  const needsLocality = report.hasStreetAddress === false && !report.locality;
+  if (stale.length === 0 && !needsLocality) return report;
+
+  const [panels, locality] = await Promise.all([
+    Promise.all(stale.map(([, fetchPanel]) => fetchPanel(report.coordinates))),
+    needsLocality ? resolveLocalityOf(report.coordinates) : Promise.resolve(report.locality),
+  ]);
+  const replaced = new Set(panels.map((p) => p.key));
+  const updated: ParcelReport = {
+    ...report,
+    ...(locality ? { locality } : {}),
+    reportPanels: [...report.reportPanels.filter((p) => !replaced.has(p.key)), ...panels],
+  };
+
+  if (panels.every((p) => p.status !== "error") && (!needsLocality || locality)) {
+    await prisma.parcelReport.update({
+      where: { cadastralRegNo },
+      data: { reportData: JSON.stringify(updated), pdfCachedPath: null, updatedAt },
+    });
+  }
+  return updated;
+}
+
 const autocomplete = os
   .input(parcelAutocompleteInputSchema)
   .output(parcelSearchItemSchema.array())
@@ -57,7 +143,15 @@ const getReport = os
     });
 
     if (existing && !input.forceRefresh && shouldReuseCachedReport(existing)) {
-      const parsed = parcelReportSchema.parse(JSON.parse(existing.reportData));
+      const parsed = await upgradeCachedReport(
+        input.cadastralRegNo,
+        await refreshMissingMarketValue(
+          input.cadastralRegNo,
+          parcelReportSchema.parse(JSON.parse(existing.reportData)),
+          existing.updatedAt,
+        ),
+        existing.updatedAt,
+      );
       return {
         ...parsed,
         cached: true,

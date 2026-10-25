@@ -42,6 +42,17 @@ const FIELD_LABELS: Record<string, string> = {
   siteNumber: "Objekto Nr.",
   siteType: "Objekto tipas",
   hazardLevel: "Pavojingumas aplinkai",
+  category: "Kas tai",
+  name: "Pavadinimas",
+  distanceKm: "Atstumas tiesia linija, km",
+  period: "Laikotarpis",
+  allCrimes: "Visos nusikalstamos veikos",
+  thefts: "Vagystės",
+  violentCrimes: "Nusikaltimai gyvybei ir sveikatai",
+  areaAveragePerKm2: "Apylinkių vidurkis 1 km²",
+  comparison: "Palyginimas",
+  floodType: "Potvynio tipas",
+  link: "Nuoroda",
   note: "Pastaba",
   areaSqM: "Plotas, kv. m",
   purposeCode: "Paskirties kodas",
@@ -59,6 +70,9 @@ function escapeHtml(value: unknown): string {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 }
+
+// Fields that steer the web UI (a flag's colour, a link target) but mean nothing printed.
+const MACHINE_ONLY_FIELDS = new Set(["comparisonLevel", "lat", "lng"]);
 
 function humanizeKey(key: string): string {
   if (FIELD_LABELS[key]) return FIELD_LABELS[key];
@@ -159,6 +173,7 @@ function renderPanelItems(panel: ReportPanel): string {
   return panel.items
     .map((item, index) => {
       const rows = Object.entries(item)
+        .filter(([key]) => !MACHINE_ONLY_FIELDS.has(key))
         .map(([key, value]) => renderSummaryRow(humanizeKey(key), value))
         .filter(Boolean)
         .join("");
@@ -449,6 +464,7 @@ function buildReportHtml(report: ParcelReport): string {
           <div class="doc-title">
             <h1>Nekilnojamojo turto patikros ataskaita</h1>
             <p class="doc-title__address">${escapeHtml(report.address?.trim() ? report.address : "Žemės sklypas be priskirto adreso")}</p>
+            ${report.locality ? `<p class="doc-title__cadastral">Vietovė: ${escapeHtml(report.locality)}</p>` : ""}
             <p class="doc-title__cadastral">Kadastro Nr.: ${escapeHtml(report.cadastralRegNo)}</p>
           </div>
 

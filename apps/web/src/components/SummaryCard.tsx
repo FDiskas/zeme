@@ -35,10 +35,14 @@ export function SummaryCard({ report }: Props) {
   const { facts, flags } = buildSummary(report);
   const uniqueNumber = findParcelUniqueNumber(report);
 
-  // No street address → honest label instead of a fabricated one. The parcel
-  // centre powers both the secondary "Sklypo centras" line (no-address case) and
-  // the Google Maps link; undefined when the outline is unknown.
-  const hasAddress = report.address.trim() !== "";
+  // No street address → honest label instead of a fabricated one, plus the
+  // locality (village, eldership, municipality) so the reader still learns where
+  // the parcel is. An administrative-area label in `address` is not a street
+  // address either. The parcel centre powers both the secondary "Sklypo
+  // centras" line (no-address case) and the Google Maps link; undefined when
+  // the outline is unknown.
+  const hasAddress = report.hasStreetAddress !== false && report.address.trim() !== "";
+  const locality = !hasAddress ? report.locality : undefined;
   const center = parcelCenter(report);
   const mapsUrl = center
     ? `https://www.google.com/maps/search/?api=1&query=${center.lat},${center.lng}`
@@ -55,6 +59,9 @@ export function SummaryCard({ report }: Props) {
           <h2 className="mt-1 font-display text-2xl font-bold tracking-tight text-mist-900 md:text-3xl">
             {hasAddress ? report.address : "Žemės sklypas be priskirto adreso"}
           </h2>
+          {locality ? (
+            <p className="mt-1 text-xl font-semibold text-mist-800">Vietovė: {locality}</p>
+          ) : null}
           <p className="mt-1 text-lg text-mist-600">Kadastrinis Nr. {report.cadastralRegNo}</p>
           {uniqueNumber ? (
             <p className="text-lg text-mist-600">Unikalus Nr. {uniqueNumber}</p>
