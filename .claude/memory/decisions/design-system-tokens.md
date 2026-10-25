@@ -1,20 +1,25 @@
 ---
 name: design-system-tokens
-description: Web UI design system — Fresh Natural Green tokens live in apps/web/src/index.css @theme; use named scales, never raw hex
-keywords: design system, tokens, theme, tailwind, palette, forest, lime, mist, fonts, colors, index.css
-created: 2026-06-14
-updated: 2026-06-14
+description: Web UI design system is Hallmark "Terrazzo" — tokens in apps/web/src/tokens.css (@theme static), Tailwind default palette cleared; never raw colours
+keywords: [design system, tokens, theme, tailwind, palette, terrazzo, syne, onest, jetbrains mono, rust, ink, paper, hallmark, index.css]
+updated: 2026-10-26
 ---
 
-**Fact / Rule:** The web UI's single source of truth for styling is the Tailwind v4 `@theme` block in [apps/web/src/index.css](apps/web/src/index.css). Components must style via the named token scales, **never raw hex** (the one exception is Leaflet polygon `pathOptions` in ParcelMap, which take literal colors — keep those in sync with the tokens).
+### Rule / Fact
 
-Scales (semantic roles):
-- **forest** (emerald) = primary action / brand; `forest-700` #047857 is the primary button color.
-- **lime** = vivid accent / highlight.
-- **mist** = cool neutral surfaces, borders, text; `mist-900` #14201b is body ink, `mist-50` is page surface.
-- **amber** = caution flag only (kept distinct from accent).
-- Fonts: `font-display` = Space Grotesk (headings), `font-sans` = Inter (body). Also `shadow-soft`/`shadow-lift` and `animate-rise` motion token.
+The web UI's colours, faces and type sizes live in [apps/web/src/tokens.css](apps/web/src/tokens.css) (`@theme static`, Tailwind v4). `--color-*: initial` clears Tailwind's palette, so only these exist: `paper`, `paper-2`, `paper-3`, `plate`, `ink`, `ink-2`, `muted`, `rule`, `accent` (rust), `accent-soft`, `accent-ink`, `focus`, `error`, `success`. No `white`/`black`/`slate` utilities. Faces: `font-display` Syne 700, `font-body` Onest 400/500, `font-outlier` JetBrains Mono 500 (codes only). Sizes: `text-md` = 18px body, `text-sm` = 16px labels, plus `text-title`, `text-section`, `text-display`, `text-lead`.
 
-**Why:** Chosen design direction "Fresh Natural Green" (modern, map-forward) for older-user comfort. Centralizing tokens means a palette change happens in one file. See [[ux-goal-elderly-readability]] and [[redesign-approach]].
+Shared recipes are in `@layer components` in [apps/web/src/index.css](apps/web/src/index.css): `.btn` (ink primary), `.btn--secondary` (inset ink outline), `.btn--s`, `.link`, `.card` (plate + 2px ink border + hard 14px offset), `.frame`, `.field`, `.code`, `.spec` (2px ink top rule, hairlines between rows). `container` is redefined via `@utility` (1440 cap, `--gutter`). `--nav-clear` clears the floating nav for sticky panes and anchors.
 
-**How to apply:** When adding/restyling UI, reuse `forest-*`, `lime-*`, `mist-*`, `amber-*`, `font-display`, `shadow-soft`, `animate-rise`. Keep WCAG AA contrast (large type, the audience is elderly). If you must touch map polygon colors, update both the `@theme` token and the literal in ParcelMap.
+The first lines of index.css are the Hallmark stamp (theme, waivers, rewordings); `.hallmark/log.json` holds the build log.
+
+### Context & Why
+
+Full Hallmark redesign 2026-10-26: the user chose a new dealt theme over the old emerald "Fresh Natural Green" brand. Terrazzo was picked for older readers (light warm paper, plain Onest body) and for its mono code role, which fits cadastral numbers. See [[ux-goal-elderly-readability]].
+
+### Practical Impact
+
+- Rust is the one signal: cadastral codes, the subject parcel on the map, "present" flags (soft rust row + rust warning icon), focus ring, link hover. Everything else is ink; controls are never coloured.
+- Radius 0 everywhere. One filled primary per screen.
+- Map polygon colours are CSS classes in index.css (`.map-parcel`, `.map-building`, `.map-neighbor`), not Leaflet literals.
+- Home page product shots in apps/web/public/screens/ are captures of the real parcel page (0101/0041:0102); retake them if the report UI changes.

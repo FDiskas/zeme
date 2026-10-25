@@ -31,7 +31,7 @@ export const DATA_SOURCES: DataSource[] = [
   },
   {
     panelKey: "biip-boundary",
-    name: "BĮIP – sklypų ribos ir paskirtis",
+    name: "BĮIP: sklypų ribos ir paskirtis",
     publisher: "VĮ Registrų centras",
     api: "biip.lt · boundaries",
     url: "https://boundaries.biip.lt",
@@ -41,7 +41,7 @@ export const DATA_SOURCES: DataSource[] = [
   },
   {
     panelKey: "biip-addresses",
-    name: "BĮIP – adresų registras",
+    name: "BĮIP: adresų registras",
     publisher: "VĮ Registrų centras",
     api: "biip.lt · addresses",
     url: "https://boundaries.biip.lt",
@@ -106,15 +106,15 @@ export const DATA_SOURCES: DataSource[] = [
     api: "geoportal.lt · rc_szns",
     url: "https://www.registrucentras.lt/p/1553",
     coverage: "Servitutai ir naudojimo apribojimai (elektros linijos, vandentiekiai ir pan.).",
-    updateFrequency: "—",
+    updateFrequency: "Netaikoma",
     status: "live",
     caveat:
-      "Duomenų ištrauka viešai neprieinama — VĮ Registrų centras riboja šio registro " +
+      "Duomenų ištrauka viešai neprieinama: VĮ Registrų centras riboja šio registro " +
       "užklausas. Rodomas tik žemėlapio vaizdas ir nuoroda kreiptis dėl prieigos.",
   },
   {
     panelKey: "osp-building-permits",
-    name: "Infostatyba – statybos leidimai",
+    name: "Infostatyba: statybos leidimai",
     publisher: "Valstybinė teritorijų planavimo ir statybos inspekcija (VTPSI)",
     api: "OSP · infostatyba_duomenys",
     url: "https://infostatyba.planuojustatau.lt",
@@ -134,7 +134,7 @@ export const DATA_SOURCES: DataSource[] = [
   },
   {
     panelKey: "rc-masvert",
-    name: "Registrų centras – masinis vertinimas",
+    name: "Registrų centras: masinis vertinimas",
     publisher: "VĮ Registrų centras",
     api: "registrucentras.lt · masvert",
     url: "https://www.registrucentras.lt",
@@ -193,7 +193,7 @@ export const DATA_SOURCES: DataSource[] = [
     updateFrequency: "Tikrinama tiesiogiai kiekvienos ataskaitos metu.",
     status: "live",
     caveat:
-      "Rodo tik sutapimą su rizikos gardele, ne tikslias užliejimo ribas ar tikimybę – jas reikia tikrinti oficialiame žemėlapyje.",
+      "Rodo tik sutapimą su rizikos gardele, ne tikslias užliejimo ribas ar tikimybę; jas reikia tikrinti oficialiame žemėlapyje.",
   },
   {
     panelKey: "census-households",
@@ -204,7 +204,7 @@ export const DATA_SOURCES: DataSource[] = [
     coverage:
       "Namų ūkių skaičius, šeimų su vaikais ir vieno asmens namų ūkių dalis 1×1 km kvadrate, " +
       "palyginti su Lietuvos vidurkiu.",
-    updateFrequency: "Surašymas vyksta kas 10 metų; naujausi duomenys – 2021 m.",
+    updateFrequency: "Surašymas vyksta kas 10 metų; naujausi duomenys: 2021 m.",
     status: "live",
     caveat: "Kai kvadrate mažiau nei 20 namų ūkių, procentai ir palyginimas nerodomi.",
   },
@@ -218,7 +218,7 @@ export const DATA_SOURCES: DataSource[] = [
       "Kiek pastatų 1×1 km kvadrate turi šviesolaidinį, DSL, kabelinės televizijos ar fiksuotą belaidį interneto ryšį.",
     updateFrequency: "Operatoriai duomenis teikia kartą per metus; tikrinama kiekvienos ataskaitos metu.",
     status: "live",
-    caveat: "Rodo, kas yra apylinkėse, o ne konkrečiame pastate – ar ryšys pasiekia sklypą, reikia teirautis operatoriaus.",
+    caveat: "Rodo, kas yra apylinkėse, o ne konkrečiame pastate. Ar ryšys pasiekia sklypą, reikia teirautis operatoriaus.",
   },
   {
     name: "Butų pirkimo sandoriai gardelėse",
@@ -226,10 +226,10 @@ export const DATA_SOURCES: DataSource[] = [
     api: "OSP · butu_pirkimas_gardelese_geo",
     url: "https://osp-sdg.stat.gov.lt",
     coverage: "Butų pirkimo sandorių skaičius ir kainos 1×1 km kvadratuose.",
-    updateFrequency: "—",
+    updateFrequency: "Netaikoma",
     status: "not-integrated",
     caveat:
-      "Rinkinyje visoje Lietuvoje 2024 m. – tik apie 500 sandorių, nors rinkoje per metus parduodama dešimtys tūkstančių butų. " +
+      "Rinkinyje visoje Lietuvoje 2024 m. buvo tik apie 500 sandorių, nors rinkoje per metus parduodama dešimtys tūkstančių butų. " +
       "Tai ne rinkos kainos, todėl neįtraukta, kad neklaidintų. Rinkos vertę rodo Registrų centro masinis vertinimas.",
   },
   {
@@ -238,12 +238,12 @@ export const DATA_SOURCES: DataSource[] = [
     api: "zuvinimas.biip.lt",
     url: "https://zuvinimas.biip.lt",
     coverage: "Žuvinimo įvykiai konkrečiuose vandens telkiniuose.",
-    updateFrequency: "—",
+    updateFrequency: "Netaikoma",
     status: "not-integrated",
     caveat:
-      "Šių įrašų viešo API neradome — BĮIP žuvinimo sistema reikalauja prisijungimo " +
-      "žetono. Vienintelis viešai atsisiunčiamas duomuo — statinės metinės ataskaitos " +
-      "(2020–2022 m.), kurios neapima konkrečių vandens telkinių prie sklypo, todėl į " +
+      "Šių įrašų viešo API neradome: BĮIP žuvinimo sistema reikalauja prisijungimo " +
+      "žetono. Vienintelis viešai atsisiunčiamas duomuo: statinės metinės ataskaitos " +
+      "(2020-2022 m.), kurios neapima konkrečių vandens telkinių prie sklypo, todėl į " +
       "ataskaitą kol kas neįtraukta.",
   },
 ];

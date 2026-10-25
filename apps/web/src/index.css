@@ -1,180 +1,223 @@
-/* Hallmark · shape: app screen · genre: modern-minimal · theme: brand · redesign: full
- * paper: oklch(98.3% 0.004 165) · accent: oklch(50.8% 0.118 165) · display: Space Grotesk · body: Inter
- * nav: kept, top bar with the current page marked · signature: the parcel outline on a sticky full-height map · states: loading, error, full, no geometry
- * axes: light/grotesk-sans/chromatic-emerald · posture: restrained · contrast: pass · v2.0.0 */
-/* Hallmark · pre-emit critique: P4 H5 E4 S4 R4 V3 · weakest: V, the shell and palette are the brand's and stay; the variety is in the workbench, map first and the report as a ledger beside it */
-/* Hallmark · waive 39b · fields and buttons stand 44 to 48px on every screen · the readers are older Lithuanians checking land before a purchase, and a 48px field reads and taps easier than 40px */
-/* Hallmark · dropped onClick={onSearch}, onKeyDown={(event) => { if (event.key === "Enter") onSearch(); }} · both now run through one form onSubmit, so Enter and the button still call onSearch */
+/* Hallmark · shape: Feature Stack (/), app screen (/parcel, /zemelapis, /vieta, /duomenu-saltiniai as a reference table) · genre: modern-minimal · theme: Terrazzo (deal 3/3, seed public-land-parcel-lookup-lithuanians-76b2·dae765e2·2026-10-25·r0) · redesign: full
+ * hero: Corridor (/) · nav: floating bar, the wordmark and three links on a ruled plate · footer: colophon block · imagery: screenshots 5 (the app itself, captured from the dev server) · signature: the parcel outlined in rust on the map, its cadastral code in rust mono beside it · terrazzo: off-white · job: try · draw: bfc215
+ * axes: light/geometric-sans/warm · posture: restrained · contrast: pass · fold: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H5 E4 S5 R4 V5 · weakest: P, a lookup tool argues little; the page argues "check before you buy" by showing the real report, not by claiming it */
+/* Hallmark · hero-review: fix · 5 findings · 5 resolved · finish-review: subagent · 7 findings · 7 resolved · gap: none */
+/* Hallmark · reworded "BĮIP – sklypų ribos ir paskirtis" to "BĮIP: sklypų ribos ir paskirtis" · 19 names the dash */
+/* Hallmark · reworded "BĮIP – adresų registras" to "BĮIP: adresų registras" · 19 names the dash */
+/* Hallmark · reworded "Infostatyba – statybos leidimai" to "Infostatyba: statybos leidimai" · 19 names the dash */
+/* Hallmark · reworded "Registrų centras – masinis vertinimas" to "Registrų centras: masinis vertinimas" · 19 names the dash */
+/* Hallmark · dismissed 28a · the first lazy image sits in the second section, a screen below the fold; the LCP is the hero headline, which is text */
+/* Hallmark · waive 39b · fields and buttons stand 48 to 52px on the app screens too · the readers are older Lithuanians checking land before a purchase, and a 48px control reads and taps easier than 40px */
 
 @import "tailwindcss";
+@import "./tokens.css";
+@import "./base.css" layer(base);
 
-/* ===========================================================================
-   Design tokens: "Fresh Natural Green"
-   ---------------------------------------------------------------------------
-   Single source of truth for the whole UI. Components use these scales by name
-   (never raw hex), so a palette change happens in exactly one place.
-
-   Semantic roles:
-     forest → primary action / brand (deep emerald, "the land")  : buttons, links
-     lime   → vivid accent / highlight                            : badges, marks
-     mist   → cool neutral surfaces, borders, text                : cards, dividers
-     amber  → caution flag (something present to check)           : warnings
-   Text uses mist-600 or darker so every pair passes WCAG AA on mist-50 and
-   white; mist-500 is the floor for field edges and icons (3:1).
-   =========================================================================== */
-@theme {
-	--font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
-	--font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
-
-	/* Forest — primary (emerald) */
-	--color-forest-50: #ecfdf5;
-	--color-forest-100: #d0f5e3;
-	--color-forest-200: #a4e9c8;
-	--color-forest-300: #6dd6a8;
-	--color-forest-400: #34c084;
-	--color-forest-500: #12a06a;
-	--color-forest-600: #059669;
-	--color-forest-700: #047857;
-	--color-forest-800: #065f46;
-	--color-forest-900: #064e3b;
-
-	/* Lime — vivid accent */
-	--color-lime-50: #f7fee7;
-	--color-lime-100: #ecfccb;
-	--color-lime-200: #d9f99d;
-	--color-lime-300: #bef264;
-	--color-lime-400: #a3e635;
-	--color-lime-500: #84cc16;
-	--color-lime-600: #65a30d;
-	--color-lime-700: #4d7c0f;
-
-	/* Mist — cool neutrals: surfaces, borders, text (forest ink at 900) */
-	--color-mist-50: #f8faf9;
-	--color-mist-100: #f0f4f2;
-	--color-mist-200: #e2e9e5;
-	--color-mist-300: #cbd6cf;
-	--color-mist-400: #9aa8a0;
-	--color-mist-500: #6b7a72;
-	--color-mist-600: #4c5a53;
-	--color-mist-700: #38433d;
-	--color-mist-800: #232b27;
-	--color-mist-900: #14201b;
-
-	/* Amber — caution (distinct from accent so accent != warning) */
-	--color-amber-50: #fffbeb;
-	--color-amber-100: #fef3c7;
-	--color-amber-200: #fde68a;
-	--color-amber-400: #f59e0b;
-	--color-amber-700: #b45309;
-	--color-amber-900: #78350f;
-
-	/* One page width for the shell and every screen (max-w-shell). */
-	--container-shell: 88rem;
-
-	/* Soft elevation (cool-tinted, not muddy black). */
-	--shadow-soft: 0 1px 2px rgb(20 32 27 / 0.04), 0 8px 24px -12px rgb(20 32 27 / 0.12);
+/* One page width for every screen: capped, centred, gutters grow past 1440. */
+@utility container {
+	width: 100%;
+	max-width: var(--container);
+	margin-inline: auto;
+	padding-inline: var(--gutter);
 }
 
-@layer base {
-	:root {
-		color: var(--color-mist-900);
-		background-color: var(--color-mist-50);
-		-webkit-font-smoothing: antialiased;
-		text-rendering: optimizeLegibility;
+@layer components {
+	/* Controls: square, Onest 500, ink. One filled primary per screen. */
+	.btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-xs);
+		min-height: 52px;
+		padding: 0 var(--space-lg);
+		border: 0;
+		border-radius: var(--radius-pill);
+		background: var(--color-ink);
+		color: var(--color-paper);
+		font: 500 var(--text-md) / 1 var(--font-body);
+		white-space: nowrap;
+		text-decoration: none;
+		cursor: pointer;
+		transition: background-color var(--dur-short) var(--ease-out), transform var(--dur-micro) var(--ease-out);
+	}
+	.btn:hover { background: var(--color-ink-2); }
+	.btn:active { transform: translateY(1px); }
+	.btn:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
+	.btn:disabled,
+	.btn[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; transform: none; }
+	.btn[aria-busy="true"] { cursor: progress; }
+
+	.btn--secondary {
+		background: transparent;
+		color: var(--color-ink);
+		box-shadow: inset 0 0 0 var(--rule-bar) var(--color-ink);
+	}
+	.btn--secondary:hover { background: var(--color-paper-2); }
+	.btn--secondary:active { background: var(--color-paper-3); }
+
+	.btn--s { min-height: 48px; padding: 0 var(--space-md); }
+
+	/* Text links: ink with a hairline underline that turns rust on hover. */
+	.link {
+		color: var(--color-ink);
+		font-weight: 500;
+		text-decoration: underline;
+		text-decoration-thickness: 1px;
+		text-underline-offset: 0.2em;
+		transition: text-decoration-color var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out);
+	}
+	.link:hover { color: var(--color-accent); text-decoration-color: var(--color-accent); }
+	.link:active { color: var(--color-ink-2); }
+	.link:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+
+	/* The one container: a white plate ruled in ink over a hard offset. */
+	.card {
+		background: var(--color-plate);
+		border: var(--rule-bar) solid var(--color-ink);
+		box-shadow: var(--shadow-card);
+	}
+	@media (max-width: 40rem) {
+		.card { box-shadow: var(--shadow-card-s); }
 	}
 
-	html,
-	body {
-		overflow-x: clip;
+	/* A plain frame: the same rule, no offset (maps, captures inside a stack). */
+	.frame {
+		background: var(--color-plate);
+		border: var(--rule-bar) solid var(--color-ink);
 	}
 
-	body {
-		margin: 0;
-		font-family: var(--font-sans);
-		line-height: 1.6;
-	}
-
-	h1,
-	h2,
-	h3 {
-		overflow-wrap: break-word;
+	/* Inputs: square on the plate, 1px ink edge, the ring an inset outline. */
+	.field {
+		width: 100%;
 		min-width: 0;
-		text-wrap: balance;
+		min-height: 52px;
+		padding: 0 var(--space-md);
+		border: 1px solid var(--color-ink);
+		border-radius: var(--radius-pill);
+		background: var(--color-plate);
+		color: var(--color-ink);
+		font-size: var(--text-lg);
+		outline: 2px solid transparent;
+		outline-offset: -3px;
+	}
+	.field::placeholder { color: var(--color-muted); }
+	.field:hover { background: var(--color-paper); }
+	.field:focus-visible { outline-color: var(--color-focus); }
+	.field:disabled { opacity: 0.55; cursor: not-allowed; }
+	.field[aria-invalid="true"] { border-color: var(--color-error); }
+
+	/* Codes and measures: JetBrains Mono, the size of the text beside them. */
+	.code {
+		font-family: var(--font-outlier);
+		font-weight: 500;
+		font-variant-numeric: tabular-nums;
+		letter-spacing: 0;
 	}
 
-	p {
-		text-wrap: pretty;
-	}
-
-	/* Every focusable thing (Leaflet controls and <summary> included) gets the
-	   same instant ring; components may restate it with utilities. */
-	:focus-visible {
-		outline: 2px solid var(--color-forest-600);
-		outline-offset: 2px;
-	}
-
-	::selection {
-		background: var(--color-forest-100);
-		color: var(--color-mist-900);
-	}
+	/* The spec table: a 2px ink rule on top, hairlines between rows. */
+	.spec { border-top: var(--rule-bar) solid var(--color-ink); }
+	.spec > * + * { border-top: var(--rule-hair) solid var(--color-rule); }
 }
 
-/* Collapsible report panels: hide the native marker and rotate our own chevron. */
+/* Collapsible report panels: hide the native marker and turn our own chevron. */
 .report-disclosure > summary::-webkit-details-marker {
 	display: none;
 }
 
 .report-chevron {
-	transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1);
+	transition: transform var(--dur-short) var(--ease-out);
 }
 
 .report-disclosure[open] > summary .report-chevron {
 	transform: rotate(180deg);
 }
 
-/* Respect users who prefer reduced motion (ux: reduced-motion). */
-@media (prefers-reduced-motion: reduce) {
-	*,
-	*::before,
-	*::after {
-		animation-duration: 0.01ms !important;
-		animation-iteration-count: 1 !important;
-		transition-duration: 0.01ms !important;
-		scroll-behavior: auto !important;
-	}
+/* Leaflet: the app's faces, square controls ruled in ink. Its panes and
+   controls carry z-index 400 to 1000; isolating the container keeps them inside
+   the map instead of over the sticky header. */
+.leaflet-container {
+	isolation: isolate;
+	font-family: var(--font-body);
+	background: var(--color-paper-2);
 }
 
-/* Leaflet: keep typography + neutral consistent with the app. */
-.leaflet-container {
-	font-family: var(--font-sans);
-	background: var(--color-mist-100);
+.leaflet-bar,
+.leaflet-touch .leaflet-bar {
+	border: var(--rule-bar) solid var(--color-ink);
+	border-radius: 0;
+	box-shadow: none;
 }
+
+.leaflet-bar a,
+.leaflet-bar a:first-child,
+.leaflet-bar a:last-child {
+	width: 40px;
+	height: 40px;
+	border-radius: 0;
+	background: var(--color-plate);
+	color: var(--color-ink);
+	font: 500 1.375rem / 40px var(--font-body);
+	transition: background-color var(--dur-micro) var(--ease-out);
+}
+
+.leaflet-bar a:hover { background: var(--color-paper-2); color: var(--color-ink); }
+.leaflet-bar a:active { background: var(--color-paper-3); }
+.leaflet-bar a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -4px; }
+
+.leaflet-tooltip {
+	border: 1px solid var(--color-ink);
+	border-radius: 0;
+	background: var(--color-plate);
+	color: var(--color-ink);
+	box-shadow: none;
+	font-size: var(--text-sm);
+	padding: var(--space-xs) var(--space-sm);
+}
+
+.leaflet-tooltip-top::before,
+.leaflet-tooltip-bottom::before,
+.leaflet-tooltip-left::before,
+.leaflet-tooltip-right::before {
+	display: none;
+}
+
+.leaflet-container .leaflet-control-attribution {
+	background: color-mix(in oklab, var(--color-plate) 88%, transparent);
+	color: var(--color-ink-2);
+	font-size: var(--text-xs);
+}
+
+.leaflet-container .leaflet-control-attribution a { color: var(--color-ink); }
 
 /* Map shapes. Leaflet writes its default colours as SVG attributes; these
-   class rules override them so the map follows the tokens. Neighbours sit
-   quietly in mist, the subject parcel is forest (the land), buildings amber. */
+   class rules override them so the map follows the tokens. The subject parcel
+   is the one rust thing on the screen; buildings sit in ink; neighbours stay
+   quiet until hovered. */
 .leaflet-interactive.map-neighbor {
-	stroke: var(--color-mist-500);
-	fill: var(--color-mist-300);
-	fill-opacity: 0.15;
-	transition: stroke 120ms cubic-bezier(0.23, 1, 0.32, 1), fill 120ms cubic-bezier(0.23, 1, 0.32, 1);
+	stroke: var(--color-ink-2);
+	stroke-dasharray: 4 3;
+	fill: var(--color-paper);
+	fill-opacity: 0.12;
+	transition: fill-opacity var(--dur-micro) var(--ease-out), stroke var(--dur-micro) var(--ease-out);
 }
 
 .leaflet-interactive.map-neighbor:hover {
-	stroke: var(--color-forest-700);
+	stroke: var(--color-ink);
+	stroke-dasharray: none;
 	stroke-width: 2;
-	fill: var(--color-forest-300);
-	fill-opacity: 0.35;
+	fill: var(--color-accent-soft);
+	fill-opacity: 0.5;
 }
 
 .map-parcel {
-	stroke: var(--color-forest-700);
-	fill: var(--color-forest-400);
-	fill-opacity: 0.22;
+	stroke: var(--color-accent);
+	fill: var(--color-accent);
+	fill-opacity: 0.16;
 }
 
 .map-building {
-	stroke: var(--color-amber-700);
-	fill: var(--color-amber-400);
-	fill-opacity: 0.55;
+	stroke: var(--color-ink);
+	fill: var(--color-ink-2);
+	fill-opacity: 0.32;
 }

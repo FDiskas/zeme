@@ -69,6 +69,7 @@ type FieldRule = {
   isLink?: boolean;
   isUniqueNumber?: boolean; // format as 4400-4756-6034 (grouped registry number)
   linksToParcelAtPoint?: boolean; // link the value to the parcel at the item's lat/lng
+  wide?: boolean; // long text (addresses, names): spans both grid columns
 };
 
 // Per-panel field rules. A field absent from its panel's map is HIDDEN by
@@ -95,7 +96,7 @@ const FIELD_RULES: Record<string, Record<string, FieldRule>> = {
   },
   "biip-addresses": {
     type: { label: "Tipas", isHeading: true },
-    address: { label: "Adresas" },
+    address: { label: "Adresas", wide: true },
     plotOrBuildingNumber: { label: "Pastato / sklypo Nr." },
     postalCode: { label: "Pašto kodas" },
     roomNumber: { label: "Patalpos Nr." },
@@ -127,11 +128,11 @@ const FIELD_RULES: Record<string, Record<string, FieldRule>> = {
   },
   "kvr-heritage": {
     type: { label: "Tipas", isHeading: true },
-    name: { label: "Pavadinimas" },
+    name: { label: "Pavadinimas", wide: true },
     classifier: { label: "Klasifikatorius" },
     status: { label: "Statusas" },
     significance: { label: "Reikšmingumas" },
-    address: { label: "Adresas" },
+    address: { label: "Adresas", wide: true },
     age: { label: "Amžius" },
     zoneType: { label: "Zonos tipas" },
     link: { label: "Daugiau informacijos", isLink: true },
@@ -157,21 +158,21 @@ const FIELD_RULES: Record<string, Record<string, FieldRule>> = {
     permitNumber: { label: "Leidimo Nr." },
     issuedDate: { label: "Išdavimo data" },
     status: { label: "Statusas" },
-    buildingDescription: { label: "Statinio pavadinimas" },
+    buildingDescription: { label: "Statinio pavadinimas", wide: true },
     buildingPurpose: { label: "Statinio paskirtis" },
     buildingCategory: { label: "Kategorija" },
     constructionType: { label: "Statybos rūšis" },
-    address: { label: "Adresas" },
+    address: { label: "Adresas", wide: true },
     projectYear: { label: "Projekto metai" },
   },
   "rc-masvert": {
     marketValueEur: { label: "Daikto vertė", unit: "€" },
     valuationDate: { label: "Vertinimo data" },
-    note: { label: "Pastaba" },
+    note: { label: "Pastaba", wide: true },
   },
   "osp-pollution-risks": {
     siteType: { label: "Objekto tipas", isHeading: true },
-    address: { label: "Adresas" },
+    address: { label: "Adresas", wide: true },
     status: { label: "Būklė" },
     hazardLevel: { label: "Pavojingumas aplinkai" },
     evaluationDate: { label: "Vertinimo data" },
@@ -189,12 +190,12 @@ const FIELD_RULES: Record<string, Record<string, FieldRule>> = {
   },
   "nearby-services": {
     name: { label: "Pavadinimas", isHeading: true },
-    // Always-present fields first, optional "Tipas" (health places have none)
-    // last — so the address sits in the same grid cell on every card.
+    // The short facts pair up first; the address closes every card on a full
+    // row, whether or not the optional "Tipas" (health places have none) is there.
     category: { label: "Kas tai" },
     distanceKm: { label: "Atstumas tiesia linija", unit: "km" },
-    address: { label: "Adresas", linksToParcelAtPoint: true },
     type: { label: "Tipas" },
+    address: { label: "Adresas", linksToParcelAtPoint: true, wide: true },
   },
   "crime-stats": {
     period: { label: "Laikotarpis", isHeading: true },
@@ -300,6 +301,7 @@ export type CuratedField = {
   value: string;
   isLink?: boolean;
   href?: string; // in-site route the value links to
+  wide?: boolean;
 };
 
 // In-site route that finds the parcel under a point and opens its report.
@@ -371,6 +373,7 @@ function curatePanel(
           rule.linksToParcelAtPoint && typeof raw.lat === "number" && typeof raw.lng === "number"
             ? parcelAtPointHref(raw.lat, raw.lng)
             : undefined,
+        wide: rule.wide,
       });
     }
 

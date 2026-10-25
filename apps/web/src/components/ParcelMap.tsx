@@ -86,7 +86,16 @@ function FillContainer() {
   useEffect(() => {
     const observer = new ResizeObserver(() => map.invalidateSize());
     observer.observe(map.getContainer());
-    return () => observer.disconnect();
+    // Web fonts can shift the layout after the first measure without the map
+    // box itself resizing; measure once more when they have settled.
+    let active = true;
+    document.fonts.ready.then(() => {
+      if (active) map.invalidateSize();
+    });
+    return () => {
+      active = false;
+      observer.disconnect();
+    };
   }, [map]);
   return null;
 }
@@ -195,7 +204,7 @@ function ViewportParcelsLayer({
         >
           <Tooltip sticky>
             {s.cadastralRegNo}
-            <span className="block text-mist-600">Spustelėkite, kad pamatytumėte ataskaitą</span>
+            <span className="block text-muted">Spustelėkite, kad pamatytumėte ataskaitą</span>
           </Tooltip>
         </Polygon>
       ))}
@@ -220,7 +229,7 @@ function ZoomHint() {
 
   if (zoom >= MIN_ZOOM_FOR_VIEWPORT) return null;
   return (
-    <div className="pointer-events-none absolute left-1/2 top-4 z-1000 w-max max-w-[calc(100%-6rem)] -translate-x-1/2 rounded-xl bg-mist-900/90 px-4 py-2 text-center text-base font-semibold text-white shadow-soft">
+    <div className="pointer-events-none absolute top-4 left-1/2 z-1000 w-max max-w-[calc(100%-6rem)] -translate-x-1/2 bg-ink px-4 py-2 text-center text-sm font-medium text-paper">
       Priartinkite žemėlapį, kad pamatytumėte sklypus
     </div>
   );
@@ -236,7 +245,7 @@ export function ExploreMap() {
   }
 
   return (
-    <div className="-mx-4 flex min-h-96 flex-1 flex-col overflow-hidden border-y border-mist-200 bg-white md:mx-0 md:rounded-2xl md:border">
+    <div className="-mx-(--gutter) flex min-h-96 flex-1 flex-col overflow-hidden isolate border-y-2 border-ink bg-plate md:mx-0 md:border-2">
       <div className="relative min-h-0 flex-1">
         <MapContainer center={LITHUANIA_CENTER} zoom={LITHUANIA_ZOOM} className="h-full w-full">
           <FillContainer />
@@ -276,7 +285,7 @@ export function ParcelMap({ report }: Props) {
 
   if (polygon.length === 0) {
     return (
-      <div className="flex min-h-48 items-center rounded-2xl border border-mist-200 bg-white p-6 text-lg text-mist-700 lg:h-full">
+      <div className="frame flex min-h-48 items-center p-6 text-md text-ink-2 lg:h-full">
         Šio sklypo vietos žemėlapyje parodyti negalime, nes viešuose duomenų šaltiniuose nėra jo ribų.
       </div>
     );
@@ -289,7 +298,7 @@ export function ParcelMap({ report }: Props) {
   // it. Desktop: the page makes this frame the full height of the screen and
   // the legend floats over the map's lower-left corner.
   return (
-    <div className="-mx-4 flex flex-col overflow-hidden border-y border-mist-200 bg-white md:mx-0 md:rounded-2xl md:border lg:h-full">
+    <div className="-mx-(--gutter) flex flex-col overflow-hidden isolate border-y-2 border-ink bg-plate md:mx-0 md:border-2 lg:h-full">
       <div className="relative h-[45svh] min-h-72 w-full lg:h-auto lg:min-h-0 lg:flex-1">
         <MapContainer center={center} zoom={16} scrollWheelZoom={false} className="h-full w-full">
           <WheelZoomOnWideScreens />
@@ -314,7 +323,7 @@ export function ParcelMap({ report }: Props) {
             >
               <Tooltip sticky>
                 {n.cadastralRegNo}
-                <span className="block text-mist-600">Spustelėkite, kad pamatytumėte ataskaitą</span>
+                <span className="block text-muted">Spustelėkite, kad pamatytumėte ataskaitą</span>
               </Tooltip>
             </Polygon>
           ))}
@@ -337,12 +346,12 @@ export function ParcelMap({ report }: Props) {
         {/* Legend so the colours on the map mean something at a glance. */}
         {/* Desktop shapes carry their own "spustelėkite" tooltip, so the floating
             legend stays short and covers as little of the map as it can. */}
-        <ul className="pointer-events-none absolute bottom-3 left-3 z-1000 hidden gap-0.5 rounded-xl border border-mist-200 bg-white/95 px-3 py-2 text-base text-mist-800 shadow-soft lg:grid">
+        <ul className="pointer-events-none absolute bottom-3 left-3 z-1000 hidden gap-1 border-2 border-ink bg-plate px-4 py-3 text-sm text-ink lg:grid">
           <MapLegendItems hasBuildings={hasBuildings} neighborHint={false} />
         </ul>
       </div>
 
-      <ul className="flex flex-wrap gap-x-5 gap-y-1 border-t border-mist-200 px-4 py-2.5 text-base text-mist-800 lg:hidden">
+      <ul className="flex flex-wrap gap-x-6 gap-y-2 border-t-2 border-ink px-(--gutter) py-3 text-sm text-ink md:px-4 lg:hidden">
         <MapLegendItems hasBuildings={hasBuildings} neighborHint />
       </ul>
     </div>
@@ -353,17 +362,17 @@ function MapLegendItems({ hasBuildings, neighborHint }: { hasBuildings: boolean;
   return (
     <>
       <li className="flex items-center gap-2">
-        <span className="inline-block h-4 w-4 shrink-0 rounded-sm border-2 border-forest-700 bg-forest-400/40" aria-hidden="true" />
+        <span className="inline-block h-4 w-4 shrink-0 border-2 border-accent bg-accent-soft" aria-hidden="true" />
         Jūsų sklypas
       </li>
       {hasBuildings ? (
         <li className="flex items-center gap-2">
-          <span className="inline-block h-4 w-4 shrink-0 rounded-sm border border-amber-700 bg-amber-400/60" aria-hidden="true" />
+          <span className="inline-block h-4 w-4 shrink-0 border border-ink bg-ink-2/40" aria-hidden="true" />
           Pastatai
         </li>
       ) : null}
       <li className="flex items-center gap-2">
-        <span className="inline-block h-4 w-4 shrink-0 rounded-sm border border-mist-500 bg-mist-300/50" aria-hidden="true" />
+        <span className="inline-block h-4 w-4 shrink-0 border border-dashed border-ink-2 bg-paper" aria-hidden="true" />
         {neighborHint ? "Gretimi sklypai: spustelėkite, kad atidarytumėte" : "Gretimi sklypai"}
       </li>
     </>

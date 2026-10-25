@@ -41,32 +41,32 @@ export function ParcelAtPointPage() {
   const effectiveState: LookupState = validPoint ? state : "not-found";
 
   return (
-    <main className="mx-auto grid w-full max-w-shell gap-6 px-4 py-8 md:px-8">
+    <main id="main" className="container grid gap-8 pt-8 pb-24">
       <button
         type="button"
         onClick={() => navigate(-1)}
-        className="inline-flex w-fit items-center gap-1.5 rounded-lg py-1 text-lg font-semibold text-forest-700 transition-colors hover:text-forest-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600"
+        className="link inline-flex w-fit cursor-pointer items-center gap-2 py-1 text-md no-underline hover:underline"
       >
         <ChevronLeft className="h-5 w-5" />
         Atgal
       </button>
 
-      <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-mist-200 bg-white p-12 text-center">
+      <div className="card flex flex-col items-start justify-center gap-6 p-10 md:p-16">
         {effectiveState === "searching" ? (
           <>
             <Spinner />
-            <p className="text-xl text-mist-700">Ieškomas šios vietos sklypas…</p>
+            <p className="text-lg text-ink-2">Ieškomas šios vietos sklypas…</p>
           </>
         ) : (
           <>
-            <p className="text-xl font-semibold text-mist-900">
+            <p className="font-display text-2xl leading-tight font-bold tracking-display text-ink">
               {effectiveState === "not-found"
                 ? "Šioje vietoje registruoto sklypo nerasta."
                 : "Nepavyko surasti sklypo. Bandykite dar kartą vėliau."}
             </p>
             <Link
               to="/zemelapis"
-              className="rounded-sm text-lg font-semibold text-forest-700 underline decoration-forest-300 underline-offset-4 transition-colors hover:text-forest-900 hover:decoration-forest-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600"
+              className="btn btn--secondary"
             >
               Ieškoti žemėlapyje
             </Link>

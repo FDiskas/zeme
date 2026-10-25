@@ -1,82 +1,91 @@
 import { DATA_SOURCES } from "../lib/data-sources";
+import { CodeText } from "./CodeText";
 import { CheckIcon, WarningIcon } from "./icons";
 
 function StatusBadge({ status }: { status: "live" | "not-integrated" }) {
   if (status === "live") {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-forest-50 px-3 py-1 text-base font-semibold text-forest-700">
-        <CheckIcon className="h-4 w-4" />
+      <span className="inline-flex items-start gap-2 text-sm font-medium text-ink">
+        <CheckIcon className="mt-0.5 h-5 w-5 shrink-0" />
         Naudojama ataskaitose
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-base font-semibold text-amber-800">
-      <WarningIcon className="h-4 w-4" />
+    <span className="inline-flex items-start gap-2 text-sm font-medium text-ink">
+      <WarningIcon className="mt-0.5 h-5 w-5 shrink-0 text-accent" />
       Neintegruota
     </span>
   );
 }
 
+// A spec sheet: every registry as one ruled row. On wide screens the facts sit
+// in columns (name, code, coverage, update, status); on a phone each row
+// restacks as a labelled block, the name and its status first.
 export function DataSourcesPage() {
   return (
-    <main className="mx-auto grid w-full max-w-shell grid-cols-[minmax(0,1fr)] gap-8 px-4 py-10 md:px-8">
-      <div className="grid gap-3">
-        <h1 className="font-display text-3xl font-bold tracking-tight text-mist-900 md:text-4xl">
-          Duomenų šaltiniai
-        </h1>
-        <p className="max-w-2xl text-lg leading-relaxed text-mist-700">
+    <main id="main" className="container grid gap-16 pt-16 pb-24 md:pt-24">
+      <div className="grid gap-6 md:grid-cols-12 md:items-end md:gap-8">
+        <h1 className="text-display md:col-span-6">Duomenų šaltiniai</h1>
+        <p className="max-w-[60ch] text-lg text-ink-2 md:col-span-6">
           Reginfo.lt ataskaitos surenkamos iš viešų Lietuvos valstybės registrų ir
           informacinių sistemų. Čia surašyti visi šaltiniai, ką jie apima ir kaip
           dažnai tikrinami: atvirai, kad žinotumėte, iš kur kilo kiekvienas skaičius.
         </p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {DATA_SOURCES.map((source) => (
-          <div
-            key={source.name}
-            className="grid gap-3 rounded-2xl border border-mist-200 bg-white p-5 md:p-6"
-          >
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
-              <div className="min-w-0">
-                <h2 className="text-xl font-semibold text-mist-900">{source.name}</h2>
-                <p className="text-base text-mist-600">{source.publisher}</p>
-              </div>
-              <StatusBadge status={source.status} />
-            </div>
+      <div>
+        <div
+          aria-hidden="true"
+          className="hidden grid-cols-[minmax(0,4fr)_minmax(0,5fr)_minmax(0,3fr)_minmax(0,3fr)] gap-8 border-b-2 border-ink pb-3 text-sm font-medium text-muted lg:grid"
+        >
+          <span>Šaltinis</span>
+          <span>Apima</span>
+          <span>Atnaujinimas</span>
+          <span>Būsena</span>
+        </div>
 
-            <dl className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <dt className="text-base text-mist-600">Apima</dt>
-                <dd className="text-base text-mist-800">{source.coverage}</dd>
+        <ul className="spec lg:border-t-0">
+          {DATA_SOURCES.map((source) => (
+            <li
+              key={source.name}
+              className="grid grid-cols-1 gap-4 py-6 lg:grid-cols-[minmax(0,4fr)_minmax(0,5fr)_minmax(0,3fr)_minmax(0,3fr)] lg:gap-8"
+            >
+              <div className="grid min-w-0 content-start gap-1">
+                <h2 className="max-w-none text-lg leading-snug">{source.name}</h2>
+                <p className="text-sm text-ink-2">{source.publisher}</p>
+                <p className="code text-sm wrap-anywhere text-accent">
+                  <CodeText value={source.api} />
+                </p>
+                <a href={source.url} target="_blank" rel="noreferrer" className="link mt-1 w-fit text-sm">
+                  Oficiali svetainė
+                </a>
               </div>
-              <div>
-                <dt className="text-base text-mist-600">Atnaujinimas</dt>
-                <dd className="text-base text-mist-800">{source.updateFrequency}</dd>
-              </div>
-            </dl>
 
-            {source.caveat ? (
-              <p className="flex gap-2.5 text-base text-amber-900">
-                <WarningIcon className="mt-1 h-5 w-5 shrink-0 text-amber-700" />
-                {source.caveat}
+              <div className="grid min-w-0 content-start gap-3">
+                <p className="text-md text-ink">
+                  <span className="text-sm text-muted lg:hidden">Apima: </span>
+                  {source.coverage}
+                </p>
+                {source.caveat ? (
+                  <p className="flex gap-3 text-sm text-ink-2">
+                    <WarningIcon className="mt-0.5 h-5 w-5 shrink-0 text-accent" />
+                    {source.caveat}
+                  </p>
+                ) : null}
+              </div>
+
+              <p className="text-sm text-ink-2">
+                <span className="text-muted lg:hidden">Atnaujinimas: </span>
+                {source.updateFrequency}
               </p>
-            ) : null}
 
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-base text-mist-600">
-              <span className="min-w-0 break-all">{source.api}</span>
-              <a
-                href={source.url}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-sm font-semibold text-forest-700 underline decoration-forest-300 underline-offset-4 transition-colors hover:text-forest-900 hover:decoration-forest-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600"
-              >
-                Oficiali svetainė
-              </a>
-            </div>
-          </div>
-        ))}
+              <div>
+                <StatusBadge status={source.status} />
+              </div>
+            </li>
+          ))}
+        </ul>
       </div>
     </main>
   );

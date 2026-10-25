@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
-import { CloseIcon, GitHubIcon, LogoMark, MenuIcon } from "./icons";
+import { CloseIcon, LogoMark, MenuIcon } from "./icons";
 
 const NAV_LINKS = [
   { to: "/", label: "Pradžia" },
@@ -8,97 +8,102 @@ const NAV_LINKS = [
   { to: "/duomenu-saltiniai", label: "Duomenų šaltiniai" },
 ];
 
-/** Wordmark — reused by the header and anywhere the brand needs to appear. */
+/** Wordmark — reused by the header and the footer. */
 function Brand() {
   return (
     <Link
       to="/"
-      className="flex items-center gap-2.5 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600"
+      className="flex shrink-0 items-center gap-3 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus"
       aria-label="Reginfo.lt, į pradžią"
     >
-      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-forest-700 text-white">
+      <span className="flex h-10 w-10 items-center justify-center bg-ink text-paper">
         <LogoMark className="h-6 w-6" />
       </span>
-      <span className="font-display text-2xl font-bold tracking-tight text-mist-900">
-        Reginfo<span className="text-forest-700">.lt</span>
-      </span>
+      <span className="font-display text-xl font-bold tracking-display text-ink">Reginfo.lt</span>
     </Link>
   );
 }
 
-// The current page is marked by colour and a soft fill, never a primary fill,
-// so the reader always knows where they are.
+// The current page takes the soft rust wash, never a filled primary, so the
+// reader always knows where they are without the link shouting.
 function navLinkClass({ isActive }: { isActive: boolean }) {
-  return `whitespace-nowrap rounded-lg px-3 py-2 text-lg font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600 ${
-    isActive ? "bg-forest-50 text-forest-800" : "text-mist-700 hover:bg-mist-100 hover:text-mist-900"
+  return `flex min-h-12 items-center whitespace-nowrap px-4 text-md font-medium text-ink transition-colors duration-150 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus active:bg-paper-3 ${
+    isActive ? "bg-accent-soft" : "hover:bg-paper-2"
   }`;
 }
 
+// A floating bar: the wordmark and three links on a ruled plate, held a step
+// off the top edge. The band around the plate is paper, not glass, so content
+// scrolling up disappears behind it instead of showing through the gaps; its
+// full height is --nav-clear, where sticky panes start.
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-1100 w-full border-b border-mist-200 bg-mist-50/90 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-shell items-center justify-between px-4 md:px-8">
-        <Brand />
+    <header className="sticky top-0 z-(--z-sticky-nav) bg-paper py-3">
+      <div className="container">
+        <div className="border-2 border-ink bg-plate">
+          <div className="flex h-16 items-center justify-between gap-4 pr-2 pl-3">
+            <Brand />
 
-        {/* Desktop nav — full width, everything fits above md. */}
-        <nav className="hidden items-center gap-1 md:flex">
-          {NAV_LINKS.map((link) => (
-            <NavLink key={link.to} to={link.to} end className={navLinkClass}>
-              {link.label}
-            </NavLink>
-          ))}
-        </nav>
+            <nav aria-label="Pagrindinė" className="hidden items-center gap-1 md:flex">
+              {NAV_LINKS.map((link) => (
+                <NavLink key={link.to} to={link.to} end className={navLinkClass}>
+                  {link.label}
+                </NavLink>
+              ))}
+            </nav>
 
-        {/* Mobile: a hamburger toggle instead of squeezing links into the bar. */}
-        <button
-          type="button"
-          onClick={() => setMenuOpen((open) => !open)}
-          aria-expanded={menuOpen}
-          aria-label={menuOpen ? "Uždaryti meniu" : "Atverti meniu"}
-          className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-mist-700 transition-colors hover:bg-mist-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600 active:bg-mist-200 md:hidden"
-        >
-          {menuOpen ? <CloseIcon className="h-6 w-6" /> : <MenuIcon className="h-6 w-6" />}
-        </button>
-      </div>
-
-      {menuOpen ? (
-        <nav className="flex flex-col gap-1 border-t border-mist-200 bg-mist-50 px-4 py-3 md:hidden">
-          {NAV_LINKS.map((link) => (
-            <NavLink
-              key={link.to}
-              to={link.to}
-              end
-              onClick={() => setMenuOpen(false)}
-              className={(state) => `${navLinkClass(state)} block`}
+            {/* Phones: a menu toggle instead of squeezing links into the bar. */}
+            <button
+              type="button"
+              onClick={() => setMenuOpen((open) => !open)}
+              aria-expanded={menuOpen}
+              aria-controls="mobile-nav"
+              aria-label={menuOpen ? "Uždaryti meniu" : "Atverti meniu"}
+              className="inline-flex h-12 w-12 items-center justify-center text-ink transition-colors duration-150 hover:bg-paper-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus active:bg-paper-3 md:hidden"
             >
-              {link.label}
-            </NavLink>
-          ))}
-        </nav>
-      ) : null}
+              {menuOpen ? <CloseIcon className="h-6 w-6" /> : <MenuIcon className="h-6 w-6" />}
+            </button>
+          </div>
+
+          {menuOpen ? (
+            <nav id="mobile-nav" aria-label="Pagrindinė" className="grid border-t border-rule p-2 md:hidden">
+              {NAV_LINKS.map((link) => (
+                <NavLink key={link.to} to={link.to} end onClick={() => setMenuOpen(false)} className={navLinkClass}>
+                  {link.label}
+                </NavLink>
+              ))}
+            </nav>
+          ) : null}
+        </div>
+      </div>
     </header>
   );
 }
 
+// A colophon: the wordmark, then one paragraph that says what the data is,
+// what it is not, and whose map and code it stands on.
 export function Footer() {
   return (
-    <footer className="border-t border-mist-200 bg-white">
-      <div className="mx-auto flex max-w-shell flex-col items-start justify-between gap-4 px-4 py-6 md:flex-row md:items-center md:px-8">
-        <p className="max-w-2xl text-base text-mist-600">
+    <footer className="border-t-2 border-ink bg-paper-2">
+      <div className="container grid gap-8 py-16 md:grid-cols-12 md:gap-8">
+        <div className="md:col-span-4">
+          <Brand />
+        </div>
+        <p className="max-w-[60ch] text-md text-ink-2 md:col-span-7 md:col-start-6">
           Žemės sklypų ir pastatų informacija iš viešų Lietuvos registrų. Duomenys
-          pateikiami pažintiniams tikslams ir nėra oficialus dokumentas.
+          pateikiami pažintiniams tikslams ir nėra oficialus dokumentas. Žemėlapio
+          pagrindas:{" "}
+          <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" className="link">
+            OpenStreetMap
+          </a>
+          . Programos kodas atviras:{" "}
+          <a href="https://github.com/FDiskas/zeme" target="_blank" rel="noreferrer" className="link">
+            GitHub
+          </a>
+          .
         </p>
-        <a
-          href="https://github.com/FDiskas/zeme"
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-mist-300 bg-white px-4 py-2.5 text-base font-semibold text-mist-800 transition-colors hover:border-forest-300 hover:text-forest-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600 active:bg-mist-100"
-        >
-          <GitHubIcon className="h-5 w-5" />
-          GitHub
-        </a>
       </div>
     </footer>
   );

@@ -9,7 +9,9 @@ import { MapExplorePage } from "./components/MapExplorePage";
 import { ParcelAtPointPage } from "./components/ParcelAtPointPage";
 import { Footer, Header } from "./components/SiteChrome";
 import { RecentlyViewed, type SearchHistoryItem } from "./components/RecentlyViewed";
+import { ExploreClose, ReportStack, SourcesSpec } from "./components/HomeSections";
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   DownloadIcon,
@@ -53,84 +55,109 @@ function HomePage() {
   }
 
   return (
-    <main
-      className={`mx-auto grid w-full max-w-shell gap-10 px-4 pt-10 pb-16 md:px-8 md:pt-20 lg:gap-16 ${
-        history.length > 0 ? "lg:grid-cols-[minmax(0,1fr)_26rem]" : ""
-      }`}
-    >
-      <section className={`grid w-full max-w-3xl content-start gap-6 ${history.length > 0 ? "" : "lg:mx-auto"}`}>
-        <div className="grid gap-3">
-          <h1 className="font-display text-4xl font-bold leading-[1.06] tracking-tight text-mist-900 md:text-6xl">
-            Sužinokite viską apie žemės sklypą
-          </h1>
-          <p className="max-w-2xl text-xl leading-relaxed text-mist-700">
-            Vieša Lietuvos žemės ir pastatų informacija: ribos žemėlapyje, plotas,
-            paskirtis, pastatai ir galimi apribojimai.
-          </p>
-        </div>
+    <main id="main">
+      {/* Corridor: one centred column, the head set large, the search as the
+          action. Results open under the field, inside the same column. */}
+      <section className="container">
+        <div className="flex min-h-[calc(100svh-var(--nav-clear)-6rem)] flex-col border-b-2 border-ink pt-16 pb-8">
+          <div className="mx-auto my-auto grid w-full max-w-[64rem] gap-12">
+            <div className="grid gap-6">
+              <h1 className="max-w-[14ch] text-[clamp(2.75rem,7vw,6.3rem)] leading-[1.02]">Sužinokite viską apie žemės sklypą</h1>
+              <p className="lead text-ink-2">
+                Vieša Lietuvos žemės ir pastatų informacija: ribos žemėlapyje, plotas,
+                paskirtis, pastatai ir galimi apribojimai.
+              </p>
+            </div>
 
-        <form
-          role="search"
-          onSubmit={(event) => {
-            event.preventDefault();
-            onSearch();
-          }}
-          className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]"
-        >
-          <div className="relative">
-            <SearchIcon className="pointer-events-none absolute left-4 top-1/2 h-6 w-6 -translate-y-1/2 text-mist-500" />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Adresas, kadastrinis arba unikalus numeris"
-              aria-label="Adresas, kadastrinis arba unikalus numeris"
-              enterKeyHint="search"
-              className="h-14 w-full rounded-xl border border-mist-500 bg-white pl-13 pr-4 text-lg text-mist-900 outline-none placeholder:text-mist-600 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-forest-600"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="inline-flex h-14 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-forest-700 px-7 text-lg font-semibold text-white transition-colors hover:bg-forest-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 active:bg-forest-900 disabled:cursor-not-allowed disabled:opacity-55"
-          >
-            {loading ? <Spinner className="h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : <SearchIcon className="h-5 w-5" />}
-            {loading ? "Ieškoma…" : "Ieškoti"}
-          </button>
-        </form>
-
-        {searchNote ? (
-          <p role="status" className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-lg text-amber-900">
-            <WarningIcon className="mt-1 h-5 w-5 shrink-0 text-amber-700" />
-            {searchNote}
-          </p>
-        ) : null}
-
-        {results.length > 0 ? (
-          <ul className="divide-y divide-mist-200 overflow-hidden rounded-2xl border border-mist-200 bg-white">
-            {results.map((result) => (
-              <li key={result.cadastralRegNo}>
-                <button
-                  type="button"
-                  onClick={() => navigate(`/parcel/${encodeURIComponent(result.cadastralRegNo)}`)}
-                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-mist-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-forest-600 active:bg-mist-100"
-                >
-                  <span className="min-w-0">
-                    <span className="block text-lg font-semibold text-mist-900">
-                      {result.address && result.address.trim() !== ""
-                        ? result.address
-                        : "Adreso viešuose šaltiniuose nėra"}
-                    </span>
-                    <span className="block text-base text-mist-600 tabular-nums">{result.cadastralRegNo}</span>
-                  </span>
-                  <ChevronRight className="h-5 w-5 shrink-0 text-mist-500" />
+            <div className="grid gap-3">
+              <label htmlFor="parcel-search" className="text-md font-medium text-ink">
+                Adresas, kadastrinis arba unikalus numeris
+              </label>
+              <form
+                role="search"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  onSearch();
+                }}
+                className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]"
+              >
+                <div className="relative">
+                  <SearchIcon className="pointer-events-none absolute top-1/2 left-4 h-6 w-6 -translate-y-1/2 text-muted" />
+                  <input
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    id="parcel-search"
+                    aria-describedby="search-hint"
+                    enterKeyHint="search"
+                    autoComplete="off"
+                    className="field pl-13"
+                  />
+                </div>
+                <button type="submit" disabled={loading} aria-busy={loading} className="btn">
+                  {loading ? <Spinner className="h-5 w-5 animate-spin rounded-full border-2 border-paper/40 border-t-paper" /> : <SearchIcon className="h-5 w-5" />}
+                  {loading ? "Ieškoma…" : "Ieškoti"}
                 </button>
-              </li>
-            ))}
-          </ul>
-        ) : null}
+              </form>
+              <p id="search-hint" className="text-md text-ink-2">
+                Pavyzdžiui <span className="code whitespace-nowrap text-accent">4400/0001:0007</span> arba{" "}
+                <span className="code whitespace-nowrap text-accent">4400-4756-6034</span>
+              </p>
+            </div>
+
+            {searchNote ? (
+              <p role="status" className="flex gap-3 border-l-2 border-accent bg-accent-soft px-5 py-4 text-md text-ink">
+                <WarningIcon className="mt-1 h-5 w-5 shrink-0 text-accent" />
+                {searchNote}
+              </p>
+            ) : null}
+
+            {results.length > 0 ? (
+              <ul className="spec bg-plate">
+                {results.map((result) => (
+                  <li key={result.cadastralRegNo}>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/parcel/${encodeURIComponent(result.cadastralRegNo)}`)}
+                      className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors duration-150 hover:bg-accent-soft focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus active:bg-paper-3"
+                    >
+                      <span className="min-w-0">
+                        <span className="block text-lg font-medium text-ink">
+                          {result.address && result.address.trim() !== ""
+                            ? result.address
+                            : "Adreso viešuose šaltiniuose nėra"}
+                        </span>
+                        <span className="code block text-sm text-accent">{result.cadastralRegNo}</span>
+                      </span>
+                      <ChevronRight className="h-6 w-6 shrink-0 text-ink" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+
+          {/* The hero fills the screen, so say out loud that the page goes on. */}
+          <a
+            href="#ataskaita"
+            className="btn btn--secondary btn--s mx-auto mt-12"
+          >
+            Kaip atrodo ataskaita
+            <ChevronDown className="h-5 w-5" />
+          </a>
+        </div>
       </section>
 
-      <RecentlyViewed history={history} />
+      {history.length > 0 ? (
+        <section className="container pt-(--section-gap-s)">
+          <div className="mx-auto max-w-[64rem]">
+            <RecentlyViewed history={history} />
+          </div>
+        </section>
+      ) : null}
+
+      <ReportStack />
+      <SourcesSpec />
+      <ExploreClose />
     </main>
   );
 }
@@ -226,7 +253,8 @@ function ParcelPage() {
       type="button"
       onClick={onRefresh}
       disabled={loading}
-      className="inline-flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-mist-500 bg-white px-4 max-sm:flex-1 text-lg font-semibold text-mist-900 transition-colors hover:bg-mist-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600 active:bg-mist-200 disabled:cursor-not-allowed disabled:opacity-55"
+      aria-busy={loading}
+      className="btn btn--secondary btn--s max-sm:flex-1"
     >
       <RefreshIcon className="h-5 w-5" />
       {loading ? "Atnaujinama…" : "Atnaujinti"}
@@ -234,42 +262,41 @@ function ParcelPage() {
   );
 
   return (
-    <main className="mx-auto w-full max-w-shell px-4 pt-0 pb-10 md:px-8 md:pt-4 lg:py-4">
-      {/* The workbench: on desktop the map fills the left of the screen and stays
-          put while the report column scrolls beside it; on a phone the map runs
-          edge to edge first and the report follows. */}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-start lg:gap-6 xl:grid-cols-[minmax(0,1fr)_28rem]">
-        <div className="lg:sticky lg:top-20 lg:h-[calc(100dvh-6rem)]">
+    <main id="main" className="container pb-24 lg:pb-6">
+      {/* The workbench: on desktop both columns stick level under the header.
+          The map is one screen tall, so it stays put; the report column sticks
+          too, but once it is taller than the screen it scrolls with the page and
+          slides behind the header. On a phone the map runs edge to edge first
+          and the report follows. */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_27rem] lg:items-start xl:grid-cols-[minmax(0,1fr)_29rem]">
+        <div className="lg:sticky lg:top-(--nav-clear) lg:h-[calc(100dvh-var(--nav-clear)-1.5rem)]">
           {report ? (
             <ParcelMap report={report} />
           ) : loading ? (
             <div
-              className="-mx-4 h-[45svh] min-h-72 animate-pulse border-y border-mist-200 bg-mist-100 md:mx-0 md:rounded-2xl md:border lg:h-full"
+              className="-mx-(--gutter) h-[45svh] min-h-72 animate-pulse border-y-2 border-ink bg-paper-2 md:mx-0 md:border-2 lg:h-full"
               aria-hidden="true"
             />
           ) : null}
         </div>
 
-        <div className="grid gap-6">
-          <Link
-            to="/"
-            className="inline-flex w-fit items-center gap-1.5 rounded-lg py-1 text-lg font-semibold text-forest-700 transition-colors hover:text-forest-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-600"
-          >
+        <div className="grid min-w-0 gap-10 lg:sticky lg:top-(--nav-clear)">
+          <Link to="/" className="link inline-flex w-fit items-center gap-2 py-1 text-md no-underline hover:underline">
             <ChevronLeft className="h-5 w-5" />
             Atgal į paiešką
           </Link>
 
           {!report && loading ? (
-            <div className="flex items-center gap-4 rounded-2xl border border-mist-200 bg-white p-5">
-              <Spinner className="h-8 w-8 shrink-0 animate-spin rounded-full border-4 border-mist-200 border-t-forest-600" />
-              <p className="text-lg text-mist-700">Renkame sklypo duomenis…</p>
+            <div className="frame flex items-center gap-4 p-6">
+              <Spinner className="h-8 w-8 shrink-0 animate-spin rounded-full border-4 border-paper-3 border-t-ink" />
+              <p className="text-md text-ink-2">Renkame sklypo duomenis…</p>
             </div>
           ) : null}
 
           {!report && !loading && loadFailed ? (
-            <div className="grid gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-5">
-              <p className="flex gap-3 text-lg text-amber-900">
-                <WarningIcon className="mt-1 h-5 w-5 shrink-0 text-amber-700" />
+            <div className="grid gap-4 border-l-2 border-accent bg-accent-soft p-6">
+              <p className="flex gap-3 text-md text-ink">
+                <WarningIcon className="mt-1 h-5 w-5 shrink-0 text-accent" />
                 Nepavyko gauti sklypo duomenų. Spauskite „Atnaujinti“ arba bandykite vėliau.
               </p>
               <div>{refreshButton}</div>
@@ -281,28 +308,27 @@ function ParcelPage() {
               <SummaryCard
                 report={report}
                 actions={
-                  <div className="grid gap-2">
-                    <div className="flex flex-wrap gap-2">
+                  <div className="grid gap-3">
+                    <div className="flex flex-wrap gap-3">
                       <button
                         type="button"
                         onClick={onDownloadPdf}
                         disabled={pdfLoading}
-                        className="inline-flex h-12 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-forest-700 px-5 text-lg font-semibold text-white transition-colors hover:bg-forest-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 active:bg-forest-900 disabled:cursor-not-allowed disabled:opacity-55"
+                        aria-busy={pdfLoading}
+                        className="btn btn--s flex-1"
                       >
                         <DownloadIcon className="h-5 w-5" />
                         {pdfLoading ? "Generuojama…" : "Atsisiųsti PDF"}
                       </button>
                       {refreshButton}
                     </div>
-                    <p className="text-base text-mist-600">{freshness}</p>
+                    <p className="text-sm text-muted">{freshness}</p>
                   </div>
                 }
               />
 
-              <section className="grid gap-4">
-                <h2 className="font-display text-2xl font-bold tracking-tight text-mist-900">
-                  Detali informacija
-                </h2>
+              <section className="grid gap-6">
+                <h2 className="text-2xl">Detali informacija</h2>
                 <ReportPanel report={report} />
               </section>
             </>
@@ -325,7 +351,7 @@ function ParcelPageRoute() {
 
 function App() {
   return (
-    <div className="flex min-h-dvh flex-col text-mist-900">
+    <div className="flex min-h-dvh flex-col">
       <Header />
       <div className="flex-1">
         <Routes>
