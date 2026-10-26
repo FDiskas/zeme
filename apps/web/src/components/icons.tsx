@@ -87,6 +87,36 @@ export function CrosshairIcon({ className }: IconProps) {
   );
 }
 
+/** Measure a distance on the map. */
+export function RulerIcon({ className }: IconProps) {
+  return (
+    <Outline className={className}>
+      <path d="M3 17L17 3l4 4L7 21l-4-4z" />
+      <path d="M6 14l2 2M9 11l1.5 1.5M12 8l2 2M15 5l1.5 1.5" />
+    </Outline>
+  );
+}
+
+/** Take back the last step (the last measured point). */
+export function UndoIcon({ className }: IconProps) {
+  return (
+    <Outline className={className}>
+      <path d="M9 14L4 9l5-5" />
+      <path d="M4 9h10.5a5.5 5.5 0 010 11H11" />
+    </Outline>
+  );
+}
+
+/** A 3D view of the place (Google Earth). */
+export function CubeIcon({ className }: IconProps) {
+  return (
+    <Outline className={className}>
+      <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z" />
+      <path d="M4 7.5l8 4.5 8-4.5M12 12v9" />
+    </Outline>
+  );
+}
+
 export function SearchIcon({ className }: IconProps) {
   return (
     <Outline className={className}>

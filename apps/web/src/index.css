@@ -70,6 +70,8 @@
 	}
 	.btn--secondary:hover { background: var(--color-paper-2); border-color: var(--color-muted); }
 	.btn--secondary:active { background: var(--color-paper-3); }
+	/* A key that stays on (the map ruler): the tinted well of a chosen .seg key. */
+	.btn--secondary[aria-pressed="true"] { background: var(--color-paper-2); border-color: var(--color-ink); }
 
 	/* A quiet jump link (the report's section index): a tinted pill, no edge,
 	   so a row of them reads as a menu rather than a wall of keys. */
@@ -216,7 +218,8 @@
 		background: var(--color-plate);
 		box-shadow: var(--shadow-card);
 	}
-	.seg button {
+	/* Links (the 3D view) wear the same key as the choices. */
+	.seg :is(button, a) {
 		display: inline-flex;
 		align-items: center;
 		gap: var(--space-xs);
@@ -229,12 +232,13 @@
 		font-size: var(--text-sm);
 		font-weight: 500;
 		white-space: nowrap;
+		text-decoration: none;
 		cursor: pointer;
 		transition: background-color var(--dur-micro) var(--ease-out);
 	}
-	.seg button:hover { background: var(--color-paper); }
-	.seg button:active { background: var(--color-paper-2); }
-	.seg button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+	.seg :is(button, a):hover { background: var(--color-paper); }
+	.seg :is(button, a):active { background: var(--color-paper-2); }
+	.seg :is(button, a):focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
 	.seg button[aria-pressed="true"],
 	.seg button[aria-selected="true"] {
 		background: var(--color-paper-2);
@@ -507,3 +511,24 @@
 	fill: var(--color-plate);
 	fill-opacity: 0.18;
 }
+
+/* The ruler: a dashed ink line through white-centred points, light over the
+   orthophoto. While it is on, shapes let clicks through to the map so each
+   click drops a point instead of opening a parcel. */
+.leaflet-container.is-measuring { cursor: crosshair; }
+/* Outranks leaflet.css (.leaflet-pane > svg path.leaflet-interactive). */
+.is-measuring .leaflet-pane > svg path.leaflet-interactive { pointer-events: none; }
+
+.map-measure-line {
+	stroke: var(--color-ink);
+	stroke-dasharray: 8 6;
+	fill: none;
+}
+
+.map-measure-point {
+	stroke: var(--color-ink);
+	fill: var(--color-plate);
+	fill-opacity: 1;
+}
+
+[data-basemap="ortho"] .map-measure-line { stroke: var(--color-plate); }

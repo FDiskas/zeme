@@ -1,7 +1,7 @@
 import { MapContainer, Polygon, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import type { Map as LeafletMap } from "leaflet";
+import { latLngBounds, type Map as LeafletMap } from "leaflet";
 import type { ParcelReport } from "@zeme/shared";
 import type { OrthoSeries } from "@zeme/shared";
 import { getParcelsByBbox } from "../lib/orpc";
@@ -22,7 +22,9 @@ import {
   type Basemap,
   type CoverageOperator,
 } from "../lib/basemap";
-import { CrosshairIcon, LayersIcon, MinusIcon, PlusIcon } from "./icons";
+import { parcelCenter } from "../lib/report-format";
+import { CrosshairIcon, CubeIcon, LayersIcon, MinusIcon, PlusIcon } from "./icons";
+import { MeasureTool } from "./MeasureTool";
 import "leaflet/dist/leaflet.css";
 
 type BuildingShape = {
@@ -94,6 +96,18 @@ function frameParcel(map: LeafletMap, positions: [number, number][]) {
   }
 }
 
+// Google Earth's 3D view of the parcel: the camera aims at its centre from
+// far enough back (`d`, metres) to take in the whole outline, tilted 30°. The
+// `data` part is copied as is from a link Google Earth itself made.
+function googleEarthUrl(report: ParcelReport, positions: [number, number][]): string | null {
+  const center = parcelCenter(report);
+  if (!center || positions.length === 0) return null;
+  const bounds = latLngBounds(positions);
+  const span = bounds.getSouthWest().distanceTo(bounds.getNorthEast());
+  const distance = Math.round(Math.min(5000, Math.max(250, span * 2)));
+  return `https://earth.google.com/web/@${center.lat.toFixed(8)},${center.lng.toFixed(8)},150a,${distance}d,35y,0h,30t,0r/data=CgRCAggBOgMKATBCAggASg0I____________ARAA`;
+}
+
 function FitToParcel({ positions }: { positions: [number, number][] }) {
   const map = useMap();
   useEffect(() => {
@@ -126,7 +140,7 @@ function FillContainer() {
 
 // Zoom keys over the map's top-left corner, in place of Leaflet's control
 // (whose keys are links to "#"): real buttons with spoken names, greyed at the
-// zoom limits. Further keys (recentre) stack beneath them.
+// zoom limits. Further keys (recentre, ruler) stack beneath them.
 function MapZoomKeys({ map, children }: { map: LeafletMap | null; children?: ReactNode }) {
   const [zoom, setZoom] = useState<number | null>(null);
   useEffect(() => {
@@ -263,6 +277,8 @@ type LayerControlProps = {
   onBasemapChange: (next: Basemap) => void;
   ortho: OrthoState;
   coverage: CoverageState;
+  // A key set beside the base keys (the parcel's 3D view).
+  extra?: ReactNode;
 };
 
 // Where the panel under the base keys sits: under the keys on wide maps,
@@ -274,7 +290,7 @@ const MAP_PANEL_PLACE = "map-panel absolute inset-x-3 bottom-11 z-1000 max-sm:py
 // through the survey years, oldest on the left, the chosen years set large;
 // with 5G on, it picks the operator and explains the colours. The choices
 // hold for the visit, on every map.
-function MapLayerControl({ basemap, onBasemapChange, ortho, coverage }: LayerControlProps) {
+function MapLayerControl({ basemap, onBasemapChange, ortho, coverage, extra }: LayerControlProps) {
   const { series } = ortho;
   const index = orthoIndex(series, ortho.choice);
   const last = series.length - 1;
@@ -288,13 +304,18 @@ function MapLayerControl({ basemap, onBasemapChange, ortho, coverage }: LayerCon
 
   return (
     <>
-      <div role="group" aria-label="Žemėlapio pagrindas" className="seg absolute top-3 right-3 z-1000">
-        <LayersIcon className="ml-2 h-5 w-5 shrink-0 self-center text-muted max-sm:hidden" />
-        {BASEMAP_OPTIONS.map((option) => (
-          <button key={option.value} type="button" aria-pressed={basemap === option.value} onClick={() => onBasemapChange(option.value)}>
-            {option.label}
-          </button>
-        ))}
+      {/* On a phone the extra key drops under the base keys, which already
+          fill the width left by the zoom keys. */}
+      <div className="absolute top-3 right-3 z-1000 flex flex-col items-end gap-2 sm:flex-row">
+        <div role="group" aria-label="Žemėlapio pagrindas" className="seg">
+          <LayersIcon className="ml-2 h-5 w-5 shrink-0 self-center text-muted max-sm:hidden" />
+          {BASEMAP_OPTIONS.map((option) => (
+            <button key={option.value} type="button" aria-pressed={basemap === option.value} onClick={() => onBasemapChange(option.value)}>
+              {option.label}
+            </button>
+          ))}
+        </div>
+        {extra}
       </div>
 
       {basemap === "ortho" ? (
@@ -511,7 +532,9 @@ export function ExploreMap() {
           <ViewportParcelsLayer excludeIds={EMPTY_IDS} onNavigate={navigateToParcel} />
           <BaseLayers basemap={basemap} ortho={ortho} coverage={coverage} />
         </MapContainer>
-        <MapZoomKeys map={map} />
+        <MapZoomKeys map={map}>
+          <MeasureTool map={map} />
+        </MapZoomKeys>
         <MapLayerControl basemap={basemap} onBasemapChange={setBasemap} ortho={ortho} coverage={coverage} />
       </div>
     </div>
@@ -554,6 +577,7 @@ export function ParcelMap({ report }: Props) {
 
   const center = polygon[0]!;
   const hasBuildings = buildings.length > 0;
+  const earthUrl = googleEarthUrl(report, polygon);
 
   // Mobile: the map runs edge to edge under the header with the legend below
   // it. Desktop: the page makes this frame the full height of the screen and
@@ -608,7 +632,22 @@ export function ParcelMap({ report }: Props) {
           ))}
         </MapContainer>
 
-        <MapLayerControl basemap={basemap} onBasemapChange={setBasemap} ortho={ortho} coverage={coverage} />
+        <MapLayerControl
+          basemap={basemap}
+          onBasemapChange={setBasemap}
+          ortho={ortho}
+          coverage={coverage}
+          extra={
+            earthUrl ? (
+              <div className="seg">
+                <a href={earthUrl} target="_blank" rel="noopener noreferrer" title="Atidaryti sklypą Google Earth 3D vaizde (naujame lange)">
+                  <CubeIcon className="h-5 w-5" />
+                  3D
+                </a>
+              </div>
+            ) : null
+          }
+        />
 
         <MapZoomKeys map={map}>
           <button
@@ -620,6 +659,7 @@ export function ParcelMap({ report }: Props) {
           >
             <CrosshairIcon className="h-5 w-5" />
           </button>
+          <MeasureTool map={map} />
         </MapZoomKeys>
       </div>
 

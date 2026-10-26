@@ -14,6 +14,7 @@
 - [infostatyba-project-links](project/infostatyba-project-links.md) — permit → public project page needs the JSF search (address + project-name prefix → uuid); /api/infostatyba resolves on click with a wait page, 24 h cache. keywords: infostatyba, uuid, jsf, link, statybos leidimai
 - [ssva-open-data-hub](project/ssva-open-data-hub.md) — SSVA ArcGIS hub: per-parcel užstatymo tankis/intensyvumas INTEGRATED (ssva-built-up); block census + green access candidates. keywords: ssva, užstatymas, tankis, intensyvumas, kvartalai
 - [mobile-coverage-rrt](project/mobile-coverage-rrt.md) — RRT 5G/LTE/GSM coverage + LTE/5G speed per operator OPEN via geoportal RRT_duomenys MapServer (raster: identify for point value, export for overlay); map key "5G" INTEGRATED in RRT colours. keywords: 5G, LTE, mobilusis ryšys, aprėptis, rrt, telia, bitė, tele2, sparta
+- [soil-productivity-sources](project/soil-productivity-sources.md) — NŽT soil/našumo balas MapServers answer identify (+ seniūnija/savivaldybė/LT averages) but licence forbids app use without consent → ingest open ZIPs. keywords: dirvozemis, nasumo balas, melioracija, NZT, licencija
 
 ## feedback/
 
