@@ -22,7 +22,7 @@ export function RecentlyViewed({ history, onRemove, onClear }: Props) {
   return (
     <section className="grid gap-2" aria-labelledby="recent-heading">
       <div className="flex items-center justify-between gap-4">
-        <h2 id="recent-heading" className="text-sm font-medium tracking-[0.04em] text-muted uppercase">
+        <h2 id="recent-heading" className="font-body text-sm font-medium tracking-normal text-muted">
           Neseniai peržiūrėta
         </h2>
         <button type="button" onClick={onClear} className="link min-h-11 text-sm">

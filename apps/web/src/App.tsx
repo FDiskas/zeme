@@ -10,7 +10,7 @@ import { ParcelAtPointPage } from "./components/ParcelAtPointPage";
 import { Footer, Header } from "./components/SiteChrome";
 import { RecentlyViewed } from "./components/RecentlyViewed";
 import { ParcelSearch } from "./components/ParcelSearch";
-import { DetailSplit, ExploreClose, ReportShowcase, SourcesSpec } from "./components/HomeSections";
+import { ExploreClose, ReportTour, SourcesSpec } from "./components/HomeSections";
 import {
   ChevronLeft,
   DownloadIcon,
@@ -25,34 +25,34 @@ import { parcelKml, parcelPolygons } from "./lib/geo";
 import { useRecentParcels } from "./lib/useRecentParcels";
 
 function HomePage() {
-  const recent = useRecentParcels();
-
   return (
     <main id="main">
-      {/* Stage: the head, its line, the search and the recent parcels on five
-          columns; the parcel on the orthophoto, edged in tangerine, on seven.
-          Results open under the field, inside the same column. */}
-      <section className="container">
-        <div className="grid min-h-[calc(100svh-var(--nav-clear))] items-center gap-x-16 gap-y-10 py-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-          <div className="grid gap-8">
-            <div className="grid gap-5">
-              <h1 className="max-w-[13ch] text-[clamp(2.5rem,4.4vw,4.25rem)]">Sužinokite viską apie žemės sklypą</h1>
-              <p className="lead text-ink-2">
-                Ribos, plotas, paskirtis, pastatai ir galimi apribojimai iš viešų Lietuvos registrų.
-              </p>
-            </div>
-
-            <ParcelSearch />
-
-            <RecentlyViewed history={recent.history} onRemove={recent.remove} onClear={recent.clear} />
+      {/* Banner: one centred corridor (the head, its line, the search), only
+          as tall as its content; recent parcels open under the field. The
+          parcel on the orthophoto follows at once, so it starts above the
+          fold and the fold cuts through it: the reader sees that the page
+          goes on. */}
+      <section className="container pt-(--space-2xl) max-md:pt-(--space-xl)">
+        <div className="mx-auto grid max-w-[46rem] grid-cols-[minmax(0,1fr)] gap-8">
+          <div className="grid justify-items-center gap-5 text-center">
+            <h1 className="max-w-[16ch]">Sužinokite viską apie žemės sklypą</h1>
+            <p className="lead text-balance text-ink-2">
+              Ribos, plotas, paskirtis, pastatai ir galimi apribojimai iš viešų Lietuvos registrų.
+            </p>
           </div>
 
-          {/* The parcel on the orthophoto, its notebook card pinned over the
-              lower-left corner as on the report page. The card steps aside on
-              narrow screens, where it would shrink past reading. */}
-          <figure className="relative m-0 lg:mb-10">
+          <ParcelSearch />
+        </div>
+      </section>
+
+      <section className="container pt-(--space-2xl)" aria-label="Pavyzdys: sklypas ant ortofoto">
+        {/* The parcel on the orthophoto, its notebook card pinned over the
+            lower-left corner as on the report page. The card steps aside on
+            narrow screens, where it would shrink past reading. */}
+        <figure className="relative m-0 grid grid-cols-[minmax(0,1fr)] lg:mb-(--space-xl) lg:grid-cols-12 lg:gap-x-(--gap-columns)">
+          <div className="relative lg:col-span-10 lg:col-start-2">
             <div
-              className="frame aspect-[1536/1366] shadow-card"
+              className="frame aspect-[4/3] shadow-card md:aspect-[2/1]"
               data-slot="hero-parcel"
               data-kind="product"
               data-alt="Sklypas Vilniuje, Tilto g. 2A, apvestas oranžine linija ant ortofoto nuotraukos."
@@ -63,10 +63,11 @@ function HomePage() {
                 height={1366}
                 alt="Sklypas Vilniuje, Tilto g. 2A, apvestas oranžine linija ant ortofoto nuotraukos."
                 fetchPriority="high"
+                style={{ objectPosition: "50% 52%" }}
               />
             </div>
             <div
-              className="absolute -bottom-10 -left-10 hidden w-[44%] overflow-hidden rounded-entry shadow-lift lg:block"
+              className="absolute -bottom-(--space-xl) -left-(--space-xl) hidden w-[34%] overflow-hidden rounded-entry shadow-lift lg:block"
               data-slot="hero-card"
               data-kind="product"
               data-alt="Sklypo kortelė: Tilto g. 2A, kadastrinis numeris 0101/0041:0102, plotas 0,181 ha, paskirtis Kita (KT)."
@@ -79,12 +80,11 @@ function HomePage() {
                 alt="Sklypo kortelė: Tilto g. 2A, kadastrinis numeris 0101/0041:0102, pažymėta kultūros paveldas, plotas 0,181 ha, paskirtis Kita (KT)."
               />
             </div>
-          </figure>
-        </div>
+          </div>
+        </figure>
       </section>
 
-      <ReportShowcase />
-      <DetailSplit />
+      <ReportTour />
       <SourcesSpec />
       <ExploreClose />
     </main>
