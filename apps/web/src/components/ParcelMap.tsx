@@ -3,8 +3,9 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Map as LeafletMap } from "leaflet";
 import type { ParcelReport } from "@zeme/shared";
-import { getParcelsByBbox } from "../lib/orpc";
 import type { OrthoSeries } from "@zeme/shared";
+import { getParcelsByBbox } from "../lib/orpc";
+import { buildingsInParcel } from "../lib/geo";
 import {
   ESRI_IMAGERY,
   OSM_TILES,
@@ -38,10 +39,10 @@ function toLatLngPath(report: ParcelReport): [number, number][] {
   return ring.map(([lng, lat]) => [lat, lng]);
 }
 
-// Each building footprint -> Leaflet positions (outer ring, [lng, lat] -> [lat, lng])
+// Each building of the parcel -> Leaflet positions (outer ring, [lng, lat] -> [lat, lng])
 // plus a human-readable label from the spatial join (address, area, floors, year).
 function toBuildingShapes(report: ParcelReport): BuildingShape[] {
-  return (report.buildings ?? [])
+  return buildingsInParcel(report)
     .map((b) => {
       const ring = (b.geometry.coordinates[0] ?? []).map(
         ([lng, lat]) => [lat, lng] as [number, number],
@@ -222,7 +223,7 @@ type LayerControlProps = {
 };
 
 // Over the map's top-right corner: two soft keys for the base layer, the
-// chosen one in tangerine. With the orthophoto on, a panel steps through the
+// chosen one a tinted well in heavier type. With the orthophoto on, a panel steps through the
 // survey years, oldest on the left, the chosen years set large: under the
 // keys on wide maps, along the bottom edge on a phone, so it never sits on
 // the parcel in the middle. Both choices hold for the visit, on every map.
@@ -556,7 +557,7 @@ function MapLegendItems({ hasBuildings }: { hasBuildings: boolean }) {
   return (
     <>
       <li className="flex items-center gap-2">
-        <span className="inline-block h-4 w-4 shrink-0 rounded-[3px] border-2 border-accent bg-accent-soft" aria-hidden="true" />
+        <span className="inline-block h-4 w-4 shrink-0 rounded-[3px] border-2 border-parcel bg-accent-soft" aria-hidden="true" />
         Šis sklypas
       </li>
       {hasBuildings ? (

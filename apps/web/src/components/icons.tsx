@@ -27,27 +27,31 @@ function Outline({ className, children }: IconProps & { children: React.ReactNod
   );
 }
 
-/** Brand mark: a parcel of land with a building on it. */
+/** Brand mark: a surveyed parcel (its outline and corner points) with a
+ *  house on it. Colours come from the tokens through the class names. */
 export function LogoMark({ className }: IconProps) {
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      {/* land / parcel outline */}
-      <path d="M3 20.5h18" />
-      {/* the plot */}
-      <path d="M4.5 20.5l1.2-9 6.3-3.5 6.3 3.5 1.2 9" />
-      {/* building roof + body */}
-      <path d="M9.5 20.5v-5.5h5v5.5" />
-      <path d="M12 4.5v3.5" />
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" className={className} aria-hidden="true">
+      <path
+        d="M4.5 11 17 4.5l10.5 7.5-2.5 15.5-17.5-1.5Z"
+        className="fill-accent-soft stroke-accent"
+        strokeWidth={2}
+        strokeLinejoin="round"
+      />
+      <path
+        d="M12 25.5v-6.5l4.5-3.5 4.5 3.5v6.5"
+        className="fill-none stroke-ink"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <g className="fill-accent">
+        <circle cx="4.5" cy="11" r="2.5" />
+        <circle cx="17" cy="4.5" r="2.5" />
+        <circle cx="27.5" cy="12" r="2.5" />
+        <circle cx="25" cy="27.5" r="2.5" />
+        <circle cx="7.5" cy="26" r="2.5" />
+      </g>
     </svg>
   );
 }

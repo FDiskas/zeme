@@ -37,7 +37,7 @@ export function DataSourcesPage() {
       <div>
         <div
           aria-hidden="true"
-          className="hidden grid-cols-[minmax(0,4fr)_minmax(0,5fr)_minmax(0,3fr)_minmax(0,3fr)] gap-8 border-b border-ink pb-3 text-sm font-medium text-muted lg:grid"
+          className="hidden grid-cols-[minmax(0,4fr)_minmax(0,5fr)_minmax(0,3fr)_minmax(0,3fr)] gap-8 border-b border-edge pb-3 text-sm font-medium text-muted lg:grid"
         >
           <span>Šaltinis</span>
           <span>Apima</span>

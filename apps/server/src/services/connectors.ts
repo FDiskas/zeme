@@ -18,6 +18,24 @@ function pointInRing(point: [number, number], ring: number[][]): boolean {
   return inside;
 }
 
+// The parcel's polygons as lists of rings (outer first, then holes).
+function polygonsOf(geometry: any): number[][][][] {
+  if (geometry?.type === "Polygon") return [geometry.coordinates];
+  if (geometry?.type === "MultiPolygon") return geometry.coordinates;
+  return [];
+}
+
+function pointInPolygons(point: [number, number], polygons: number[][][][]): boolean {
+  return polygons.some(
+    ([outer, ...holes]) => outer !== undefined && pointInRing(point, outer) && !holes.some((h) => pointInRing(point, h)),
+  );
+}
+
+function ringCentre(ring: number[][]): [number, number] {
+  const sum = ring.reduce(([x, y], [px, py]) => [x + px!, y + py!], [0, 0]);
+  return [sum[0]! / ring.length, sum[1]! / ring.length];
+}
+
 import {
   resolveParcelFromBiip,
   resolveAddressFromBiip,
@@ -668,6 +686,7 @@ export async function fetchGrpkBuildings(
 
     const footprints: BuildingFootprint[] = [];
     const items: Record<string, any>[] = [];
+    const parcelPolygons = polygonsOf(geometry);
     let enriched = 0;
 
     for (const feature of data.features || []) {
@@ -675,7 +694,10 @@ export async function fetchGrpkBuildings(
       if (!rawRings || rawRings.length === 0) continue;
       const rings = sanitizeRings(rawRings);
       if ((rings[0]?.length ?? 0) < 4) continue;
-      const outerRing = rings[0];
+      const outerRing = rings[0]!;
+      // The query returns every building that touches the parcel; a
+      // neighbour's building across the boundary line is not this parcel's.
+      if (!pointInPolygons(ringCentre(outerRing), parcelPolygons)) continue;
       const attrs = feature.attributes || {};
       const areaSqM = typeof attrs.SHAPE_Area === "number" ? attrs.SHAPE_Area : undefined;
       const purposeCode = attrs.PASK ? String(attrs.PASK) : undefined;

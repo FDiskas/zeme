@@ -6,28 +6,39 @@
 
    The names keep the app's surface ladder: `plate` is the white sheet a card
    is drawn on, `paper` the manila page, `paper-2` a tinted well or a hover,
-   `paper-3` a pressed state. Tangerine (`accent`) is a fill with ink on it,
-   never type; green marks what is clear. Body text is 18px (--text-md)
-   because the readers are older; labels stay at 16px. */
+   `paper-3` a pressed state. The palette is kept calm (user review
+   2026-10-26: "spalvos per kontrastingos"): ink is a soft near-black, rules
+   are warm greys, and the brand colour is a muted terracotta (`accent`, a
+   fill with white type on it, 5:1) for the logo and the one primary key
+   only. `parcel` is the brighter tangerine kept for the parcel's edge on the
+   map, where it must stand out over roofs and fields. Risks speak their own
+   palette: `green` = fine, `warn` (brick red) = worth a closer look, paper
+   grey = unknown. `edge` outlines a white key (3:1 on white). Body text is
+   18px (--text-md) because the readers are older; labels stay at 16px. */
 @theme static {
 	--color-*: initial;
 	--color-paper: oklch(96% 0.011 85);
 	--color-paper-2: oklch(92% 0.016 85);
 	--color-paper-3: oklch(88.5% 0.018 85);
 	--color-plate: oklch(99.5% 0.005 85);
-	--color-ink: oklch(18% 0.006 60);
-	--color-ink-2: oklch(28% 0.008 60);
-	--color-muted: oklch(44% 0.012 60);
+	--color-ink: oklch(24% 0.01 60);
+	--color-ink-2: oklch(34% 0.01 60);
+	--color-muted: oklch(47% 0.012 60);
 	--color-rule: oklch(88% 0.013 85);
-	--color-accent: oklch(70% 0.19 40);
-	--color-accent-soft: oklch(91% 0.05 50);
-	--color-accent-ink: oklch(18% 0.006 60);
-	--color-focus: oklch(60% 0.19 40);
-	--color-green: oklch(48% 0.11 150);
-	--color-green-soft: oklch(92% 0.04 150);
+	--color-accent: oklch(55% 0.125 38);
+	--color-accent-hover: oklch(50% 0.115 38);
+	--color-accent-soft: oklch(93% 0.028 50);
+	--color-accent-ink: oklch(99.5% 0.005 85);
+	--color-parcel: oklch(66% 0.16 40);
+	--color-edge: oklch(66% 0.014 80);
+	--color-focus: oklch(55% 0.125 38);
+	--color-green: oklch(47% 0.08 150);
+	--color-green-soft: oklch(94% 0.028 150);
+	--color-warn: oklch(50% 0.13 28);
+	--color-warn-soft: oklch(94.5% 0.022 28);
 	--color-grid: oklch(90% 0.014 85);
 	--color-error: oklch(52% 0.19 27);
-	--color-success: oklch(48% 0.11 150);
+	--color-success: oklch(47% 0.08 150);
 
 	--font-display: "Red Hat Display", "Red Hat Text", ui-sans-serif, sans-serif;
 	--font-body: "Red Hat Text", ui-sans-serif, system-ui, sans-serif;

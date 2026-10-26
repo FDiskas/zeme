@@ -3,6 +3,8 @@ import { appRouter } from "./router";
 import { env } from "./env";
 import { prisma } from "./db";
 import { join } from "node:path";
+import { cachedInfostatybaProjectUrl, infostatybaProjectUrl } from "./services/infostatyba-link";
+import { infostatybaWaitPage } from "./services/infostatyba-wait-page";
 
 // Ensure DB schema exists without relying on prisma CLI at runtime.
 // Idempotent — safe to run on every startup.
@@ -103,6 +105,23 @@ const server = Bun.serve({
       } else {
         return new Response("File not found", { status: 404 });
       }
+    }
+
+    // A building document's Infostatyba project page. Finding it takes the
+    // site's search (seconds), so a reader first gets a page that says so and
+    // asks /url; a known answer redirects at once.
+    if (pathname === "/api/infostatyba" || pathname === "/api/infostatyba/url") {
+      const params = new URL(request.url).searchParams;
+      const address = (params.get("adresas") ?? "").slice(0, 300);
+      const projectName = (params.get("pavadinimas") ?? "").slice(0, 600);
+      if (!address) return new Response("Missing adresas", { status: 400 });
+      if (pathname.endsWith("/url")) {
+        return Response.json({ url: await infostatybaProjectUrl(address, projectName) });
+      }
+      const known = cachedInfostatybaProjectUrl(address, projectName);
+      if (known) return Response.redirect(known, 302);
+      const lookup = `/api/infostatyba/url?${new URLSearchParams({ adresas: address, pavadinimas: projectName })}`;
+      return new Response(infostatybaWaitPage(lookup), { headers: { "Content-Type": "text/html; charset=utf-8" } });
     }
 
     if (pathname === "/api/health") {

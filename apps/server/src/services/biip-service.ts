@@ -1,7 +1,7 @@
 import { biipClient } from "./biip-client";
 import { parcelsSearch, addressesSearch, eldershipsSearch, residentialAreasSearch, roomsSearch } from "./biip/sdk.gen";
 import type { Parcel, AddressesFilter, AddressesSearchFilterRequest } from "./biip/types.gen";
-import type { ParcelSearchItem } from "@zeme/shared";
+import { normalizeCadastralRegNo, type ParcelSearchItem } from "@zeme/shared";
 
 // BIIP search endpoints default to SRID 3346 (LKS-94); we request 4326 (WGS 84)
 // everywhere so geometry can be rendered directly on Leaflet/OSM maps.
@@ -11,32 +11,8 @@ const MAX_PAGE_SIZE = 100;
 // Safety cap on paginated address/room fetches to avoid runaway loops.
 const MAX_PAGES = 5;
 
-const CADASTRAL_REG_NO_PATTERN =
-  /^(?<area>\d{4})[\s/-]*(?<block>\d{4})[\s:/-]*(?<parcel>\d{1,6})$/;
-
-export function normalizeCadastralRegNo(value: string): string | null {
-  const match = value.trim().match(CADASTRAL_REG_NO_PATTERN);
-  if (!match?.groups) return null;
-
-  const { area, block, parcel } = match.groups;
-  // Pad block and parcel to 4 digits for Registrų centras and BIIP API matching
-  const paddedBlock = block.padStart(4, "0");
-  const paddedParcel = parcel.padStart(4, "0");
-  return `${area}/${paddedBlock}:${paddedParcel}`;
-}
-
-// "Unikalus daikto numeris" — the 12-digit Registrų centras unique object number,
-// canonically rendered as three dash-separated groups of four digits
-// (e.g. "4400-4756-6034"). The dash separators are what distinguish it from a
-// cadastral number; a cadastral number uses "/" and ":". We require the dashed
-// form here so the two never collide during query routing.
-const UNIQUE_NUMBER_PATTERN = /^\s*(\d{4})-(\d{4})-(\d{4})\s*$/;
-
-export function normalizeUniqueNumber(value: string): string | null {
-  const match = value.match(UNIQUE_NUMBER_PATTERN);
-  if (!match) return null;
-  return `${match[1]}-${match[2]}-${match[3]}`;
-}
+// The query parsers live in @zeme/shared, where the browser reads them too.
+export { normalizeCadastralRegNo, normalizeUniqueNumber } from "@zeme/shared";
 
 export interface ResolvedBiipParcel {
   cadastralRegNo: string;
@@ -198,8 +174,9 @@ export async function resolveParcelFromBiip(cadastralRegNo: string): Promise<Res
 // filter via `unique_numbers`. The resolved parcel carries its own cadastral
 // number, which is the key the rest of the app persists and navigates by.
 export async function resolveParcelByUniqueNumber(uniqueNumber: string): Promise<ResolvedBiipParcel | null> {
+  // 11 digits on older records (1010-0410-102), 12 on newer ones.
   const digits = uniqueNumber.replace(/\D/g, "");
-  if (digits.length !== 12) return null;
+  if (digits.length < 11 || digits.length > 12) return null;
 
   const numeric = Number(digits);
   if (!Number.isSafeInteger(numeric)) return null;

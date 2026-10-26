@@ -13,18 +13,18 @@ function Brand() {
   return (
     <Link
       to="/"
-      className="flex shrink-0 items-center gap-3 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus"
+      className="flex shrink-0 items-center gap-2.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus"
       aria-label="Reginfo.lt, į pradžią"
     >
-      <span className="flex h-10 w-10 items-center justify-center rounded-pill bg-accent text-accent-ink">
-        <LogoMark className="h-6 w-6" />
+      <LogoMark className="h-9 w-9 shrink-0" />
+      <span className="font-display text-xl font-semibold tracking-display text-ink">
+        Reginfo<span className="font-medium text-muted">.lt</span>
       </span>
-      <span className="font-display text-xl font-semibold tracking-display text-ink">Reginfo.lt</span>
     </Link>
   );
 }
 
-// The current page takes the soft tangerine wash, never a filled primary, so
+// The current page takes the soft terracotta wash, never a filled primary, so
 // the reader always knows where they are without the link shouting.
 function navLinkClass({ isActive }: { isActive: boolean }) {
   return `flex min-h-12 items-center whitespace-nowrap rounded-pill px-4 text-md font-medium text-ink transition-colors duration-150 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus active:bg-paper-3 ${
@@ -33,13 +33,13 @@ function navLinkClass({ isActive }: { isActive: boolean }) {
 }
 
 // An edge-aligned bar: the wordmark at one edge, three links at the other,
-// over a 1px ink rule. Its height plus the rule is --nav-clear, where sticky
+// over a 1px rule. Its height plus the rule is --nav-clear, where sticky
 // panes start.
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-(--z-sticky-nav) border-b border-ink bg-paper">
+    <header className="sticky top-0 z-(--z-sticky-nav) border-b border-rule bg-paper">
       <div className="container">
         <div className="flex h-16 items-center justify-between gap-4">
           <Brand />
@@ -83,7 +83,7 @@ export function Header() {
 // what it is not, and whose maps and code it stands on.
 export function Footer() {
   return (
-    <footer className="border-t border-ink bg-paper-2">
+    <footer className="border-t border-rule bg-paper-2">
       <div className="container grid gap-8 py-14 md:grid-cols-12 md:gap-8">
         <div className="md:col-span-4">
           <Brand />

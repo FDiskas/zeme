@@ -88,6 +88,17 @@ const FIELD_LABELS: Record<string, string> = {
   densityPct: "Užstatymo tankis, %",
   intensity: "Užstatymo intensyvumas",
   source: "Šaltinis",
+  permitNumber: "Dokumento Nr.",
+  permitType: "Dokumento tipas",
+  issuedDate: "Data",
+  buildingDescription: "Statinio pavadinimas",
+  buildingPurpose: "Statinio paskirtis",
+  buildingCategory: "Kategorija",
+  constructionType: "Statybos rūšis",
+  projectYear: "Projekto metai",
+  projectName: "Projekto pavadinimas",
+  uniqueBuildingNo: "Unikalus pastato Nr.",
+  recordDate: "Įrašo data",
 };
 
 function escapeHtml(value: unknown): string {

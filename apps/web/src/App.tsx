@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, Route, Routes, useNavigate, useParams } from "react-router-dom";
-import type { ParcelReport, ParcelSearchItem } from "@zeme/shared";
+import { Link, Route, Routes, useParams } from "react-router-dom";
+import type { ParcelReport } from "@zeme/shared";
 import { ParcelMap } from "./components/ParcelMap";
 import { ReportPanel } from "./components/ReportPanel";
 import { SummaryCard } from "./components/SummaryCard";
@@ -8,59 +8,30 @@ import { DataSourcesPage } from "./components/DataSourcesPage";
 import { MapExplorePage } from "./components/MapExplorePage";
 import { ParcelAtPointPage } from "./components/ParcelAtPointPage";
 import { Footer, Header } from "./components/SiteChrome";
-import { RecentlyViewed, type SearchHistoryItem } from "./components/RecentlyViewed";
+import { RecentlyViewed } from "./components/RecentlyViewed";
+import { ParcelSearch } from "./components/ParcelSearch";
 import { DetailSplit, ExploreClose, ReportShowcase, SourcesSpec } from "./components/HomeSections";
 import {
   ChevronLeft,
-  ChevronRight,
   DownloadIcon,
   PinIcon,
   RefreshIcon,
-  SearchIcon,
   ShareIcon,
   Spinner,
   WarningIcon,
 } from "./components/icons";
-import { orpcClient, getParcelReport, generateParcelPdf } from "./lib/orpc";
-import { useLocalStorage } from "./lib/useLocalStorage";
+import { getParcelReport, generateParcelPdf } from "./lib/orpc";
 import { parcelKml, parcelPolygons } from "./lib/geo";
-
-const HISTORY_KEY = "zeme-search-history";
+import { useRecentParcels } from "./lib/useRecentParcels";
 
 function HomePage() {
-  const navigate = useNavigate();
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<ParcelSearchItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [searchNote, setSearchNote] = useState<string | null>(null);
-
-  const [history] = useLocalStorage<SearchHistoryItem[]>(HISTORY_KEY, []);
-
-  async function onSearch() {
-    if (query.trim().length < 2) return;
-    setLoading(true);
-    setSearchNote(null);
-    try {
-      const data = await orpcClient.parcel.autocomplete({ query: query.trim() });
-      setResults(data);
-      if (data.length === 0) {
-        setSearchNote(
-          "Nieko neradome. Įveskite kadastrinį numerį (pvz. 4400/0001:0007) arba unikalų daikto numerį (pvz. 4400-4756-6034).",
-        );
-      }
-    } catch {
-      setResults([]);
-      setSearchNote("Paieška laikinai neveikia. Pabandykite vėliau.");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const recent = useRecentParcels();
 
   return (
     <main id="main">
-      {/* Stage: the head, its line and the search on five columns; the parcel
-          on the orthophoto, edged in tangerine, on seven. Results open under
-          the field, inside the same column. */}
+      {/* Stage: the head, its line, the search and the recent parcels on five
+          columns; the parcel on the orthophoto, edged in tangerine, on seven.
+          Results open under the field, inside the same column. */}
       <section className="container">
         <div className="grid min-h-[calc(100svh-var(--nav-clear))] items-center gap-x-16 gap-y-10 py-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
           <div className="grid gap-8">
@@ -71,71 +42,9 @@ function HomePage() {
               </p>
             </div>
 
-            <div className="grid gap-3">
-              <label htmlFor="parcel-search" className="text-md font-medium text-ink">
-                Adresas, kadastrinis arba unikalus numeris
-              </label>
-              <form
-                role="search"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  onSearch();
-                }}
-                className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]"
-              >
-                <div className="relative">
-                  <SearchIcon className="pointer-events-none absolute top-1/2 left-4 h-6 w-6 -translate-y-1/2 text-muted" />
-                  <input
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    id="parcel-search"
-                    aria-describedby="search-hint"
-                    enterKeyHint="search"
-                    autoComplete="off"
-                    className="field pl-13"
-                  />
-                </div>
-                <button type="submit" disabled={loading} aria-busy={loading} className="btn min-h-14">
-                  {loading ? <Spinner className="h-5 w-5 animate-spin rounded-full border-2 border-ink/30 border-t-ink" /> : <SearchIcon className="h-5 w-5" />}
-                  {loading ? "Ieškoma…" : "Ieškoti"}
-                </button>
-              </form>
-              <p id="search-hint" className="text-sm text-ink-2">
-                Pavyzdžiui <span className="code whitespace-nowrap text-ink">4400/0001:0007</span> arba{" "}
-                <span className="code whitespace-nowrap text-ink">4400-4756-6034</span>
-              </p>
-            </div>
+            <ParcelSearch />
 
-            {searchNote ? (
-              <p role="status" className="flex gap-3 rounded-card bg-accent-soft px-5 py-4 text-md text-ink">
-                <WarningIcon className="mt-1 h-5 w-5 shrink-0 text-ink" />
-                {searchNote}
-              </p>
-            ) : null}
-
-            {results.length > 0 ? (
-              <ul className="card divide-y divide-rule overflow-hidden">
-                {results.map((result) => (
-                  <li key={result.cadastralRegNo}>
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/parcel/${encodeURIComponent(result.cadastralRegNo)}`)}
-                      className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors duration-150 hover:bg-paper focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus active:bg-paper-2"
-                    >
-                      <span className="min-w-0">
-                        <span className="block text-lg font-medium text-ink">
-                          {result.address && result.address.trim() !== ""
-                            ? result.address
-                            : "Adreso viešuose šaltiniuose nėra"}
-                        </span>
-                        <span className="code block text-sm text-ink-2">{result.cadastralRegNo}</span>
-                      </span>
-                      <ChevronRight className="h-6 w-6 shrink-0 text-ink" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
+            <RecentlyViewed history={recent.history} onRemove={recent.remove} onClear={recent.clear} />
           </div>
 
           {/* The parcel on the orthophoto, its notebook card pinned over the
@@ -160,29 +69,19 @@ function HomePage() {
               className="absolute -bottom-10 -left-10 hidden w-[44%] overflow-hidden rounded-entry shadow-lift lg:block"
               data-slot="hero-card"
               data-kind="product"
-              data-alt="Sklypo kortelė: kadastrinis numeris 0101/0041:0102, plotas 0,181 ha, paskirtis Kita."
-              style={{ aspectRatio: "1024 / 660" }}
+              data-alt="Sklypo kortelė: Tilto g. 2A, kadastrinis numeris 0101/0041:0102, plotas 0,181 ha, paskirtis Kita (KT)."
+              style={{ aspectRatio: "1024 / 652" }}
             >
               <img
                 src="/screens/hero-card.jpg"
                 width={1024}
-                height={660}
-                alt="Sklypo kortelė: kadastrinis numeris 0101/0041:0102, plotas 0,181 ha, paskirtis Kita, keturi pastatai."
+                height={652}
+                alt="Sklypo kortelė: Tilto g. 2A, kadastrinis numeris 0101/0041:0102, pažymėta kultūros paveldas, plotas 0,181 ha, paskirtis Kita (KT)."
               />
             </div>
           </figure>
         </div>
       </section>
-
-      {history.length > 0 ? (
-        <section className="border-y border-rule bg-paper-2 py-(--space-2xl)">
-          <div className="container">
-            <div className="max-w-[48rem]">
-              <RecentlyViewed history={history} />
-            </div>
-          </div>
-        </section>
-      ) : null}
 
       <ReportShowcase />
       <DetailSplit />
@@ -206,27 +105,29 @@ function ParcelPage() {
   const [pdfLoading, setPdfLoading] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [shareNote, setShareNote] = useState<string | null>(null);
-  const [history, setHistory] = useLocalStorage<SearchHistoryItem[]>(HISTORY_KEY, []);
+  const recent = useRecentParcels();
 
-  function rememberLookup(data: ParcelReport) {
-    setHistory((prev) => {
-      const next = [
-        { id: data.cadastralRegNo, address: data.address, locality: data.locality, timestamp: Date.now() },
-        ...prev.filter((entry) => entry.id !== data.cadastralRegNo),
-      ];
-      return next.slice(0, 10);
-    });
-  }
+  // The server rebuilds a parcel's report at most once per cooldown and says
+  // when the next rebuild is allowed; until then the refresh keys give way to
+  // that time. A timer brings them back once it has passed.
+  const refreshAt = report?.refreshAvailableAt ? Date.parse(report.refreshAvailableAt) : 0;
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setTimeout(() => setClock(Date.now()), Math.max(0, refreshAt - Date.now()) + 500);
+    return () => clearTimeout(timer);
+  }, [refreshAt]);
+  const canRefresh = refreshAt <= clock;
+  const refreshTime = new Date(refreshAt).toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit" });
 
   // Manual refresh — an event handler, so setting loading here is fine.
   async function onRefresh() {
-    if (!cadastralRegNo) return;
+    if (!cadastralRegNo || !canRefresh) return;
     setLoading(true);
     setLoadFailed(false);
     try {
       const data = await getParcelReport({ cadastralRegNo, forceRefresh: true });
       setReport(data);
-      rememberLookup(data);
+      recent.remember(data);
     } catch {
       setLoadFailed(true);
     } finally {
@@ -289,7 +190,7 @@ function ParcelPage() {
         const data = await getParcelReport({ cadastralRegNo, forceRefresh: false });
         if (ignore) return;
         setReport(data);
-        rememberLookup(data);
+        recent.remember(data);
       } catch {
         if (!ignore) setLoadFailed(true);
       } finally {
@@ -303,22 +204,9 @@ function ParcelPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cadastralRegNo]);
 
-  // The exact time the sources were read, so "Atnaujinti" beside it reads as
+  // The exact time the sources were read, so the ↻ key beside it reads as
   // "read them again now" rather than a mystery.
   const freshness = report ? `Duomenys atnaujinti ${formatFetchedAt(report.fetchedAt)}` : "";
-
-  const refreshButton = (
-    <button
-      type="button"
-      onClick={onRefresh}
-      disabled={loading}
-      aria-busy={loading}
-      className="btn btn--secondary btn--s flex-1 basis-32"
-    >
-      <RefreshIcon className="h-5 w-5" />
-      {loading ? "Atnaujinama…" : "Atnaujinti"}
-    </button>
-  );
 
   return (
     <main id="main" className="container pt-4 pb-24 lg:pb-8">
@@ -351,12 +239,17 @@ function ParcelPage() {
           ) : null}
 
           {!report && !loading && loadFailed ? (
-            <div className="grid gap-4 rounded-card bg-accent-soft p-6">
+            <div className="grid gap-4 rounded-card bg-warn-soft p-6">
               <p className="flex gap-3 text-md text-ink">
                 <WarningIcon className="mt-1 h-5 w-5 shrink-0 text-ink" />
                 Nepavyko gauti sklypo duomenų. Spauskite „Atnaujinti“ arba bandykite vėliau.
               </p>
-              <div>{refreshButton}</div>
+              <div>
+                <button type="button" onClick={onRefresh} disabled={loading} aria-busy={loading} className="btn btn--secondary btn--s">
+                  <RefreshIcon className="h-5 w-5" />
+                  {loading ? "Atnaujinama…" : "Atnaujinti"}
+                </button>
+              </div>
             </div>
           ) : null}
 
@@ -366,45 +259,79 @@ function ParcelPage() {
                 report={report}
                 actions={
                   <div className="grid gap-3">
-                    <button
-                      type="button"
-                      onClick={onDownloadPdf}
-                      disabled={pdfLoading}
-                      aria-busy={pdfLoading}
-                      className="btn w-full"
-                    >
-                      <DownloadIcon className="h-5 w-5" />
-                      {pdfLoading ? "Generuojama…" : "Atsisiųsti PDF"}
-                    </button>
-                    <div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={onShare} className="btn btn--secondary btn--s flex-1 basis-32">
+                    {/* One row of three keys of one height: the primary leads
+                        on its own line, the two helpers share the next. */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={onDownloadPdf}
+                        disabled={pdfLoading}
+                        aria-busy={pdfLoading}
+                        className="btn btn--s col-span-2 text-md"
+                      >
+                        <DownloadIcon className="h-5 w-5" />
+                        {pdfLoading ? "Generuojama…" : "Atsisiųsti PDF"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onShare}
+                        className={`btn btn--secondary btn--s${parcelPolygons(report).length > 0 ? "" : " col-span-2"}`}
+                      >
                         <ShareIcon className="h-5 w-5" />
                         <span aria-live="polite">{shareNote ?? "Dalintis"}</span>
                       </button>
                       {parcelPolygons(report).length > 0 ? (
-                        <button type="button" onClick={onDownloadKml} className="btn btn--secondary btn--s flex-1 basis-32">
+                        <button type="button" onClick={onDownloadKml} className="btn btn--secondary btn--s">
                           <PinIcon className="h-5 w-5" />
                           Ribos (KML)
                         </button>
                       ) : null}
-                      {refreshButton}
                     </div>
-                    <p className="text-sm text-muted">{freshness}</p>
+                    {/* Refreshing is a helper, not a peer of sharing: a worded
+                        link beside the time it would change, or, while the
+                        sources rest, the time it comes back. */}
+                    <p className="flex min-h-11 flex-wrap items-center justify-between gap-x-4 gap-y-1 text-sm text-muted">
+                      <span>{loading ? "Atnaujinama…" : freshness}</span>
+                      {canRefresh ? (
+                        <button
+                          type="button"
+                          onClick={onRefresh}
+                          disabled={loading}
+                          aria-busy={loading}
+                          className="link inline-flex min-h-11 items-center gap-1.5 disabled:text-muted"
+                        >
+                          <RefreshIcon className={`h-4 w-4 shrink-0${loading ? " animate-spin motion-reduce:animate-none" : ""}`} />
+                          Atnaujinti
+                        </button>
+                      ) : (
+                        <span>Vėl atnaujinti galėsite po {refreshTime}</span>
+                      )}
+                    </p>
                   </div>
                 }
-                onRetry={onRefresh}
+                onRetry={canRefresh ? onRefresh : undefined}
+                retryAfter={canRefresh ? undefined : refreshTime}
                 retrying={loading}
               />
 
               <section className="grid grid-cols-[minmax(0,1fr)] gap-4">
                 <h2 className="text-xl tracking-[-0.02em]">Detali informacija</h2>
-                <ReportPanel report={report} onRetry={onRefresh} retrying={loading} />
+                <ReportPanel
+                  report={report}
+                  onRetry={canRefresh ? onRefresh : undefined}
+                  retryAfter={canRefresh ? undefined : refreshTime}
+                  retrying={loading}
+                />
               </section>
             </>
           ) : null}
 
           {/* The parcel on screen is not "recent": it is left out of its own list. */}
-          <RecentlyViewed history={history.filter((entry) => entry.id !== cadastralRegNo)} />
+          <RecentlyViewed
+            history={recent.history.filter((entry) => entry.id !== cadastralRegNo)}
+            onRemove={recent.remove}
+            onClear={recent.clear}
+          />
         </div>
       </div>
     </main>

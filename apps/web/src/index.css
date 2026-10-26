@@ -1,5 +1,5 @@
 /* Hallmark · shape: Workbench (/), app screen (/parcel, /zemelapis, /vieta, /duomenu-saltiniai as a reference table) · genre: modern-minimal · theme: Furrow (deal 3/3, seed parcel-building-lookup-people-e3bf·f6c4c2ba·2026-10-26·r0) · redesign: full
- * hero: Stage (/) · nav: edge-aligned bar, the wordmark and three links over a 1px ink rule · footer: colophon block on the well · imagery: screenshots 5 (the app itself, captured from the dev server) · signature: the parcel edged in tangerine on a real map that switches to the NŽT orthophoto · job: try
+ * hero: Stage (/) · nav: edge-aligned bar, the wordmark and three links over a 1px rule · footer: colophon block on the well · imagery: screenshots 5 (the app itself, captured from the dev server) · signature: the parcel edged in tangerine on a real map that switches to the NŽT orthophoto · job: try
  * axes: light/grotesk-sans/warm · posture: committed · contrast: pass · fold: pass · v2.0.0 */
 /* Hallmark · pre-emit critique: P4 H5 E4 S5 R4 V4 · weakest: P, a lookup tool argues little; the page argues "look before you buy" by showing the parcel on the real orthophoto, not by claiming it */
 /* Hallmark · hero-review: fix · 5 findings · 4 resolved, 1 answered (the search label stays above the field, not inside it as Furrow sets it: older readers lose a label that shrinks into the box) */
@@ -11,6 +11,8 @@
 /* Hallmark · dropped report-facts.jpg · 69 named the notebook card shown three times; the hero carries it once and the phone on the orthophoto takes its place */
 /* Hallmark · dropped report-map.jpg · the square map capture became report-page.jpg, the whole report page across the width */
 /* Hallmark · answered F20 · the orphan sits in a panel's field grid, whose field count comes from the registry record */
+/* Hallmark · waive 72 · div.mx-2 is the panel body (pt-3 pb-2 px-4) inside a closed <details> · the lint measures a body the browser does not render while closed; opened, its text sits 12px and 8px inside the sheet */
+/* Hallmark · waive 49b · a.link.font-normal is the registry name inside the "Šaltinis: … Duomenų data …" sentence · a source name is part of a sentence and wraps with it on a 320px phone; nowrap would push the sentence off the screen */
 /* Hallmark · dismissed F4 · the hero holds one filled key (Ieškoti); the other is a search result row, and .seg's pressed key is a selection state, not a second primary */
 /* Hallmark · overridden theme do-not "never a map tile, a satellite photograph" · the user asked for the orthophoto switch by name; the map is the product, so it stays real (OSM and the NŽT ORT10LT orthophoto), and the survey voice lives in the tangerine parcel edge and the notebook card */
 
@@ -27,8 +29,8 @@
 }
 
 @layer components {
-	/* Moulded keys, 6px, Red Hat Text 500. The primary is tangerine with ink
-	   on it, lit along the top edge; one per screen. */
+	/* Flat keys, 6px, Red Hat Text 500. The primary is muted terracotta with
+	   white type on it (5:1); one per screen. */
 	.btn {
 		display: inline-flex;
 		align-items: center;
@@ -36,33 +38,52 @@
 		gap: var(--space-xs);
 		min-height: 52px;
 		padding: 0 var(--space-lg);
-		border: var(--rule-hair) solid color-mix(in oklab, var(--color-accent) 72%, var(--color-ink));
+		border: var(--rule-hair) solid var(--color-accent);
 		border-radius: var(--radius-pill);
 		background: var(--color-accent);
 		color: var(--color-accent-ink);
-		box-shadow: inset 0 1px 0 color-mix(in oklab, var(--color-plate) 38%, transparent), inset 0 -1px 0 color-mix(in oklab, var(--color-ink) 12%, transparent);
 		font: 500 var(--text-md) / 1 var(--font-body);
 		white-space: nowrap;
 		text-decoration: none;
 		cursor: pointer;
 		transition: background-color var(--dur-short) var(--ease-out), transform var(--dur-micro) var(--ease-out);
 	}
-	.btn:hover { background: color-mix(in oklab, var(--color-accent) 88%, var(--color-ink)); }
+	.btn:hover { background: var(--color-accent-hover); border-color: var(--color-accent-hover); }
 	.btn:active { transform: translateY(1px); }
 	.btn:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
 	.btn:disabled,
 	.btn[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; transform: none; }
 	.btn[aria-busy="true"] { cursor: progress; }
 
-	/* The white key: a rule edge, the same lit top. */
+	/* The white key: a flat sheet with an edge dark enough to find (3:1 on
+	   white and on manila), so older eyes see where to press. */
 	.btn--secondary {
-		border-color: var(--color-rule);
+		border-color: var(--color-edge);
 		background: var(--color-plate);
 		color: var(--color-ink);
-		box-shadow: inset 0 1px 0 var(--color-plate), 0 1px 1px color-mix(in oklab, var(--color-ink) 14%, transparent);
+		box-shadow: none;
 	}
-	.btn--secondary:hover { background: var(--color-paper); border-color: var(--color-muted); }
-	.btn--secondary:active { background: var(--color-paper-2); }
+	.btn--secondary:hover { background: var(--color-paper-2); border-color: var(--color-muted); }
+	.btn--secondary:active { background: var(--color-paper-3); }
+
+	/* A quiet jump link (the report's section index): a tinted pill, no edge,
+	   so a row of them reads as a menu rather than a wall of keys. */
+	.pill-link {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+		padding: 0 var(--space-md);
+		border-radius: var(--radius-pill);
+		background: var(--color-paper-2);
+		color: var(--color-ink);
+		font-size: var(--text-sm);
+		font-weight: 500;
+		text-decoration: none;
+		transition: background-color var(--dur-micro) var(--ease-out);
+	}
+	.pill-link:hover { background: var(--color-paper-3); }
+	.pill-link:active { background: color-mix(in oklab, var(--color-paper-3) 80%, var(--color-ink)); }
+	.pill-link:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 
 	.btn--s { min-height: 48px; padding: 0 var(--space-md); font-size: var(--text-sm); }
 
@@ -90,13 +111,14 @@
 		box-shadow: var(--shadow-card);
 	}
 
-	/* The notebook card: a 1px ink ring, the deep lift, an ink head. The one
-	   object per screen that carries the parcel's own record. */
+	/* The notebook card: a soft edge and the card lift. The one object per
+	   screen that carries the parcel's own record; the address heads it. Not
+	   clipped (nothing inside fills its corners), so an info tip can leave it. */
 	.entry {
-		overflow: hidden;
+		position: relative;
 		background: var(--color-plate);
 		border-radius: var(--radius-entry);
-		box-shadow: 0 0 0 1px var(--color-ink), var(--shadow-lift);
+		box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-ink) 14%, transparent), var(--shadow-card);
 	}
 
 	/* A plain frame: a rule edge, no lift (maps, captures inside a section). */
@@ -135,13 +157,14 @@
 		letter-spacing: 0;
 	}
 
-	/* The ruled list: a 1px ink rule on top, hairlines between rows. */
-	.spec { border-top: var(--rule-hair) solid var(--color-ink); }
+	/* The ruled list: a warm grey rule on top, hairlines between rows. */
+	.spec { border-top: var(--rule-hair) solid var(--color-edge); }
 	.spec > * + * { border-top: var(--rule-hair) solid var(--color-rule); }
 
 	/* Status chips: the state rides on the icon and the word, never colour
-	   alone. Clear is green, present a soft tangerine with a tangerine edge,
-	   so it never reads as the filled primary key. */
+	   alone. Clear is green, present a soft brick red with a red edge, unknown
+	   the grey base. Tangerine stays with the brand and the actions, so a
+	   warning never looks like one more orange button. */
 	.chip {
 		display: inline-flex;
 		align-items: center;
@@ -157,14 +180,14 @@
 		white-space: nowrap;
 	}
 	.chip--clear { background: var(--color-green-soft); color: var(--color-green); }
-	.chip--present { background: var(--color-accent-soft); color: var(--color-ink); box-shadow: inset 0 0 0 1px var(--color-accent); }
+	.chip--present { background: var(--color-warn-soft); color: var(--color-warn); }
 
 	/* Notebook cells: label small and muted on top, the value beneath, parted
 	   by hairlines on an even two-column grid. */
 	.cells {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		border-top: var(--rule-hair) solid var(--color-ink);
+		border-top: var(--rule-hair) solid var(--color-rule);
 	}
 	.cells > * {
 		display: grid;
@@ -177,7 +200,8 @@
 	.cells > :nth-child(odd) { border-right: var(--rule-hair) solid var(--color-rule); }
 	.cells > .cells__wide { grid-column: 1 / -1; border-right: 0; }
 
-	/* A segmented choice between a few: the selected key takes the tangerine. */
+	/* A segmented choice between a few: the selected key is a tinted well
+	   with heavier type. Not terracotta: that is kept for actions. */
 	.seg {
 		display: inline-flex;
 		gap: var(--space-3xs);
@@ -208,9 +232,9 @@
 	.seg button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
 	.seg button[aria-pressed="true"],
 	.seg button[aria-selected="true"] {
-		border-color: color-mix(in oklab, var(--color-accent) 72%, var(--color-ink));
-		background: var(--color-accent);
-		color: var(--color-accent-ink);
+		background: var(--color-paper-2);
+		color: var(--color-ink);
+		font-weight: 600;
 	}
 }
 
@@ -225,7 +249,7 @@
 	box-shadow: var(--shadow-card);
 }
 
-/* The year slider: a ruled track with a stop per survey, a large tangerine
+/* The year slider: a ruled track with a stop per survey, a large terracotta
    thumb that is easy to catch, ticks under the stops. */
 .ortho-range {
 	width: 100%;
@@ -252,9 +276,10 @@
 	width: 28px;
 	height: 28px;
 	margin-top: calc(-1 * var(--space-sm));
-	border: 2px solid var(--color-ink);
+	border: 3px solid var(--color-plate);
 	border-radius: 50%;
 	background: var(--color-accent);
+	box-shadow: var(--shadow-card);
 	appearance: none;
 	-webkit-appearance: none;
 	transition: background-color var(--dur-micro) var(--ease-out), transform var(--dur-micro) var(--ease-out);
@@ -262,13 +287,14 @@
 .ortho-range::-moz-range-thumb {
 	width: 24px;
 	height: 24px;
-	border: 2px solid var(--color-ink);
+	border: 3px solid var(--color-plate);
 	border-radius: 50%;
 	background: var(--color-accent);
+	box-shadow: var(--shadow-card);
 	transition: background-color var(--dur-micro) var(--ease-out), transform var(--dur-micro) var(--ease-out);
 }
-.ortho-range:hover::-webkit-slider-thumb { background: color-mix(in oklab, var(--color-accent) 85%, var(--color-ink)); }
-.ortho-range:hover::-moz-range-thumb { background: color-mix(in oklab, var(--color-accent) 85%, var(--color-ink)); }
+.ortho-range:hover::-webkit-slider-thumb { background: var(--color-accent-hover); }
+.ortho-range:hover::-moz-range-thumb { background: var(--color-accent-hover); }
 .ortho-range:active::-webkit-slider-thumb { transform: scale(0.96); }
 .ortho-range:active::-moz-range-thumb { transform: scale(0.96); }
 .ortho-range:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-pill); }
@@ -299,6 +325,52 @@
 
 .report-disclosure[open] > summary .report-chevron {
 	transform: rotate(180deg);
+}
+
+/* A note that opens over the layout, never moving it. On an "i" key
+   (InfoTip) it opens on hover and on a press, tap or Enter (data-open), and
+   Escape closes it; on a row that goes elsewhere (no data-open) it opens on
+   hover and on keyboard focus. */
+.tip {
+	position: relative;
+}
+
+.tip__bubble {
+	position: absolute;
+	z-index: var(--z-tooltip);
+	top: calc(100% + var(--space-2xs));
+	left: calc(-1 * var(--space-xs));
+	width: max-content;
+	max-width: min(18rem, 78vw);
+	padding: var(--space-xs) var(--space-sm);
+	border: var(--rule-hair) solid var(--color-rule);
+	border-radius: var(--radius-pill);
+	background: var(--color-plate);
+	box-shadow: var(--shadow-card);
+	color: var(--color-ink-2);
+	font: 400 var(--text-sm) / 1.45 var(--font-body);
+	text-align: left;
+	white-space: normal;
+	opacity: 0;
+	visibility: hidden;
+	pointer-events: none;
+	transition: opacity var(--dur-micro) var(--ease-out), visibility var(--dur-micro);
+}
+
+.tip--end .tip__bubble {
+	left: auto;
+	right: calc(-1 * var(--space-xs));
+}
+
+.tip:hover .tip__bubble,
+.tip:not([data-open]):focus-within .tip__bubble,
+.tip[data-open="true"] .tip__bubble {
+	opacity: 1;
+	visibility: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.tip__bubble { transition: none; }
 }
 
 /* The finding is clamped to two lines in the closed row; open, it reads whole. */
@@ -371,7 +443,7 @@
 
 /* Map shapes. Leaflet writes its default colours as SVG attributes; these
    class rules override them so the map follows the tokens. The subject parcel
-   is edged in tangerine like a title plan; buildings sit in ink; neighbours
+   is edged in bright tangerine (`parcel`) like a title plan; buildings sit in ink; neighbours
    stay quiet until hovered. Over the orthophoto the quiet lines turn light,
    so they still read against roofs and fields. */
 .leaflet-interactive.map-neighbor {
@@ -397,8 +469,8 @@
 }
 
 .map-parcel {
-	stroke: var(--color-accent);
-	fill: var(--color-accent);
+	stroke: var(--color-parcel);
+	fill: var(--color-parcel);
 	fill-opacity: 0.14;
 }
 

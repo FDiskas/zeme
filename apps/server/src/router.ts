@@ -13,6 +13,7 @@ import {
   parcelSearchItemSchema,
   neighborParcelSchema,
   orthoSeriesSchema,
+  REPORT_REFRESH_COOLDOWN_MS,
 } from "@zeme/shared";
 import {
   buildComprehensiveReport,
@@ -156,6 +157,14 @@ const autocomplete = os
     return searchAddressAutocomplete(input.query.trim());
   });
 
+const refreshAvailableAt = (builtAt: Date) =>
+  new Date(builtAt.getTime() + REPORT_REFRESH_COOLDOWN_MS).toISOString();
+
+// Rebuilds under way, by cadastral number: a second request for the same
+// parcel (a double click, two tabs) waits for the first instead of querying
+// every upstream service again.
+const rebuildsInFlight = new Map<string, Promise<ParcelReport>>();
+
 const getReport = os
   .input(parcelLookupInputSchema)
   .output(parcelReportSchema)
@@ -164,7 +173,14 @@ const getReport = os
       where: { cadastralRegNo: input.cadastralRegNo },
     });
 
-    if (existing && !input.forceRefresh && shouldReuseCachedReport(existing)) {
+    // A forced refresh within REPORT_REFRESH_COOLDOWN_MS of the last build is
+    // answered from the cache, so the upstream registries see one rebuild per
+    // parcel per window at most. Enforced here, not in the browser, which can
+    // be bypassed.
+    const usable = existing !== null && shouldReuseCachedReport(existing);
+    const coolingDown = usable && Date.now() - existing.updatedAt.getTime() < REPORT_REFRESH_COOLDOWN_MS;
+
+    if (usable && (!input.forceRefresh || coolingDown)) {
       const parsed = await upgradeCachedReport(
         input.cadastralRegNo,
         await refreshMissingMarketValue(
@@ -178,36 +194,51 @@ const getReport = os
         ...parsed,
         cached: true,
         cacheAgeDays: cacheAgeDays(existing.updatedAt),
+        refreshAvailableAt: refreshAvailableAt(existing.updatedAt),
       };
     }
 
-    const parsedCoordinates = existing?.coordinates ? JSON.parse(existing.coordinates) : undefined;
-    const report = await buildComprehensiveReport(
-      input.cadastralRegNo,
-      existing?.address && !isPlaceholderAddress(existing.address)
-        ? existing.address
-        : "",
-      parsedCoordinates,
+    const inFlight = rebuildsInFlight.get(input.cadastralRegNo);
+    if (inFlight) return inFlight;
+    const rebuild = rebuildReport(input.cadastralRegNo, existing).finally(() =>
+      rebuildsInFlight.delete(input.cadastralRegNo),
     );
-
-    await prisma.parcelReport.upsert({
-      where: { cadastralRegNo: input.cadastralRegNo },
-      update: {
-        address: report.address,
-        coordinates: JSON.stringify(report.coordinates),
-        reportData: JSON.stringify(report),
-        pdfCachedPath: null,
-      },
-      create: {
-        address: report.address,
-        cadastralRegNo: report.cadastralRegNo,
-        coordinates: JSON.stringify(report.coordinates),
-        reportData: JSON.stringify(report),
-      },
-    });
-
-    return report;
+    rebuildsInFlight.set(input.cadastralRegNo, rebuild);
+    return rebuild;
   });
+
+// Builds the report from the upstream sources and caches it.
+async function rebuildReport(
+  cadastralRegNo: string,
+  existing: { address: string; coordinates: string } | null,
+): Promise<ParcelReport> {
+  const parsedCoordinates = existing?.coordinates ? JSON.parse(existing.coordinates) : undefined;
+  const report = await buildComprehensiveReport(
+    cadastralRegNo,
+    existing?.address && !isPlaceholderAddress(existing.address)
+      ? existing.address
+      : "",
+    parsedCoordinates,
+  );
+
+  await prisma.parcelReport.upsert({
+    where: { cadastralRegNo },
+    update: {
+      address: report.address,
+      coordinates: JSON.stringify(report.coordinates),
+      reportData: JSON.stringify(report),
+      pdfCachedPath: null,
+    },
+    create: {
+      address: report.address,
+      cadastralRegNo: report.cadastralRegNo,
+      coordinates: JSON.stringify(report.coordinates),
+      reportData: JSON.stringify(report),
+    },
+  });
+
+  return { ...report, refreshAvailableAt: refreshAvailableAt(new Date()) };
+}
 
 
 

@@ -354,7 +354,10 @@ export async function fetchOspBuildingPermits(
         address: attrs.adresas || "N/A",
         projectYear: attrs.projekto_metai || "N/A",
         uniqueBuildingNo: attrs.unikalus_numeris || "N/A",
-        recordDate: recordDate
+        recordDate: recordDate,
+        // With the address, the key to the project's public Infostatyba page
+        // (see infostatyba-link.ts); not shown as a field of its own.
+        projectName: attrs.projekto_pavadinimas || "N/A"
       };
     });
   } catch (err) {

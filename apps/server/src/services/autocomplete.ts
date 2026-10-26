@@ -1,5 +1,20 @@
-import type { ParcelSearchItem } from "@zeme/shared";
+import {
+  mapsLinkPoint,
+  normalizeCadastralRegNo,
+  parseSearchQuery,
+  queryPoint,
+  type ParcelSearchItem,
+} from "@zeme/shared";
 import { prisma } from "../db";
+import {
+  resolveParcelFromBiip,
+  resolveParcelByUniqueNumber,
+  resolveAddressFromBiip,
+  resolveParcelByCoordinates,
+  searchBiipAddressByQuery,
+  type BiipAddressPoint,
+} from "./biip-service";
+import { fetchOspParcelData, fetchParcelByPoint } from "./osp-service";
 
 const NOMINATIM_SEARCH = "https://nominatim.openstreetmap.org/search";
 
@@ -8,22 +23,6 @@ interface NominatimResult {
   lat: string;
   lon: string;
   extratags?: Record<string, string>;
-}
-
-import {
-  resolveParcelFromBiip,
-  resolveParcelByUniqueNumber,
-  resolveAddressFromBiip,
-  resolveParcelByCoordinates,
-  normalizeCadastralRegNo as biipNormalize,
-  normalizeUniqueNumber,
-  searchBiipAddressByQuery,
-  type BiipAddressPoint,
-} from "./biip-service";
-import { fetchOspParcelData } from "./osp-service";
-
-function normalizeCadastralRegNo(value: string): string | null {
-  return biipNormalize(value);
 }
 
 // Centroid of a GeoJSON Polygon's outer ring — used to pin the map when a
@@ -243,32 +242,76 @@ async function buildFromBiipAddress(addr: BiipAddressPoint): Promise<ParcelSearc
   };
 }
 
-export async function searchAddressAutocomplete(
-  query: string
-): Promise<ParcelSearchItem[]> {
-  // A dash-separated 12-digit value is a "unikalus daikto numeris". Checked
-  // before the cadastral pattern because the cadastral matcher would otherwise
-  // greedily (mis)interpret the same digits as area/block/parcel.
-  const uniqueNumber = normalizeUniqueNumber(query);
-  if (uniqueNumber) {
-    try {
-      const match = await handleUniqueNumberMatch(uniqueNumber);
-      return match ? [match] : [];
-    } catch {
-      return [];
-    }
+// The parcel under a point (typed coordinates or a Google Maps link): BIIP
+// first, then OSP, as for a click on the map.
+async function handlePointMatch(lat: number, lng: number): Promise<ParcelSearchItem | null> {
+  const parcel = await resolveParcelByCoordinates(lng, lat);
+  if (parcel) {
+    const address = (await resolveAddressFromBiip(parcel.ewkt))?.fullAddress || "";
+    await persistParcel(parcel.cadastralRegNo, address, parcel.geometry);
+    return { cadastralRegNo: parcel.cadastralRegNo, address, center: parcel.center };
   }
+  const ospCadastralRegNo = await fetchParcelByPoint(lat, lng);
+  return ospCadastralRegNo ? handleDirectParcelMatch(ospCadastralRegNo) : null;
+}
 
-  const normalizedDirectMatch = normalizeCadastralRegNo(query);
-  if (normalizedDirectMatch) {
-    try {
-      const match = await handleDirectParcelMatch(normalizedDirectMatch);
-      return [match];
-    } catch {
-      return [{ cadastralRegNo: normalizedDirectMatch }];
-    }
+// A Google Maps short link (maps.app.goo.gl/…) carries no coordinates; the
+// page it redirects to does. Redirects are followed by hand and only while
+// they stay on Google, so the server never fetches an address a reader typed.
+const GOOGLE_HOST = /(?:^|\.)(?:goo\.gl|google\.[a-z.]+)$/;
+
+async function resolveMapsShortLink(url: string): Promise<{ lat: number; lng: number } | null> {
+  let next = url;
+  for (let hop = 0; hop < 4; hop++) {
+    const target = new URL(next);
+    if (target.protocol !== "https:" || !GOOGLE_HOST.test(target.hostname)) return null;
+    const point = mapsLinkPoint(target.href);
+    if (point) return point;
+    const response = await fetch(target, { redirect: "manual", signal: AbortSignal.timeout(5000) });
+    const location = response.headers.get("location");
+    if (!location) return null;
+    next = new URL(location, target).href;
   }
+  return null;
+}
 
+export async function searchAddressAutocomplete(query: string): Promise<ParcelSearchItem[]> {
+  const parsed = parseSearchQuery(query);
+  const one = (item: ParcelSearchItem | null) => (item ? [item] : []);
+
+  try {
+    switch (parsed.kind) {
+      case "unique": {
+        const match = await handleUniqueNumberMatch(parsed.value);
+        if (match) return [match];
+        // An 11-digit number also reads as a cadastral one written with dashes.
+        const cadastral = normalizeCadastralRegNo(parsed.value);
+        const fallback = cadastral ? await handleDirectParcelMatch(cadastral) : null;
+        return fallback?.center ? [fallback] : [];
+      }
+      case "cadastral":
+        return [await handleDirectParcelMatch(parsed.value)];
+      case "gps":
+      case "lks":
+      case "maps-link": {
+        const point = queryPoint(parsed)!;
+        return one(await handlePointMatch(point.lat, point.lng));
+      }
+      case "maps-short-link": {
+        const point = await resolveMapsShortLink(parsed.url);
+        return point ? one(await handlePointMatch(point.lat, point.lng)) : [];
+      }
+      case "link":
+        return [];
+      case "address":
+        return searchAddress(parsed.text);
+    }
+  } catch {
+    return parsed.kind === "cadastral" ? [{ cadastralRegNo: parsed.value }] : [];
+  }
+}
+
+async function searchAddress(query: string): Promise<ParcelSearchItem[]> {
   try {
     const addresses = await searchNominatim(query);
     if (addresses.length > 0) {
@@ -289,4 +332,3 @@ export async function searchAddressAutocomplete(
     return [];
   }
 }
-

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const parcelAutocompleteInputSchema = z.object({
-  query: z.string().min(2).max(120),
+  query: z.string().min(2).max(2048), // Google Maps links run long
 });
 
 export const parcelLookupInputSchema = z.object({
@@ -84,10 +84,18 @@ export const parcelReportSchema = z.object({
   fetchedAt: z.string(),
   cached: z.boolean(),
   cacheAgeDays: z.number().optional(),
+  // When this parcel's report may be rebuilt from the sources again (ISO time).
+  // Set per response, never stored: see REPORT_REFRESH_COOLDOWN_MS.
+  refreshAvailableAt: z.string().optional(),
   sources: z.array(z.string()),
   reportPanels: z.array(reportPanelSchema),
   pdfUrl: z.string().optional(),
 });
+
+// A parcel's report is rebuilt from the upstream registries at most once in
+// this window, however often "Atnaujinti" is pressed: each rebuild queries
+// some twenty public services, and they must not be hammered on our behalf.
+export const REPORT_REFRESH_COOLDOWN_MS = 3 * 60 * 60 * 1000;
 
 export const parcelPdfInputSchema = z.object({
   cadastralRegNo: z.string().min(3).max(64),
@@ -151,3 +159,5 @@ export type BuildingFootprint = z.infer<typeof buildingFootprintSchema>;
 export type NeighborParcel = z.infer<typeof neighborParcelSchema>;
 export type ParcelReport = z.infer<typeof parcelReportSchema>;
 export type ParcelPdfOutput = z.infer<typeof parcelPdfOutputSchema>;
+
+export * from "./search-query";

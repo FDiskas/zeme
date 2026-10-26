@@ -1,12 +1,21 @@
-import type { ReactNode } from "react";
-import type { ParcelReport } from "@zeme/shared";
-import { buildSummary, findParcelUniqueNumber, parcelCenter, type FlagState, type SummaryFlag } from "../lib/report-format";
+import { Fragment, type ReactNode } from "react";
+import { ltCount, type ParcelReport } from "@zeme/shared";
+import {
+  buildSummary,
+  findParcelUniqueNumber,
+  parcelCenter,
+  type FactMeter,
+  type FlagState,
+  type SummaryFact,
+  type SummaryFlag,
+} from "../lib/report-format";
 import { wgs84ToLks94 } from "../lib/geo";
 import { CopyButton } from "./CopyButton";
-import { CheckIcon, ChevronRight, InfoIcon, PinIcon, RefreshIcon, WarningIcon } from "./icons";
+import { InfoTip } from "./InfoTip";
+import { CheckIcon, ChevronDown, ChevronRight, InfoIcon, PinIcon, RefreshIcon, WarningIcon } from "./icons";
 
 // Smoothly bring the related detailed panel into view (and open it if it is a
-// collapsible <details>), so a summary flag like "Taršos rizika · Yra (1)" jumps
+// collapsible <details>), so a summary flag like "Taršos rizika · Rasta" jumps
 // the reader straight to the underlying records.
 function revealPanel(panelKey: string) {
   const el = document.getElementById(`panel-${panelKey}`);
@@ -21,47 +30,156 @@ type Props = {
   actions?: ReactNode;
   /** Ask the sources again, offered next to a fact whose source failed. */
   onRetry?: () => void;
+  /** When asking again is not allowed yet: the time it will be ("18:32"). */
+  retryAfter?: string;
   retrying?: boolean;
 };
 
-// Flag meaning rides on the chip's icon, its word and a spoken tone, never on
+// Flag meaning rides on the icon, its word and a spoken tone, never on
 // colour alone (ux: color-not-only): a check on green = fine, a warning on
-// tangerine = worth a closer look, an info mark = look it up elsewhere.
-const FLAG_TONES: Record<FlagState, { chip: string; Icon: typeof CheckIcon; spoken: string }> = {
-  good: { chip: " chip--clear", Icon: CheckIcon, spoken: "Gerai" },
-  attention: { chip: " chip--present", Icon: WarningIcon, spoken: "Dėmesio" },
-  check: { chip: "", Icon: InfoIcon, spoken: "Tikrinti" },
+// brick red = worth a closer look, an info mark = look it up elsewhere.
+const FLAG_TONES: Record<FlagState, { chip: string; badge: string; text: string; Icon: typeof CheckIcon; spoken: string }> = {
+  good: { chip: " chip--clear", badge: "bg-green-soft text-green", text: "text-green", Icon: CheckIcon, spoken: "Gerai" },
+  attention: { chip: " chip--present", badge: "bg-warn-soft text-warn", text: "text-warn", Icon: WarningIcon, spoken: "Dėmesio" },
+  check: { chip: "", badge: "bg-paper-2 text-ink-2", text: "text-ink-2", Icon: InfoIcon, spoken: "Tikrinti" },
 };
 
-function FlagChip({ flag }: { flag: SummaryFlag }) {
-  const { chip, Icon, spoken } = FLAG_TONES[flag.state];
-  return (
-    <span className={`chip${chip} max-w-64 py-1.5 whitespace-normal`}>
-      <Icon className="h-4 w-4 shrink-0" />
-      <span className="sr-only">{spoken}: </span>
-      {flag.detail}
-    </span>
-  );
-}
+// Worries first, then what the report cannot tell, then what came back clear;
+// within a tone the order the checks were written in.
+const TONE_ORDER: Record<FlagState, number> = { attention: 0, check: 1, good: 2 };
+const byTone = (flags: SummaryFlag[]) => [...flags].sort((a, b) => TONE_ORDER[a.state] - TONE_ORDER[b.state]);
 
 // Numbers that get copied and retyped never break inside themselves: a pair
 // may wrap only after its comma.
 function Unbroken({ parts }: { parts: string[] }) {
   return (
     <>
+      {/* The space after the comma sits outside the unbreakable span: that
+          is where the pair may wrap. */}
       {parts.map((part, i) => (
-        <span key={i} className="whitespace-nowrap">
-          {part}
-          {i < parts.length - 1 ? ", " : null}
-        </span>
+        <Fragment key={i}>
+          <span className="whitespace-nowrap">
+            {part}
+            {i < parts.length - 1 ? "," : null}
+          </span>
+          {i < parts.length - 1 ? " " : null}
+        </Fragment>
       ))}
     </>
   );
 }
 
-type Cell = { label: string; value: ReactNode; hints?: string[]; code?: boolean };
+type Cell = { label: string; value: ReactNode; hints?: string[]; meter?: FactMeter; code?: boolean };
 
-export function SummaryCard({ report, actions, onRetry, retrying = false }: Props) {
+// The value against its allowed maximum as a slim bar: green while within
+// it, brick red past it. The numbers are spoken, and said in words only when
+// the limit is passed; otherwise the info tip carries them.
+function Meter({ meter }: { meter: FactMeter }) {
+  const over = meter.value > meter.max;
+  const width = `${Math.max(2, Math.min(100, (meter.value / meter.max) * 100))}%`;
+  return (
+    <span className="mt-2 grid gap-1 font-body">
+      <span className="block h-1.5 overflow-hidden rounded-pill bg-paper-3" aria-hidden="true">
+        <span className={`block h-full rounded-pill ${over ? "bg-warn" : "bg-green"}`} style={{ width }} />
+      </span>
+      {over ? (
+        <span className="text-sm font-medium text-warn">Daugiau nei leidžia reglamentas</span>
+      ) : (
+        <span className="sr-only">{meter.label}</span>
+      )}
+    </span>
+  );
+}
+
+// A label with its explanation one tap away, never under the value.
+function Label({ cell, align }: { cell: Cell; align?: "start" | "end" }) {
+  if (!cell.hints || cell.hints.length === 0) return <>{cell.label}</>;
+  return (
+    <InfoTip about={cell.label} lines={cell.hints} align={align}>
+      {cell.label}
+    </InfoTip>
+  );
+}
+
+// The secondary facts as ruled rows, label left and value right: one line
+// each, so the card stays short. A retry sits under its value.
+function FactRows({ cells }: { cells: Cell[] }) {
+  return (
+    <dl>
+      {cells.map((cell) => (
+        <div key={cell.label} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 border-b border-rule px-5 py-2">
+          <dt className="text-md text-ink-2"><Label cell={cell} /></dt>
+          <dd className={`m-0 ml-auto text-right text-md font-medium text-ink tabular-nums${cell.code ? " code" : ""}`}>{cell.value}</dd>
+          {cell.meter ? <span className="basis-full"><Meter meter={cell.meter} /></span> : null}
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+// Notebook cells: label small and muted on top, the value beneath. An odd
+// count lets the last cell span both columns, so no cell sits alone. A tip in
+// the right column opens leftwards, so it stays on the card.
+function Cells({ cells, size }: { cells: Cell[]; size: "large" | "regular" }) {
+  return (
+    <dl className="cells">
+      {cells.map((cell, i) => (
+        <div key={cell.label} className={cells.length % 2 === 1 && i === cells.length - 1 ? "cells__wide" : undefined}>
+          <dt className="text-sm text-muted"><Label cell={cell} align={i % 2 === 1 ? "end" : "start"} /></dt>
+          <dd
+            className={`m-0 font-medium text-ink tabular-nums wrap-break-word ${size === "large" ? "text-xl leading-tight" : "text-md"}${cell.code ? " code" : ""}`}
+          >
+            {cell.value}
+            {cell.meter ? <Meter meter={cell.meter} /> : null}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+// Right under the address: the worries as compact tags, so they are seen
+// before any number. Each worry gets its own tag; the rest is one tag that
+// counts the checks with no remark. A worry jumps to its detailed panel; the
+// count to the full list of checks under the card. What the report cannot
+// tell ("tikrinti") waits in that list: it is in every report, so as a tag it
+// would only dull the real worries.
+function RiskTags({ flags }: { flags: SummaryFlag[] }) {
+  const worries = flags.filter((flag) => flag.state === "attention");
+  const clear = flags.filter((flag) => flag.state === "good").length;
+  const tagClass = "chip min-h-9 whitespace-normal text-left transition-[filter] duration-150 hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus";
+  if (worries.length === 0 && clear === 0) return null;
+
+  return (
+    <div className="pt-1">
+      <h2 className="sr-only">Rizikos</h2>
+      <ul className="flex flex-wrap gap-2">
+        {worries.map((flag) => {
+          const { chip, Icon, spoken } = FLAG_TONES[flag.state];
+          return (
+            <li key={flag.label}>
+              <button type="button" onClick={() => flag.panelKey && revealPanel(flag.panelKey)} className={`${tagClass}${chip}`}>
+                <Icon className="h-4 w-4 shrink-0" />
+                <span className="sr-only">{spoken}: </span>
+                {flag.tag ?? flag.label}
+              </button>
+            </li>
+          );
+        })}
+        {clear > 0 ? (
+          <li>
+            <a href="#checks-title" className={`${tagClass} chip--clear`}>
+              <CheckIcon className="h-4 w-4 shrink-0" />
+              {clear === flags.length ? "Rizikų nerasta" : `${ltCount(clear, ["patikrinimas", "patikrinimai", "patikrinimų"])} be pastabų`}
+            </a>
+          </li>
+        ) : null}
+      </ul>
+    </div>
+  );
+}
+
+export function SummaryCard({ report, actions, onRetry, retryAfter, retrying = false }: Props) {
   const { facts, flags } = buildSummary(report);
   const uniqueNumber = findParcelUniqueNumber(report);
 
@@ -84,26 +202,35 @@ export function SummaryCard({ report, actions, onRetry, retrying = false }: Prop
       ]
     : [];
 
-  // The notebook cells: the summary facts first, then the numbers a surveyor
-  // or a phone needs. An odd count lets the last cell span both columns, so no
-  // cell sits alone on its row.
-  const cells: Cell[] = [
-    ...facts.map((fact) => ({
-      label: fact.label,
-      hints: fact.hints,
-      value:
-        fact.unavailable && onRetry ? (
-          <>
-            <span className="text-ink-2">{fact.value}</span>
-            <button type="button" onClick={onRetry} disabled={retrying} aria-busy={retrying} className="link mt-1 flex w-fit items-center gap-1.5 font-body text-sm">
-              <RefreshIcon className="h-4 w-4 shrink-0" />
-              {retrying ? "Bandoma…" : "Bandyti dar kartą"}
-            </button>
-          </>
-        ) : (
-          fact.value
-        ),
-    })),
+  const toCell = (fact: SummaryFact): Cell => ({
+    label: fact.label,
+    hints: fact.hints,
+    meter: fact.meter,
+    value:
+      fact.unavailable && onRetry ? (
+        <>
+          <span className="text-ink-2">{fact.value}</span>
+          <button type="button" onClick={onRetry} disabled={retrying} aria-busy={retrying} className="link mt-1 ml-auto flex w-fit items-center gap-1.5 font-body text-sm">
+            <RefreshIcon className="h-4 w-4 shrink-0" />
+            {retrying ? "Bandoma…" : "Bandyti dar kartą"}
+          </button>
+        </>
+      ) : fact.unavailable && retryAfter ? (
+        <>
+          <span className="text-ink-2">{fact.value}</span>
+          <span className="mt-1 block font-body text-sm font-normal text-muted">Bandyti dar kartą galėsite po {retryAfter}</span>
+        </>
+      ) : (
+        fact.value
+      ),
+  });
+
+  // Three tiers: the few numbers a buyer came for, large; the rest of the
+  // facts as one-line rows; the identifiers and coordinates a surveyor or a
+  // phone needs folded away under "Techniniai duomenys".
+  const keyCells = facts.filter((fact) => fact.primary).map(toCell);
+  const moreCells = facts.filter((fact) => !fact.primary).map(toCell);
+  const technicalCells: Cell[] = [
     ...(uniqueNumber ? [{ label: "Unikalus Nr.", value: <Unbroken parts={[uniqueNumber]} />, code: true }] : []),
     ...(wgs && lks
       ? [
@@ -125,25 +252,18 @@ export function SummaryCard({ report, actions, onRetry, retrying = false }: Prop
   return (
     <>
       <article className="entry" aria-labelledby="parcel-title">
-        {/* The ink head: the parcel's cadastral number, the one a reader
-            searched by and the one most often copied into a form. */}
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 bg-ink px-5 py-3 text-paper [--color-focus:var(--color-paper)]">
-          <span className="text-sm font-medium">Kadastrinis Nr.</span>
-          <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <span className="code text-md">{report.cadastralRegNo}</span>
-            <CopyButton
-              text={report.cadastralRegNo}
-              label="Kopijuoti kadastrinį numerį"
-              className="rounded-pill px-1 text-paper underline decoration-paper/50 underline-offset-4 hover:decoration-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-            />
-          </span>
-        </div>
-
+        {/* People know a parcel by its address, so it heads the card; the
+            cadastral number follows on its own line, ready to copy. */}
         <div className="grid gap-2 px-5 pt-5 pb-4">
           <h1 id="parcel-title" className="text-xl leading-[1.15] tracking-[-0.02em]">
             {hasAddress ? report.address : "Žemės sklypas be priskirto adreso"}
           </h1>
           {locality ? <p className="text-md text-ink-2">Vietovė: {locality}</p> : null}
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-2">
+            <span>Kadastrinis Nr.</span>
+            <span className="code text-md text-ink">{report.cadastralRegNo}</span>
+            <CopyButton text={report.cadastralRegNo} label="Kopijuoti kadastrinį numerį" />
+          </p>
           {mapLinks.length > 0 ? (
             <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
               <span className="inline-flex items-center gap-1.5">
@@ -157,66 +277,69 @@ export function SummaryCard({ report, actions, onRetry, retrying = false }: Prop
               ))}
             </p>
           ) : null}
+          {flags.length > 0 ? <RiskTags flags={flags} /> : null}
         </div>
 
-        {cells.length > 0 ? (
-          <dl className="cells">
-            {cells.map((cell, i) => (
-              <div key={cell.label} className={cells.length % 2 === 1 && i === cells.length - 1 ? "cells__wide" : undefined}>
-                <dt className="text-sm text-muted">{cell.label}</dt>
-                <dd className={`m-0 text-md font-medium text-ink tabular-nums wrap-break-word${cell.code ? " code" : ""}`}>
-                  {cell.value}
-                  {cell.hints?.map((hint) => (
-                    <span key={hint} className="block font-body text-sm font-normal text-ink-2">{hint}</span>
-                  ))}
-                </dd>
-              </div>
-            ))}
-          </dl>
+        {keyCells.length > 0 ? <Cells cells={keyCells} size="large" /> : null}
+        {moreCells.length > 0 ? <FactRows cells={moreCells} /> : null}
+
+        {technicalCells.length > 0 ? (
+          <details className="report-disclosure border-b border-rule">
+            <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-5 py-2 text-md text-ink-2 transition-colors duration-150 hover:bg-paper-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus">
+              Techniniai duomenys
+              <ChevronDown className="report-chevron h-5 w-5 shrink-0" />
+            </summary>
+            <Cells cells={technicalCells} size="regular" />
+          </details>
         ) : null}
 
-        {actions ? <div className="p-5">{actions}</div> : null}
+        {actions ? <div className="px-5 pt-4 pb-2">{actions}</div> : null}
       </article>
 
       {flags.length > 0 ? (
-        <section aria-labelledby="checks-title" className="grid gap-3">
+        <section aria-labelledby="checks-title" className="grid gap-2">
           <h2 id="checks-title" className="text-title">Svarbiausia trumpai</h2>
           <ul className="spec">
-            {flags.map((flag) => {
+            {byTone(flags).map((flag) => {
+              const { badge, text, Icon, spoken } = FLAG_TONES[flag.state];
+              const noteId = `flag-note-${flag.panelKey ?? flag.label}`;
+              // One ruled row: the tone as a round mark, the check, its answer
+              // in a word or two, the way to the detail. The longer answer
+              // opens on hover and focus; a tap goes to the detail, where the
+              // panel says it in full.
               const body = (
                 <>
-                  {/* On a phone the chip always sits under its label, so every
-                      row reads the same way and neither is squeezed. */}
-                  <span className="flex min-w-0 flex-1 flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                    <span className="text-md text-ink">{flag.label}</span>
-                    <FlagChip flag={flag} />
+                  <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full ${badge}`}>
+                    <Icon className="h-4 w-4" />
                   </span>
-                  {flag.panelKey ? <ChevronRight className="h-5 w-5 shrink-0 text-ink" /> : <span className="w-5 shrink-0" aria-hidden="true" />}
+                  <span className="min-w-0 flex-1 text-md text-ink">{flag.label}</span>
+                  <span className={`shrink-0 text-right text-sm font-medium ${text}`}>
+                    <span className="sr-only">{spoken}: </span>
+                    {flag.detail}
+                  </span>
+                  {flag.panelKey ? <ChevronRight className="h-5 w-5 shrink-0 text-muted" /> : <span className="w-5 shrink-0" aria-hidden="true" />}
                 </>
               );
+              const rowClass = "flex min-h-12 w-full items-center gap-3 px-2 py-1.5 text-left";
 
               return (
-                <li key={flag.label} className="grid">
+                <li key={flag.label} className="tip tip--end grid">
                   {flag.panelKey ? (
                     <button
                       type="button"
                       onClick={() => revealPanel(flag.panelKey!)}
-                      className="flex min-h-14 w-full items-center gap-3 rounded-pill px-2 py-2 text-left transition-colors duration-150 hover:bg-paper-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus active:bg-paper-3"
+                      aria-describedby={flag.note ? noteId : undefined}
+                      className={`${rowClass} transition-colors duration-150 hover:bg-paper-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus active:bg-paper-3`}
                     >
                       {body}
                     </button>
                   ) : (
-                    <div className="flex min-h-14 items-center gap-3 px-2 py-2">{body}</div>
+                    <div className={rowClass}>{body}</div>
                   )}
-                  {/* Links sit beside the row's button, never inside it. */}
-                  {flag.links ? (
-                    <p className="flex flex-wrap gap-x-4 gap-y-1 px-2 pb-3 text-sm">
-                      {flag.links.map((link) => (
-                        <a key={link.href} href={link.href} target="_blank" rel="noreferrer" className="link whitespace-nowrap">
-                          {link.label}
-                        </a>
-                      ))}
-                    </p>
+                  {flag.note ? (
+                    <span id={noteId} role="tooltip" className="tip__bubble">
+                      {flag.note}
+                    </span>
                   ) : null}
                 </li>
               );

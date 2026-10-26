@@ -115,6 +115,19 @@ export function pointInPolygons(point: [number, number], polygons: Ring[][]): bo
   );
 }
 
+// Buildings whose footprint centre lies inside the parcel. Reports built
+// before the server applied the same rule also carry neighbours' buildings
+// that merely touch the boundary.
+export function buildingsInParcel(report: ParcelReport): NonNullable<ParcelReport["buildings"]> {
+  const buildings = report.buildings ?? [];
+  const polygons = parcelPolygons(report);
+  if (polygons.length === 0) return buildings;
+  return buildings.filter((building) => {
+    const outer = building.geometry.coordinates[0];
+    return outer !== undefined && outer.length > 0 && pointInPolygons(ringCentre(outer), polygons);
+  });
+}
+
 function escapeXml(value: string): string {
   return value.replace(/[<>&"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
 }

@@ -44,23 +44,23 @@ const ORTHO: Capture = {
 const FLAGS: Capture = {
   id: "apribojimai",
   src: "/screens/report-flags.jpg",
-  width: 1024,
-  height: 818,
-  ratio: "1024 / 818",
+  width: 1056,
+  height: 784,
+  ratio: "1056 / 784",
   title: "Ką verta patikrinti",
-  line: "Saugomos teritorijos, kultūros paveldas, tarša ir potvyniai: Yra arba Nėra.",
-  alt: "Patikrų sąrašas: kultūros paveldas Yra (6), saugomos teritorijos, tarša ir potvyniai Nėra.",
+  line: "Saugomos teritorijos, kultūros paveldas, tarša, potvyniai: kas rasta, rodoma pirmiausia.",
+  alt: "Patikrų sąrašas: kultūros paveldas Rasta, nusikalstamumas Daugiau nei aplink, specialiosios sąlygos Tikrinti atskirai, saugomos teritorijos, tarša ir potvyniai Nerasta.",
 };
 
 const DETAIL: Capture = {
   id: "detales",
   src: "/screens/report-detail.jpg",
-  width: 1024,
+  width: 1056,
   height: 960,
-  ratio: "1024 / 960",
+  ratio: "1056 / 960",
   title: "Detalės su šaltiniu",
   line: "Kiekvieną įrašą galima atverti ir pamatyti, iš kurio registro jis atėjo.",
-  alt: "Atvertas kultūros paveldo skydelis su objektų pavadinimais, statusu ir amžiumi.",
+  alt: "Atvertas kultūros paveldo skydelis: šeši įrašai, kiekvienas su pavadinimu ir apsaugos statusu.",
 };
 
 /** A capture in its frame with a short caption beneath. */
@@ -168,7 +168,7 @@ export function SourcesSpec() {
         <div>
           <div
             aria-hidden="true"
-            className="hidden grid-cols-[minmax(0,5fr)_minmax(0,4fr)_minmax(0,3fr)] gap-8 border-b border-ink pb-3 text-sm font-medium text-muted md:grid"
+            className="hidden grid-cols-[minmax(0,5fr)_minmax(0,4fr)_minmax(0,3fr)] gap-8 border-b border-edge pb-3 text-sm font-medium text-muted md:grid"
           >
             <span>Registras</span>
             <span>Tvarko</span>
@@ -198,11 +198,10 @@ export function SourcesSpec() {
   );
 }
 
-/** Close: the other way in, the explore map, on the tangerine field. */
+/** Close: the other way in, the explore map, on a soft terracotta field. */
 export function ExploreClose() {
-  // Over the tangerine field the focus ring turns ink, so it still reads.
   return (
-    <section className="bg-accent text-accent-ink [--color-focus:var(--color-ink)]">
+    <section className="border-y border-rule bg-accent-soft text-ink">
       <div className="container grid gap-12 py-(--section-gap-s) lg:grid-cols-12 lg:items-center lg:gap-8">
         <div className="grid gap-6 lg:col-span-4">
           <h2>Arba raskite sklypą žemėlapyje</h2>
