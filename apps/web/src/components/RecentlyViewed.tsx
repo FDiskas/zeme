@@ -35,7 +35,7 @@ export function RecentlyViewed({ history, showEmptyState = false }: Props) {
             <li key={`${item.id}-${item.timestamp}`} className="min-w-0">
               <Link
                 to={`/parcel/${encodeURIComponent(item.id)}`}
-                className="flex items-center justify-between gap-4 py-3 pr-2 transition-colors duration-150 hover:bg-accent-soft focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus active:bg-paper-3"
+                className="-mx-2 flex items-center justify-between gap-4 rounded-pill px-2 py-3 transition-colors duration-150 hover:bg-paper-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus active:bg-paper-3"
               >
                 <div className="min-w-0">
                   <p className="wrap-break-word text-md font-medium text-ink">

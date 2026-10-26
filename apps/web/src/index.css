@@ -1,14 +1,18 @@
-/* Hallmark · shape: Feature Stack (/), app screen (/parcel, /zemelapis, /vieta, /duomenu-saltiniai as a reference table) · genre: modern-minimal · theme: Terrazzo (deal 3/3, seed public-land-parcel-lookup-lithuanians-76b2·dae765e2·2026-10-25·r0) · redesign: full
- * hero: Corridor (/) · nav: floating bar, the wordmark and three links on a ruled plate · footer: colophon block · imagery: screenshots 5 (the app itself, captured from the dev server) · signature: the parcel outlined in rust on the map, its cadastral code in rust mono beside it · terrazzo: off-white · job: try · draw: bfc215
- * axes: light/geometric-sans/warm · posture: restrained · contrast: pass · fold: pass · v2.0.0 */
-/* Hallmark · pre-emit critique: P4 H5 E4 S5 R4 V5 · weakest: P, a lookup tool argues little; the page argues "check before you buy" by showing the real report, not by claiming it */
-/* Hallmark · hero-review: fix · 5 findings · 5 resolved · finish-review: subagent · 7 findings · 7 resolved · gap: none */
-/* Hallmark · reworded "BĮIP – sklypų ribos ir paskirtis" to "BĮIP: sklypų ribos ir paskirtis" · 19 names the dash */
-/* Hallmark · reworded "BĮIP – adresų registras" to "BĮIP: adresų registras" · 19 names the dash */
-/* Hallmark · reworded "Infostatyba – statybos leidimai" to "Infostatyba: statybos leidimai" · 19 names the dash */
-/* Hallmark · reworded "Registrų centras – masinis vertinimas" to "Registrų centras: masinis vertinimas" · 19 names the dash */
-/* Hallmark · dismissed 28a · the first lazy image sits in the second section, a screen below the fold; the LCP is the hero headline, which is text */
-/* Hallmark · waive 39b · fields and buttons stand 48 to 52px on the app screens too · the readers are older Lithuanians checking land before a purchase, and a 48px control reads and taps easier than 40px */
+/* Hallmark · shape: Workbench (/), app screen (/parcel, /zemelapis, /vieta, /duomenu-saltiniai as a reference table) · genre: modern-minimal · theme: Furrow (deal 3/3, seed parcel-building-lookup-people-e3bf·f6c4c2ba·2026-10-26·r0) · redesign: full
+ * hero: Stage (/) · nav: edge-aligned bar, the wordmark and three links over a 1px ink rule · footer: colophon block on the well · imagery: screenshots 5 (the app itself, captured from the dev server) · signature: the parcel edged in tangerine on a real map that switches to the NŽT orthophoto · job: try
+ * axes: light/grotesk-sans/warm · posture: committed · contrast: pass · fold: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H5 E4 S5 R4 V4 · weakest: P, a lookup tool argues little; the page argues "look before you buy" by showing the parcel on the real orthophoto, not by claiming it */
+/* Hallmark · hero-review: fix · 5 findings · 4 resolved, 1 answered (the search label stays above the field, not inside it as Furrow sets it: older readers lose a label that shrinks into the box) */
+/* Hallmark · finish-review: subagent · 8 findings · 7 resolved 1 partial (the explore band has no picked parcel: the explore map has none until one is pressed) · gap: none */
+/* Hallmark · waive 39b · fields and keys stand 48 to 56px on the app screens too · the readers are older Lithuanians checking land before a purchase, and a 48px key reads and taps easier than 40px */
+/* Hallmark · reworded "Vieša Lietuvos žemės ir pastatų informacija: ribos žemėlapyje, plotas, paskirtis, pastatai ir galimi apribojimai." to "Ribos, plotas, paskirtis, pastatai ir galimi apribojimai iš viešų Lietuvos registrų." · 58 caps the hero sentence at twelve words */
+/* Hallmark · dropped #ataskaita, #zemelapis, #faktai, #apribojimai, #detales, {`#${capture.id}`} · the scroll cue and the feature-stack index went with the Feature Stack; the figures keep their ids */
+/* Hallmark · dropped https://kvr.kpd.lt/heritage/Pages/KVRDetail.aspx?MC=38445, https://kvr.kpd.lt/heritage/Pages/KVRDetail.aspx?MC=38446, https://kvr.kpd.lt/heritage/Pages/KVRDetail.aspx?MC=22799, /vieta?lat=54.6854421377994&lng=25.27794843392534, /vieta?lat=54.683945586712674&lng=25.278413218531988, /vieta?lat=54.68752999894046&lng=25.284570000284624, /vieta?lat=54.68881999894853&lng=25.28603000067013 · the record links past the third in each opened panel leave the first render; they sit behind "Rodyti visus", one press away, so a long panel never floods the column */
+/* Hallmark · dropped report-facts.jpg · 69 named the notebook card shown three times; the hero carries it once and the phone on the orthophoto takes its place */
+/* Hallmark · dropped report-map.jpg · the square map capture became report-page.jpg, the whole report page across the width */
+/* Hallmark · answered F20 · the orphan sits in a panel's field grid, whose field count comes from the registry record */
+/* Hallmark · dismissed F4 · the hero holds one filled key (Ieškoti); the other is a search result row, and .seg's pressed key is a selection state, not a second primary */
+/* Hallmark · overridden theme do-not "never a map tile, a satellite photograph" · the user asked for the orthophoto switch by name; the map is the product, so it stays real (OSM and the NŽT ORT10LT orthophoto), and the survey voice lives in the tangerine parcel edge and the notebook card */
 
 @import "tailwindcss";
 @import "./tokens.css";
@@ -23,7 +27,8 @@
 }
 
 @layer components {
-	/* Controls: square, Onest 500, ink. One filled primary per screen. */
+	/* Moulded keys, 6px, Red Hat Text 500. The primary is tangerine with ink
+	   on it, lit along the top edge; one per screen. */
 	.btn {
 		display: inline-flex;
 		align-items: center;
@@ -31,69 +36,84 @@
 		gap: var(--space-xs);
 		min-height: 52px;
 		padding: 0 var(--space-lg);
-		border: 0;
+		border: var(--rule-hair) solid color-mix(in oklab, var(--color-accent) 72%, var(--color-ink));
 		border-radius: var(--radius-pill);
-		background: var(--color-ink);
-		color: var(--color-paper);
+		background: var(--color-accent);
+		color: var(--color-accent-ink);
+		box-shadow: inset 0 1px 0 color-mix(in oklab, var(--color-plate) 38%, transparent), inset 0 -1px 0 color-mix(in oklab, var(--color-ink) 12%, transparent);
 		font: 500 var(--text-md) / 1 var(--font-body);
 		white-space: nowrap;
 		text-decoration: none;
 		cursor: pointer;
 		transition: background-color var(--dur-short) var(--ease-out), transform var(--dur-micro) var(--ease-out);
 	}
-	.btn:hover { background: var(--color-ink-2); }
+	.btn:hover { background: color-mix(in oklab, var(--color-accent) 88%, var(--color-ink)); }
 	.btn:active { transform: translateY(1px); }
 	.btn:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
 	.btn:disabled,
 	.btn[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; transform: none; }
 	.btn[aria-busy="true"] { cursor: progress; }
 
+	/* The white key: a rule edge, the same lit top. */
 	.btn--secondary {
-		background: transparent;
+		border-color: var(--color-rule);
+		background: var(--color-plate);
 		color: var(--color-ink);
-		box-shadow: inset 0 0 0 var(--rule-bar) var(--color-ink);
+		box-shadow: inset 0 1px 0 var(--color-plate), 0 1px 1px color-mix(in oklab, var(--color-ink) 14%, transparent);
 	}
-	.btn--secondary:hover { background: var(--color-paper-2); }
-	.btn--secondary:active { background: var(--color-paper-3); }
+	.btn--secondary:hover { background: var(--color-paper); border-color: var(--color-muted); }
+	.btn--secondary:active { background: var(--color-paper-2); }
 
-	.btn--s { min-height: 48px; padding: 0 var(--space-md); }
+	.btn--s { min-height: 48px; padding: 0 var(--space-md); font-size: var(--text-sm); }
 
-	/* Text links: ink with a hairline underline that turns rust on hover. */
+	/* A square key for one icon (map controls, copy). */
+	.btn--icon { width: 48px; min-height: 48px; padding: 0; }
+
+	/* Text links: ink, a hairline underline that thickens on hover. */
 	.link {
 		color: var(--color-ink);
 		font-weight: 500;
 		text-decoration: underline;
+		text-decoration-color: color-mix(in oklab, var(--color-ink) 45%, transparent);
 		text-decoration-thickness: 1px;
 		text-underline-offset: 0.2em;
-		transition: text-decoration-color var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out);
+		transition: text-decoration-color var(--dur-micro) var(--ease-out);
 	}
-	.link:hover { color: var(--color-accent); text-decoration-color: var(--color-accent); }
+	.link:hover { text-decoration-color: var(--color-accent); text-decoration-thickness: 2px; }
 	.link:active { color: var(--color-ink-2); }
-	.link:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+	.link:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: 2px; }
 
-	/* The one container: a white plate ruled in ink over a hard offset. */
+	/* A white sheet lifted off the manila page. */
 	.card {
 		background: var(--color-plate);
-		border: var(--rule-bar) solid var(--color-ink);
+		border-radius: var(--radius-card);
 		box-shadow: var(--shadow-card);
 	}
-	@media (max-width: 40rem) {
-		.card { box-shadow: var(--shadow-card-s); }
-	}
 
-	/* A plain frame: the same rule, no offset (maps, captures inside a stack). */
-	.frame {
+	/* The notebook card: a 1px ink ring, the deep lift, an ink head. The one
+	   object per screen that carries the parcel's own record. */
+	.entry {
+		overflow: hidden;
 		background: var(--color-plate);
-		border: var(--rule-bar) solid var(--color-ink);
+		border-radius: var(--radius-entry);
+		box-shadow: 0 0 0 1px var(--color-ink), var(--shadow-lift);
 	}
 
-	/* Inputs: square on the plate, 1px ink edge, the ring an inset outline. */
+	/* A plain frame: a rule edge, no lift (maps, captures inside a section). */
+	.frame {
+		overflow: hidden;
+		background: var(--color-plate);
+		border: var(--rule-hair) solid var(--color-rule);
+		border-radius: var(--radius-card);
+	}
+
+	/* Inputs: white, a muted 1px edge, the ring an inset outline. */
 	.field {
 		width: 100%;
 		min-width: 0;
-		min-height: 52px;
+		min-height: 56px;
 		padding: 0 var(--space-md);
-		border: 1px solid var(--color-ink);
+		border: var(--rule-hair) solid var(--color-muted);
 		border-radius: var(--radius-pill);
 		background: var(--color-plate);
 		color: var(--color-ink);
@@ -102,12 +122,12 @@
 		outline-offset: -3px;
 	}
 	.field::placeholder { color: var(--color-muted); }
-	.field:hover { background: var(--color-paper); }
+	.field:hover { border-color: var(--color-ink-2); }
 	.field:focus-visible { outline-color: var(--color-focus); }
 	.field:disabled { opacity: 0.55; cursor: not-allowed; }
 	.field[aria-invalid="true"] { border-color: var(--color-error); }
 
-	/* Codes and measures: JetBrains Mono, the size of the text beside them. */
+	/* Codes and measures that get copied onto a form: Red Hat Mono. */
 	.code {
 		font-family: var(--font-outlier);
 		font-weight: 500;
@@ -115,9 +135,157 @@
 		letter-spacing: 0;
 	}
 
-	/* The spec table: a 2px ink rule on top, hairlines between rows. */
-	.spec { border-top: var(--rule-bar) solid var(--color-ink); }
+	/* The ruled list: a 1px ink rule on top, hairlines between rows. */
+	.spec { border-top: var(--rule-hair) solid var(--color-ink); }
 	.spec > * + * { border-top: var(--rule-hair) solid var(--color-rule); }
+
+	/* Status chips: the state rides on the icon and the word, never colour
+	   alone. Clear is green, present a soft tangerine with a tangerine edge,
+	   so it never reads as the filled primary key. */
+	.chip {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-2xs);
+		min-height: 32px;
+		padding: 0 var(--space-sm);
+		border-radius: var(--radius-pill);
+		background: var(--color-paper-2);
+		color: var(--color-ink-2);
+		font-size: var(--text-sm);
+		font-weight: 500;
+		line-height: 1.2;
+		white-space: nowrap;
+	}
+	.chip--clear { background: var(--color-green-soft); color: var(--color-green); }
+	.chip--present { background: var(--color-accent-soft); color: var(--color-ink); box-shadow: inset 0 0 0 1px var(--color-accent); }
+
+	/* Notebook cells: label small and muted on top, the value beneath, parted
+	   by hairlines on an even two-column grid. */
+	.cells {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		border-top: var(--rule-hair) solid var(--color-ink);
+	}
+	.cells > * {
+		display: grid;
+		align-content: start;
+		gap: 0;
+		min-width: 0;
+		padding: var(--space-xs) var(--space-md) var(--space-sm);
+		border-bottom: var(--rule-hair) solid var(--color-rule);
+	}
+	.cells > :nth-child(odd) { border-right: var(--rule-hair) solid var(--color-rule); }
+	.cells > .cells__wide { grid-column: 1 / -1; border-right: 0; }
+
+	/* A segmented choice between a few: the selected key takes the tangerine. */
+	.seg {
+		display: inline-flex;
+		gap: var(--space-3xs);
+		padding: var(--space-3xs);
+		border: var(--rule-hair) solid var(--color-rule);
+		border-radius: var(--radius-card);
+		background: var(--color-plate);
+		box-shadow: var(--shadow-card);
+	}
+	.seg button {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-xs);
+		min-height: 44px;
+		padding: 0 var(--space-md);
+		border: var(--rule-hair) solid transparent;
+		border-radius: var(--radius-pill);
+		background: transparent;
+		color: var(--color-ink);
+		font-size: var(--text-sm);
+		font-weight: 500;
+		white-space: nowrap;
+		cursor: pointer;
+		transition: background-color var(--dur-micro) var(--ease-out);
+	}
+	.seg button:hover { background: var(--color-paper); }
+	.seg button:active { background: var(--color-paper-2); }
+	.seg button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+	.seg button[aria-pressed="true"],
+	.seg button[aria-selected="true"] {
+		border-color: color-mix(in oklab, var(--color-accent) 72%, var(--color-ink));
+		background: var(--color-accent);
+		color: var(--color-accent-ink);
+	}
+}
+
+/* A small white panel over the map (the orthophoto years). */
+.map-panel {
+	display: grid;
+	gap: var(--space-2xs);
+	padding: var(--space-sm) var(--space-md);
+	border: var(--rule-hair) solid var(--color-rule);
+	border-radius: var(--radius-card);
+	background: var(--color-plate);
+	box-shadow: var(--shadow-card);
+}
+
+/* The year slider: a ruled track with a stop per survey, a large tangerine
+   thumb that is easy to catch, ticks under the stops. */
+.ortho-range {
+	width: 100%;
+	height: 44px;
+	margin: 0;
+	background: transparent;
+	cursor: pointer;
+	appearance: none;
+	-webkit-appearance: none;
+}
+.ortho-range::-webkit-slider-runnable-track {
+	height: 4px;
+	border-radius: 2px;
+	background: var(--color-paper-2);
+	box-shadow: inset 0 0 0 1px var(--color-rule);
+}
+.ortho-range::-moz-range-track {
+	height: 4px;
+	border-radius: 2px;
+	background: var(--color-paper-2);
+	box-shadow: inset 0 0 0 1px var(--color-rule);
+}
+.ortho-range::-webkit-slider-thumb {
+	width: 28px;
+	height: 28px;
+	margin-top: calc(-1 * var(--space-sm));
+	border: 2px solid var(--color-ink);
+	border-radius: 50%;
+	background: var(--color-accent);
+	appearance: none;
+	-webkit-appearance: none;
+	transition: background-color var(--dur-micro) var(--ease-out), transform var(--dur-micro) var(--ease-out);
+}
+.ortho-range::-moz-range-thumb {
+	width: 24px;
+	height: 24px;
+	border: 2px solid var(--color-ink);
+	border-radius: 50%;
+	background: var(--color-accent);
+	transition: background-color var(--dur-micro) var(--ease-out), transform var(--dur-micro) var(--ease-out);
+}
+.ortho-range:hover::-webkit-slider-thumb { background: color-mix(in oklab, var(--color-accent) 85%, var(--color-ink)); }
+.ortho-range:hover::-moz-range-thumb { background: color-mix(in oklab, var(--color-accent) 85%, var(--color-ink)); }
+.ortho-range:active::-webkit-slider-thumb { transform: scale(0.96); }
+.ortho-range:active::-moz-range-thumb { transform: scale(0.96); }
+.ortho-range:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-pill); }
+.ortho-range:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* One tick per stop, centred under the thumb's travel (half a thumb in from
+   each end). */
+.ortho-ticks {
+	display: flex;
+	justify-content: space-between;
+	margin-top: calc(-1 * var(--space-sm));
+	padding-inline: calc(var(--space-sm) + var(--space-3xs));
+}
+.ortho-ticks > span {
+	width: 1px;
+	height: 6px;
+	background: var(--color-muted);
 }
 
 /* Collapsible report panels: hide the native marker and turn our own chevron. */
@@ -133,9 +301,16 @@
 	transform: rotate(180deg);
 }
 
-/* Leaflet: the app's faces, square controls ruled in ink. Its panes and
-   controls carry z-index 400 to 1000; isolating the container keeps them inside
-   the map instead of over the sticky header. */
+/* The finding is clamped to two lines in the closed row; open, it reads whole. */
+.report-disclosure[open] > summary .report-insight {
+	display: block;
+	-webkit-line-clamp: unset;
+	overflow: visible;
+}
+
+/* Leaflet: the app's faces, soft keys on white. Its panes and controls carry
+   z-index 400 to 1000; isolating the container keeps them inside the map
+   instead of over the sticky header. */
 .leaflet-container {
 	isolation: isolate;
 	font-family: var(--font-body);
@@ -144,33 +319,35 @@
 
 .leaflet-bar,
 .leaflet-touch .leaflet-bar {
-	border: var(--rule-bar) solid var(--color-ink);
-	border-radius: 0;
-	box-shadow: none;
+	overflow: hidden;
+	border: var(--rule-hair) solid var(--color-rule);
+	border-radius: var(--radius-card);
+	box-shadow: var(--shadow-card);
 }
 
 .leaflet-bar a,
 .leaflet-bar a:first-child,
 .leaflet-bar a:last-child {
-	width: 40px;
-	height: 40px;
+	width: 44px;
+	height: 44px;
 	border-radius: 0;
 	background: var(--color-plate);
 	color: var(--color-ink);
-	font: 500 1.375rem / 40px var(--font-body);
+	font: 500 1.375rem / 44px var(--font-body);
 	transition: background-color var(--dur-micro) var(--ease-out);
 }
 
-.leaflet-bar a:hover { background: var(--color-paper-2); color: var(--color-ink); }
-.leaflet-bar a:active { background: var(--color-paper-3); }
-.leaflet-bar a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -4px; }
+.leaflet-bar a + a { border-top: var(--rule-hair) solid var(--color-rule); }
+.leaflet-bar a:hover { background: var(--color-paper); color: var(--color-ink); }
+.leaflet-bar a:active { background: var(--color-paper-2); }
+.leaflet-bar a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -3px; }
 
 .leaflet-tooltip {
-	border: 1px solid var(--color-ink);
-	border-radius: 0;
+	border: var(--rule-hair) solid var(--color-ink);
+	border-radius: var(--radius-pill);
 	background: var(--color-plate);
 	color: var(--color-ink);
-	box-shadow: none;
+	box-shadow: var(--shadow-card);
 	font-size: var(--text-sm);
 	padding: var(--space-xs) var(--space-sm);
 }
@@ -183,6 +360,7 @@
 }
 
 .leaflet-container .leaflet-control-attribution {
+	border-top-left-radius: var(--radius-pill);
 	background: color-mix(in oklab, var(--color-plate) 88%, transparent);
 	color: var(--color-ink-2);
 	font-size: var(--text-xs);
@@ -192,13 +370,14 @@
 
 /* Map shapes. Leaflet writes its default colours as SVG attributes; these
    class rules override them so the map follows the tokens. The subject parcel
-   is the one rust thing on the screen; buildings sit in ink; neighbours stay
-   quiet until hovered. */
+   is edged in tangerine like a title plan; buildings sit in ink; neighbours
+   stay quiet until hovered. Over the orthophoto the quiet lines turn light,
+   so they still read against roofs and fields. */
 .leaflet-interactive.map-neighbor {
 	stroke: var(--color-ink-2);
 	stroke-dasharray: 4 3;
 	fill: var(--color-paper);
-	fill-opacity: 0.12;
+	fill-opacity: 0.08;
 	transition: fill-opacity var(--dur-micro) var(--ease-out), stroke var(--dur-micro) var(--ease-out);
 }
 
@@ -207,17 +386,43 @@
 	stroke-dasharray: none;
 	stroke-width: 2;
 	fill: var(--color-accent-soft);
-	fill-opacity: 0.5;
+	fill-opacity: 0.45;
+}
+
+.map-parcel-casing {
+	stroke: var(--color-ink);
+	stroke-opacity: 0.6;
+	fill: none;
 }
 
 .map-parcel {
 	stroke: var(--color-accent);
 	fill: var(--color-accent);
-	fill-opacity: 0.16;
+	fill-opacity: 0.14;
 }
 
 .map-building {
 	stroke: var(--color-ink);
 	fill: var(--color-ink-2);
-	fill-opacity: 0.32;
+	fill-opacity: 0.3;
+}
+
+[data-basemap="ortho"] .leaflet-interactive.map-neighbor {
+	stroke: var(--color-plate);
+	fill: var(--color-plate);
+	fill-opacity: 0.04;
+}
+
+[data-basemap="ortho"] .leaflet-interactive.map-neighbor:hover {
+	stroke: var(--color-plate);
+	fill: var(--color-plate);
+	fill-opacity: 0.25;
+}
+
+[data-basemap="ortho"] .map-parcel { fill-opacity: 0.18; }
+
+[data-basemap="ortho"] .map-building {
+	stroke: var(--color-plate);
+	fill: var(--color-plate);
+	fill-opacity: 0.18;
 }

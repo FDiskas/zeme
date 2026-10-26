@@ -9,9 +9,8 @@ import { MapExplorePage } from "./components/MapExplorePage";
 import { ParcelAtPointPage } from "./components/ParcelAtPointPage";
 import { Footer, Header } from "./components/SiteChrome";
 import { RecentlyViewed, type SearchHistoryItem } from "./components/RecentlyViewed";
-import { ExploreClose, ReportStack, SourcesSpec } from "./components/HomeSections";
+import { DetailSplit, ExploreClose, ReportShowcase, SourcesSpec } from "./components/HomeSections";
 import {
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   DownloadIcon,
@@ -59,16 +58,16 @@ function HomePage() {
 
   return (
     <main id="main">
-      {/* Corridor: one centred column, the head set large, the search as the
-          action. Results open under the field, inside the same column. */}
+      {/* Stage: the head, its line and the search on five columns; the parcel
+          on the orthophoto, edged in tangerine, on seven. Results open under
+          the field, inside the same column. */}
       <section className="container">
-        <div className="flex min-h-[calc(100svh-var(--nav-clear)-6rem)] flex-col border-b-2 border-ink pt-16 pb-8">
-          <div className="mx-auto my-auto grid w-full max-w-[64rem] gap-12">
-            <div className="grid gap-6">
-              <h1 className="max-w-[14ch] text-[clamp(2.75rem,7vw,6.3rem)] leading-[1.02]">Sužinokite viską apie žemės sklypą</h1>
+        <div className="grid min-h-[calc(100svh-var(--nav-clear))] items-center gap-x-16 gap-y-10 py-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+          <div className="grid gap-8">
+            <div className="grid gap-5">
+              <h1 className="max-w-[13ch] text-[clamp(2.5rem,4.4vw,4.25rem)]">Sužinokite viską apie žemės sklypą</h1>
               <p className="lead text-ink-2">
-                Vieša Lietuvos žemės ir pastatų informacija: ribos žemėlapyje, plotas,
-                paskirtis, pastatai ir galimi apribojimai.
+                Ribos, plotas, paskirtis, pastatai ir galimi apribojimai iš viešų Lietuvos registrų.
               </p>
             </div>
 
@@ -96,32 +95,32 @@ function HomePage() {
                     className="field pl-13"
                   />
                 </div>
-                <button type="submit" disabled={loading} aria-busy={loading} className="btn">
-                  {loading ? <Spinner className="h-5 w-5 animate-spin rounded-full border-2 border-paper/40 border-t-paper" /> : <SearchIcon className="h-5 w-5" />}
+                <button type="submit" disabled={loading} aria-busy={loading} className="btn min-h-14">
+                  {loading ? <Spinner className="h-5 w-5 animate-spin rounded-full border-2 border-ink/30 border-t-ink" /> : <SearchIcon className="h-5 w-5" />}
                   {loading ? "Ieškoma…" : "Ieškoti"}
                 </button>
               </form>
-              <p id="search-hint" className="text-md text-ink-2">
-                Pavyzdžiui <span className="code whitespace-nowrap text-accent">4400/0001:0007</span> arba{" "}
-                <span className="code whitespace-nowrap text-accent">4400-4756-6034</span>
+              <p id="search-hint" className="text-sm text-ink-2">
+                Pavyzdžiui <span className="code whitespace-nowrap text-ink">4400/0001:0007</span> arba{" "}
+                <span className="code whitespace-nowrap text-ink">4400-4756-6034</span>
               </p>
             </div>
 
             {searchNote ? (
-              <p role="status" className="flex gap-3 border-l-2 border-accent bg-accent-soft px-5 py-4 text-md text-ink">
-                <WarningIcon className="mt-1 h-5 w-5 shrink-0 text-accent" />
+              <p role="status" className="flex gap-3 rounded-card bg-accent-soft px-5 py-4 text-md text-ink">
+                <WarningIcon className="mt-1 h-5 w-5 shrink-0 text-ink" />
                 {searchNote}
               </p>
             ) : null}
 
             {results.length > 0 ? (
-              <ul className="spec bg-plate">
+              <ul className="card divide-y divide-rule overflow-hidden">
                 {results.map((result) => (
                   <li key={result.cadastralRegNo}>
                     <button
                       type="button"
                       onClick={() => navigate(`/parcel/${encodeURIComponent(result.cadastralRegNo)}`)}
-                      className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors duration-150 hover:bg-accent-soft focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus active:bg-paper-3"
+                      className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors duration-150 hover:bg-paper focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus active:bg-paper-2"
                     >
                       <span className="min-w-0">
                         <span className="block text-lg font-medium text-ink">
@@ -129,7 +128,7 @@ function HomePage() {
                             ? result.address
                             : "Adreso viešuose šaltiniuose nėra"}
                         </span>
-                        <span className="code block text-sm text-accent">{result.cadastralRegNo}</span>
+                        <span className="code block text-sm text-ink-2">{result.cadastralRegNo}</span>
                       </span>
                       <ChevronRight className="h-6 w-6 shrink-0 text-ink" />
                     </button>
@@ -139,26 +138,54 @@ function HomePage() {
             ) : null}
           </div>
 
-          {/* The hero fills the screen, so say out loud that the page goes on. */}
-          <a
-            href="#ataskaita"
-            className="btn btn--secondary btn--s mx-auto mt-12"
-          >
-            Kaip atrodo ataskaita
-            <ChevronDown className="h-5 w-5" />
-          </a>
+          {/* The parcel on the orthophoto, its notebook card pinned over the
+              lower-left corner as on the report page. The card steps aside on
+              narrow screens, where it would shrink past reading. */}
+          <figure className="relative m-0 lg:mb-10">
+            <div
+              className="frame aspect-[1536/1366] shadow-card"
+              data-slot="hero-parcel"
+              data-kind="product"
+              data-alt="Sklypas Vilniuje, Tilto g. 2A, apvestas oranžine linija ant ortofoto nuotraukos."
+            >
+              <img
+                src="/screens/hero-ortho.jpg"
+                width={1536}
+                height={1366}
+                alt="Sklypas Vilniuje, Tilto g. 2A, apvestas oranžine linija ant ortofoto nuotraukos."
+                fetchPriority="high"
+              />
+            </div>
+            <div
+              className="absolute -bottom-10 -left-10 hidden w-[44%] overflow-hidden rounded-entry shadow-lift lg:block"
+              data-slot="hero-card"
+              data-kind="product"
+              data-alt="Sklypo kortelė: kadastrinis numeris 0101/0041:0102, plotas 0,181 ha, paskirtis Kita."
+              style={{ aspectRatio: "1024 / 660" }}
+            >
+              <img
+                src="/screens/hero-card.jpg"
+                width={1024}
+                height={660}
+                alt="Sklypo kortelė: kadastrinis numeris 0101/0041:0102, plotas 0,181 ha, paskirtis Kita, keturi pastatai."
+              />
+            </div>
+          </figure>
         </div>
       </section>
 
       {history.length > 0 ? (
-        <section className="container pt-(--section-gap-s)">
-          <div className="mx-auto max-w-[64rem]">
-            <RecentlyViewed history={history} />
+        <section className="border-y border-rule bg-paper-2 py-(--space-2xl)">
+          <div className="container">
+            <div className="max-w-[48rem]">
+              <RecentlyViewed history={history} />
+            </div>
           </div>
         </section>
       ) : null}
 
-      <ReportStack />
+      <ReportShowcase />
+      <DetailSplit />
       <SourcesSpec />
       <ExploreClose />
     </main>
@@ -290,7 +317,7 @@ function ParcelPage() {
       onClick={onRefresh}
       disabled={loading}
       aria-busy={loading}
-      className="btn btn--secondary btn--s max-sm:flex-1"
+      className="btn btn--secondary btn--s flex-1 basis-32"
     >
       <RefreshIcon className="h-5 w-5" />
       {loading ? "Atnaujinama…" : "Atnaujinti"}
@@ -298,41 +325,39 @@ function ParcelPage() {
   );
 
   return (
-    <main id="main" className="container pb-24 lg:pb-6">
-      {/* The workbench: on desktop both columns stick level under the header.
-          The map is one screen tall, so it stays put; the report column sticks
-          too, but once it is taller than the screen it scrolls with the page and
-          slides behind the header. On a phone the map runs edge to edge first
-          and the report follows. */}
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_27rem] lg:items-start xl:grid-cols-[minmax(0,1fr)_29rem]">
-        <div className="lg:sticky lg:top-(--nav-clear) lg:h-[calc(100dvh-var(--nav-clear)-1.5rem)]">
+    <main id="main" className="container pt-4 pb-24 lg:pb-8">
+      {/* The workbench: on desktop the map is one screen tall and stays put
+          beside the report, which scrolls with the page. On a phone the map
+          runs edge to edge first and the report follows. */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_30rem] lg:items-start lg:gap-8 xl:grid-cols-[minmax(0,1fr)_32rem]">
+        <div className="-mt-4 md:mt-0 lg:sticky lg:top-[calc(var(--nav-clear)+1rem)] lg:h-[calc(100dvh-var(--nav-clear)-2rem)]">
           {report ? (
             <ParcelMap report={report} />
           ) : loading ? (
             <div
-              className="-mx-(--gutter) h-[45svh] min-h-72 animate-pulse border-y-2 border-ink bg-paper-2 md:mx-0 md:border-2 lg:h-full"
+              className="-mx-(--gutter) h-[52svh] min-h-80 animate-pulse border-y border-rule bg-paper-2 md:mx-0 md:rounded-card md:border lg:h-full"
               aria-hidden="true"
             />
           ) : null}
         </div>
 
-        <div className="grid min-w-0 gap-10 lg:sticky lg:top-(--nav-clear)">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-8">
           <Link to="/" className="link inline-flex w-fit items-center gap-2 py-1 text-md no-underline hover:underline">
             <ChevronLeft className="h-5 w-5" />
             Atgal į paiešką
           </Link>
 
           {!report && loading ? (
-            <div className="frame flex items-center gap-4 p-6">
-              <Spinner className="h-8 w-8 shrink-0 animate-spin rounded-full border-4 border-paper-3 border-t-ink" />
+            <div className="card flex items-center gap-4 p-6">
+              <Spinner className="h-8 w-8 shrink-0 animate-spin rounded-full border-4 border-paper-2 border-t-ink" />
               <p className="text-md text-ink-2">Renkame sklypo duomenis…</p>
             </div>
           ) : null}
 
           {!report && !loading && loadFailed ? (
-            <div className="grid gap-4 border-l-2 border-accent bg-accent-soft p-6">
+            <div className="grid gap-4 rounded-card bg-accent-soft p-6">
               <p className="flex gap-3 text-md text-ink">
-                <WarningIcon className="mt-1 h-5 w-5 shrink-0 text-accent" />
+                <WarningIcon className="mt-1 h-5 w-5 shrink-0 text-ink" />
                 Nepavyko gauti sklypo duomenų. Spauskite „Atnaujinti“ arba bandykite vėliau.
               </p>
               <div>{refreshButton}</div>
@@ -345,38 +370,36 @@ function ParcelPage() {
                 report={report}
                 actions={
                   <div className="grid gap-3">
-                    <div className="flex flex-wrap gap-3">
-                      <button
-                        type="button"
-                        onClick={onDownloadPdf}
-                        disabled={pdfLoading}
-                        aria-busy={pdfLoading}
-                        className="btn btn--s flex-1"
-                      >
-                        <DownloadIcon className="h-5 w-5" />
-                        {pdfLoading ? "Generuojama…" : "Atsisiųsti PDF"}
+                    <button
+                      type="button"
+                      onClick={onDownloadPdf}
+                      disabled={pdfLoading}
+                      aria-busy={pdfLoading}
+                      className="btn w-full"
+                    >
+                      <DownloadIcon className="h-5 w-5" />
+                      {pdfLoading ? "Generuojama…" : "Atsisiųsti PDF"}
+                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={onShare} className="btn btn--secondary btn--s flex-1 basis-32">
+                        <ShareIcon className="h-5 w-5" />
+                        <span aria-live="polite">{shareNote ?? "Dalintis"}</span>
                       </button>
-                      {refreshButton}
-                    </div>
-                    <div className="flex flex-wrap gap-3">
                       {parcelPolygons(report).length > 0 ? (
-                        <button type="button" onClick={onDownloadKml} className="btn btn--secondary btn--s flex-1">
+                        <button type="button" onClick={onDownloadKml} className="btn btn--secondary btn--s flex-1 basis-32">
                           <PinIcon className="h-5 w-5" />
                           Ribos (KML)
                         </button>
                       ) : null}
-                      <button type="button" onClick={onShare} className="btn btn--secondary btn--s flex-1">
-                        <ShareIcon className="h-5 w-5" />
-                        <span aria-live="polite">{shareNote ?? "Dalintis"}</span>
-                      </button>
+                      {refreshButton}
                     </div>
                     <p className="text-sm text-muted">{freshness}</p>
                   </div>
                 }
               />
 
-              <section className="grid gap-6">
-                <h2 className="text-2xl">Detali informacija</h2>
+              <section className="grid grid-cols-[minmax(0,1fr)] gap-4">
+                <h2 className="text-xl tracking-[-0.02em]">Detali informacija</h2>
                 <ReportPanel report={report} />
               </section>
             </>

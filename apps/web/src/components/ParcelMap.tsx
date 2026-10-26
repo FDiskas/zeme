@@ -1,8 +1,22 @@
 import { MapContainer, Polygon, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import type { Map as LeafletMap } from "leaflet";
 import type { ParcelReport } from "@zeme/shared";
 import { getParcelsByBbox } from "../lib/orpc";
+import {
+  ESRI_IMAGERY,
+  ORTHO_YEARS,
+  OSM_TILES,
+  createOrt10ltLayer,
+  orthoYearById,
+  useBasemap,
+  useOrthoYear,
+  type Basemap,
+  type OrthoYear,
+  type OrthoYearId,
+} from "../lib/basemap";
+import { CrosshairIcon, LayersIcon } from "./icons";
 import "leaflet/dist/leaflet.css";
 
 type BuildingShape = {
@@ -59,21 +73,25 @@ function toNeighborShapes(report: ParcelReport): NeighborShape[] {
 // Frame the subject parcel: zoom to its outline (with padding) rather than a
 // fixed zoom on one corner. maxZoom keeps tiny urban plots from zooming in too
 // far; the fallback handles a single-point geometry.
+function frameParcel(map: LeafletMap, positions: [number, number][]) {
+  if (positions.length >= 2) {
+    let minLat = Infinity, minLng = Infinity, maxLat = -Infinity, maxLng = -Infinity;
+    for (const [lat, lng] of positions) {
+      if (lat < minLat) minLat = lat;
+      if (lng < minLng) minLng = lng;
+      if (lat > maxLat) maxLat = lat;
+      if (lng > maxLng) maxLng = lng;
+    }
+    map.fitBounds([[minLat, minLng], [maxLat, maxLng]], { padding: [56, 56], maxZoom: 18 });
+  } else if (positions.length === 1) {
+    map.setView(positions[0]!, 17);
+  }
+}
+
 function FitToParcel({ positions }: { positions: [number, number][] }) {
   const map = useMap();
   useEffect(() => {
-    if (positions.length >= 2) {
-      let minLat = Infinity, minLng = Infinity, maxLat = -Infinity, maxLng = -Infinity;
-      for (const [lat, lng] of positions) {
-        if (lat < minLat) minLat = lat;
-        if (lng < minLng) minLng = lng;
-        if (lat > maxLat) maxLat = lat;
-        if (lng > maxLng) maxLng = lng;
-      }
-      map.fitBounds([[minLat, minLng], [maxLat, maxLng]], { padding: [48, 48], maxZoom: 18 });
-    } else if (positions.length === 1) {
-      map.setView(positions[0]!, 17);
-    }
+    frameParcel(map, positions);
   }, [positions, map]);
   return null;
 }
@@ -121,6 +139,97 @@ function WheelZoomOnWideScreens() {
   return null;
 }
 
+// The national orthophoto of the chosen years, laid over the Esri imagery once
+// the map is close enough for it to matter (see lib/basemap).
+function Ort10ltOverlay({ year }: { year: OrthoYear }) {
+  const map = useMap();
+  useEffect(() => {
+    const layer = createOrt10ltLayer(year).addTo(map);
+    return () => {
+      layer.remove();
+    };
+  }, [map, year]);
+  return null;
+}
+
+// The street map, or the orthophoto: Esri underneath so the view is never
+// blank, ORT10LT on top for the Lithuanian imagery of the chosen years.
+function BaseLayers({ basemap, year }: { basemap: Basemap; year: OrthoYear }) {
+  if (basemap === "ortho") {
+    return (
+      <>
+        <TileLayer key="esri" url={ESRI_IMAGERY.url} attribution={ESRI_IMAGERY.attribution} maxNativeZoom={ESRI_IMAGERY.maxNativeZoom} maxZoom={20} zIndex={1} />
+        <Ort10ltOverlay year={year} />
+      </>
+    );
+  }
+  return <TileLayer key="osm" url={OSM_TILES.url} attribution={OSM_TILES.attribution} maxNativeZoom={OSM_TILES.maxNativeZoom} maxZoom={20} zIndex={1} />;
+}
+
+const BASEMAP_OPTIONS: { value: Basemap; label: string }[] = [
+  { value: "map", label: "Žemėlapis" },
+  { value: "ortho", label: "Ortofoto" },
+];
+
+type LayerControlProps = {
+  basemap: Basemap;
+  onBasemapChange: (next: Basemap) => void;
+  yearId: OrthoYearId;
+  onYearChange: (next: OrthoYearId) => void;
+};
+
+// Over the map's top-right corner: two soft keys for the base layer, the
+// chosen one in tangerine. With the orthophoto on, a panel steps through the
+// survey years, oldest on the left, the chosen years set large: under the
+// keys on wide maps, along the bottom edge on a phone, so it never sits on
+// the parcel in the middle. Both choices hold for the visit, on every map.
+function MapLayerControl({ basemap, onBasemapChange, yearId, onYearChange }: LayerControlProps) {
+  const index = Math.max(0, ORTHO_YEARS.findIndex((year) => year.id === yearId));
+  const year = ORTHO_YEARS[index]!;
+
+  return (
+    <>
+      <div role="group" aria-label="Žemėlapio pagrindas" className="seg absolute top-3 right-3 z-1000">
+        <LayersIcon className="ml-2 h-5 w-5 shrink-0 self-center text-muted max-sm:hidden" />
+        {BASEMAP_OPTIONS.map((option) => (
+          <button key={option.value} type="button" aria-pressed={basemap === option.value} onClick={() => onBasemapChange(option.value)}>
+            {option.label}
+          </button>
+        ))}
+      </div>
+
+      {basemap === "ortho" ? (
+        <div className="map-panel absolute inset-x-3 bottom-11 z-1000 max-sm:py-2 sm:inset-x-auto sm:top-19 sm:right-3 sm:bottom-auto sm:w-72">
+          <label htmlFor="ortho-year" className="flex items-baseline justify-between gap-3 whitespace-nowrap">
+            <span className="text-sm text-muted">Nuotraukos metai</span>
+            <output htmlFor="ortho-year" className="code text-md text-ink">{year.label}</output>
+          </label>
+          <input
+            id="ortho-year"
+            type="range"
+            min={0}
+            max={ORTHO_YEARS.length - 1}
+            step={1}
+            value={index}
+            aria-valuetext={year.label}
+            onChange={(event) => onYearChange(ORTHO_YEARS[Number(event.target.value)]!.id)}
+            className="ortho-range"
+          />
+          <div className="ortho-ticks" aria-hidden="true">
+            {ORTHO_YEARS.map((option) => (
+              <span key={option.id} />
+            ))}
+          </div>
+          <div className="flex justify-between text-xs text-muted max-sm:hidden" aria-hidden="true">
+            <span>{ORTHO_YEARS[0].label.slice(0, 4)}</span>
+            <span>Naujausia</span>
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 // Map colours live in index.css (.map-neighbor, .map-parcel, .map-building) so
 // they follow the theme tokens; Leaflet only gets stroke weights here. Spread
 // these as props, never as pathOptions: Leaflet reads className only when it
@@ -128,6 +237,9 @@ function WheelZoomOnWideScreens() {
 // setStyle. (Dev hides this: StrictMode re-adds every layer.)
 const NEIGHBOR_STYLE = { weight: 1, className: "map-neighbor" };
 const PARCEL_STYLE = { weight: 3, className: "map-parcel" };
+// A wider ink line under the tangerine edge, so the parcel holds against
+// terracotta roofs on the orthophoto and busy streets on the map.
+const PARCEL_CASING_STYLE = { weight: 7, interactive: false, className: "map-parcel-casing" };
 const BUILDING_STYLE = { weight: 1, className: "map-building" };
 
 // The minimum zoom at which the viewport parcel layer kicks in.
@@ -232,7 +344,7 @@ function ZoomHint() {
 
   if (zoom >= MIN_ZOOM_FOR_VIEWPORT) return null;
   return (
-    <div className="pointer-events-none absolute top-4 left-1/2 z-1000 w-max max-w-[calc(100%-6rem)] -translate-x-1/2 bg-ink px-4 py-2 text-center text-sm font-medium text-paper">
+    <div className="pointer-events-none absolute top-19 left-1/2 z-1000 sm:top-auto sm:bottom-10 w-max max-w-[calc(100%-7rem)] -translate-x-1/2 rounded-pill bg-ink px-4 py-2 text-center text-sm font-medium text-paper">
       Priartinkite žemėlapį, kad pamatytumėte sklypus
     </div>
   );
@@ -242,23 +354,26 @@ function ZoomHint() {
 // layer so panning/zooming around Lithuania reveals clickable sklypai.
 export function ExploreMap() {
   const navigate = useNavigate();
+  const [basemap, setBasemap] = useBasemap();
+  const [yearId, setYearId] = useOrthoYear();
 
   function navigateToParcel(cadastralRegNo: string) {
     navigate(`/parcel/${encodeURIComponent(cadastralRegNo)}`);
   }
 
   return (
-    <div className="-mx-(--gutter) flex min-h-96 flex-1 flex-col overflow-hidden isolate border-y-2 border-ink bg-plate md:mx-0 md:border-2">
+    <div
+      data-basemap={basemap}
+      className="-mx-(--gutter) flex min-h-96 flex-1 flex-col overflow-hidden isolate border-y border-rule bg-plate md:mx-0 md:rounded-card md:border"
+    >
       <div className="relative min-h-0 flex-1">
-        <MapContainer center={LITHUANIA_CENTER} zoom={LITHUANIA_ZOOM} className="h-full w-full">
+        <MapContainer center={LITHUANIA_CENTER} zoom={LITHUANIA_ZOOM} maxZoom={20} className="h-full w-full">
           <FillContainer />
           <ZoomHint />
           <ViewportParcelsLayer excludeIds={EMPTY_IDS} onNavigate={navigateToParcel} />
-          <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          />
+          <BaseLayers basemap={basemap} year={orthoYearById(yearId)} />
         </MapContainer>
+        <MapLayerControl basemap={basemap} onBasemapChange={setBasemap} yearId={yearId} onYearChange={setYearId} />
       </div>
     </div>
   );
@@ -271,6 +386,9 @@ const EMPTY_IDS: ReadonlySet<string> = new Set();
 // so clicking a neighbour/your parcel still uses that layer's own handler.
 export function ParcelMap({ report }: Props) {
   const navigate = useNavigate();
+  const [basemap, setBasemap] = useBasemap();
+  const [yearId, setYearId] = useOrthoYear();
+  const [map, setMap] = useState<LeafletMap | null>(null);
   const polygon = toLatLngPath(report);
   const buildings = toBuildingShapes(report);
   const neighbors = toNeighborShapes(report);
@@ -299,20 +417,21 @@ export function ParcelMap({ report }: Props) {
 
   // Mobile: the map runs edge to edge under the header with the legend below
   // it. Desktop: the page makes this frame the full height of the screen and
-  // the legend floats over the map's lower-left corner.
+  // the legend floats over the map's lower-left corner. The base switch sits
+  // top right, the recentre key under Leaflet's zoom keys.
   return (
-    <div className="-mx-(--gutter) flex flex-col overflow-hidden isolate border-y-2 border-ink bg-plate md:mx-0 md:border-2 lg:h-full">
-      <div className="relative h-[45svh] min-h-72 w-full lg:h-auto lg:min-h-0 lg:flex-1">
-        <MapContainer center={center} zoom={16} scrollWheelZoom={false} className="h-full w-full">
+    <div
+      data-basemap={basemap}
+      className="-mx-(--gutter) flex flex-col overflow-hidden isolate border-y border-rule bg-plate md:mx-0 md:rounded-card md:border lg:h-full"
+    >
+      <div className="relative h-[52svh] min-h-80 w-full lg:h-auto lg:min-h-0 lg:flex-1">
+        <MapContainer ref={setMap} center={center} zoom={16} maxZoom={20} scrollWheelZoom={false} className="h-full w-full">
           <WheelZoomOnWideScreens />
           <FillContainer />
           <FitToParcel positions={polygon} />
           <ZoomHint />
           <ViewportParcelsLayer excludeIds={excludeIds} onNavigate={navigateToParcel} />
-          <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          />
+          <BaseLayers basemap={basemap} year={orthoYearById(yearId)} />
 
           {/* Neighbours first so they sit beneath the subject parcel and its buildings. */}
           {neighbors.map((n) => (
@@ -332,7 +451,10 @@ export function ParcelMap({ report }: Props) {
           ))}
 
           {polygon.length >= 3 ? (
-            <Polygon {...PARCEL_STYLE} positions={polygon} />
+            <>
+              <Polygon {...PARCEL_CASING_STYLE} positions={polygon} />
+              <Polygon {...PARCEL_STYLE} positions={polygon} />
+            </>
           ) : null}
 
           {buildings.map((b, i) => (
@@ -346,15 +468,27 @@ export function ParcelMap({ report }: Props) {
           ))}
         </MapContainer>
 
+        <MapLayerControl basemap={basemap} onBasemapChange={setBasemap} yearId={yearId} onYearChange={setYearId} />
+
+        <button
+          type="button"
+          onClick={() => map && frameParcel(map, polygon)}
+          aria-label="Centruoti sklypą"
+          title="Centruoti sklypą"
+          className="btn btn--secondary btn--icon absolute top-27 left-[10px] z-1000"
+        >
+          <CrosshairIcon className="h-5 w-5" />
+        </button>
+
         {/* Legend so the colours on the map mean something at a glance. */}
         {/* Desktop shapes carry their own "spustelėkite" tooltip, so the floating
             legend stays short and covers as little of the map as it can. */}
-        <ul className="pointer-events-none absolute bottom-3 left-3 z-1000 hidden gap-1 border-2 border-ink bg-plate px-4 py-3 text-sm text-ink lg:grid">
+        <ul className="pointer-events-none absolute bottom-3 left-3 z-1000 hidden gap-1 rounded-pill border border-rule bg-plate px-4 py-3 text-sm text-ink lg:grid">
           <MapLegendItems hasBuildings={hasBuildings} neighborHint={false} />
         </ul>
       </div>
 
-      <ul className="flex flex-wrap gap-x-6 gap-y-2 border-t-2 border-ink px-(--gutter) py-3 text-sm text-ink md:px-4 lg:hidden">
+      <ul className="flex flex-wrap gap-x-6 gap-y-2 border-t border-rule px-(--gutter) py-3 text-sm text-ink md:px-4 lg:hidden">
         <MapLegendItems hasBuildings={hasBuildings} neighborHint />
       </ul>
     </div>
@@ -365,17 +499,17 @@ function MapLegendItems({ hasBuildings, neighborHint }: { hasBuildings: boolean;
   return (
     <>
       <li className="flex items-center gap-2">
-        <span className="inline-block h-4 w-4 shrink-0 border-2 border-accent bg-accent-soft" aria-hidden="true" />
+        <span className="inline-block h-4 w-4 shrink-0 rounded-[3px] border-2 border-accent bg-accent-soft" aria-hidden="true" />
         Jūsų sklypas
       </li>
       {hasBuildings ? (
         <li className="flex items-center gap-2">
-          <span className="inline-block h-4 w-4 shrink-0 border border-ink bg-ink-2/40" aria-hidden="true" />
+          <span className="inline-block h-4 w-4 shrink-0 rounded-[3px] border border-ink bg-ink-2/40" aria-hidden="true" />
           Pastatai
         </li>
       ) : null}
       <li className="flex items-center gap-2">
-        <span className="inline-block h-4 w-4 shrink-0 border border-dashed border-ink-2 bg-paper" aria-hidden="true" />
+        <span className="inline-block h-4 w-4 shrink-0 rounded-[3px] border border-dashed border-ink-2 bg-paper" aria-hidden="true" />
         {neighborHint ? "Gretimi sklypai: spustelėkite, kad atidarytumėte" : "Gretimi sklypai"}
       </li>
     </>

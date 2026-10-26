@@ -17,109 +17,129 @@ type Capture = {
   alt: string;
 };
 
-// Screens captured from the running app (public/screens), shown in the order a
+// Screens captured from the running app (public/screens), in the order a
 // reader meets them on the report page.
-const CAPTURES: Capture[] = [
-  {
-    id: "zemelapis",
-    src: "/screens/report-map.jpg",
-    width: 1200,
-    height: 1200,
-    ratio: "1 / 1",
-    title: "Ribos žemėlapyje",
-    line: "Sklypas pažymėtas, pastatai ir gretimi sklypai šalia. Spustelėkite kaimyną, kad atvertumėte jo ataskaitą.",
-    alt: "Ataskaitos žemėlapis: sklypas Vilniuje, Tilto g. 2A, pažymėtas rūdžių spalva, viduje keturi pastatai.",
-  },
-  {
-    id: "faktai",
-    src: "/screens/report-facts.jpg",
-    width: 928,
-    height: 1160,
-    ratio: "928 / 1160",
-    title: "Svarbiausi faktai",
-    line: "Adresas, kadastrinis ir unikalus numeriai, plotas, paskirtis, pastatai, atstumas iki mokyklos.",
-    alt: "Ataskaitos santrauka: adresas, kadastrinis numeris 0101/0041:0102, plotas 0,181 ha, paskirtis Kita.",
-  },
-  {
-    id: "apribojimai",
-    src: "/screens/report-flags.jpg",
-    width: 920,
-    height: 904,
-    ratio: "920 / 904",
-    title: "Ką verta patikrinti",
-    line: "Saugomos teritorijos, kultūros paveldas, tarša ir potvyniai: Yra arba Nėra.",
-    alt: "Ataskaitos patikrų sąrašas: kultūros paveldas Yra (6), saugomos teritorijos, tarša ir potvyniai Nėra.",
-  },
-  {
-    id: "detales",
-    src: "/screens/report-detail.jpg",
-    width: 928,
-    height: 826,
-    ratio: "928 / 826",
-    title: "Detalės su šaltiniu",
-    line: "Kiekvieną įrašą galima atverti ir pamatyti, iš kurio registro jis atėjo.",
-    alt: "Atvertas kultūros paveldo skydelis su objektų pavadinimais, statusu ir amžiumi.",
-  },
-];
+const PAGE: Capture = {
+  id: "zemelapis",
+  src: "/screens/report-page.jpg",
+  width: 2400,
+  height: 1500,
+  ratio: "16 / 10",
+  title: "Ribos žemėlapyje",
+  line: "Sklypas pažymėtas, pastatai ir gretimi sklypai šalia. Spustelėkite kaimyną, kad atvertumėte jo ataskaitą.",
+  alt: "Ataskaitos puslapis: kairėje žemėlapis su oranžine linija apvestu sklypu Vilniuje, Tilto g. 2A, dešinėje sklypo kortelė.",
+};
 
-/** Feature stack: the head held in a sticky pane while real captures scroll past. */
-export function ReportStack() {
+const ORTHO: Capture = {
+  id: "ortofoto",
+  src: "/screens/report-ortho-phone.jpg",
+  width: 780,
+  height: 1180,
+  ratio: "780 / 1180",
+  title: "Ortofoto ir senesnės nuotraukos",
+  line: "Perjunkite žemėlapį į ortofoto ir slinkite per metus nuo 1995-ųjų.",
+  alt: "Sklypas telefone ant 2015 m. ortofoto nuotraukos, virš jo metų slankiklis.",
+};
+
+const FLAGS: Capture = {
+  id: "apribojimai",
+  src: "/screens/report-flags.jpg",
+  width: 1024,
+  height: 818,
+  ratio: "1024 / 818",
+  title: "Ką verta patikrinti",
+  line: "Saugomos teritorijos, kultūros paveldas, tarša ir potvyniai: Yra arba Nėra.",
+  alt: "Patikrų sąrašas: kultūros paveldas Yra (6), saugomos teritorijos, tarša ir potvyniai Nėra.",
+};
+
+const DETAIL: Capture = {
+  id: "detales",
+  src: "/screens/report-detail.jpg",
+  width: 1024,
+  height: 960,
+  ratio: "1024 / 960",
+  title: "Detalės su šaltiniu",
+  line: "Kiekvieną įrašą galima atverti ir pamatyti, iš kurio registro jis atėjo.",
+  alt: "Atvertas kultūros paveldo skydelis su objektų pavadinimais, statusu ir amžiumi.",
+};
+
+/** A capture in its frame with a short caption beneath. */
+function CaptureFigure({ capture, priority = false, className = "" }: { capture: Capture; priority?: boolean; className?: string }) {
   return (
-    <section id="ataskaita" className="container py-(--section-gap)">
-      <div className="grid gap-16 lg:grid-cols-12 lg:gap-8">
-        <div className="lg:col-span-5">
-          <div className="grid gap-8 lg:sticky lg:top-[calc(var(--nav-clear)+3rem)]">
-            <div className="grid gap-5">
-              <h2>Taip atrodo Tilto g. 2A ataskaita</h2>
-              <p className="lead text-ink-2">Ribos, faktai ir apribojimai vienoje vietoje, prieš perkant sklypą.</p>
-            </div>
-            <ol className="spec hidden lg:block">
-              {CAPTURES.map((capture, i) => (
-                <li key={capture.id}>
-                  <a
-                    href={`#${capture.id}`}
-                    className="flex items-baseline gap-5 py-3 text-md font-medium text-ink transition-colors duration-150 hover:bg-accent-soft focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus active:bg-paper-3"
-                  >
-                    <span className="w-6 font-display text-xl font-bold">{i + 1}</span>
-                    {capture.title}
-                  </a>
-                </li>
-              ))}
-            </ol>
-            <Link to={EXAMPLE_PARCEL} className="btn btn--secondary w-fit">
-              Atverti pavyzdinę ataskaitą
-            </Link>
+    <figure id={capture.id} className={`m-0 grid scroll-mt-(--nav-clear) content-start gap-4 ${className}`}>
+      <div
+        className="frame shadow-card"
+        data-slot={`report-${capture.id}`}
+        data-kind="product"
+        data-alt={capture.alt}
+        style={{ aspectRatio: capture.ratio }}
+      >
+        <img
+          src={capture.src}
+          width={capture.width}
+          height={capture.height}
+          alt={capture.alt}
+          loading={priority ? undefined : "lazy"}
+        />
+      </div>
+      <figcaption className="grid max-w-[52ch] gap-1">
+        <span className="text-lg font-medium text-ink">{capture.title}</span>
+        <span className="text-md text-ink-2">{capture.line}</span>
+      </figcaption>
+    </figure>
+  );
+}
+
+/** Showcase: the whole report page across the width, then the checklist
+ *  beside the phone on the orthophoto. The desktop page is skipped on phones,
+ *  where it would shrink past reading; the close-ups carry it there. */
+export function ReportShowcase() {
+  return (
+    <section id="ataskaita" className="container scroll-mt-(--nav-clear) py-(--section-gap)">
+      <div className="grid gap-16">
+        <div className="grid gap-5 md:grid-cols-12 md:items-end md:gap-8">
+          <h2 className="md:col-span-7">Taip atrodo Tilto g. 2A ataskaita</h2>
+          <p className="lead text-ink-2 md:col-span-5">Ribos, faktai ir apribojimai vienoje vietoje, prieš perkant sklypą.</p>
+        </div>
+
+        <CaptureFigure capture={PAGE} className="max-md:hidden" />
+
+        <div className="grid gap-16 md:grid-cols-12 md:items-start md:gap-8">
+          <div className="md:col-span-7">
+            <CaptureFigure capture={FLAGS} />
+          </div>
+          <div className="md:col-span-4 md:col-start-9">
+            <CaptureFigure capture={ORTHO} />
           </div>
         </div>
+      </div>
+    </section>
+  );
+}
 
-        <div className="grid gap-24 lg:col-span-6 lg:col-start-7">
-          {CAPTURES.map((capture, i) => (
-            <figure key={capture.id} id={capture.id} className="m-0 grid scroll-mt-(--nav-clear) gap-6">
-              <div
-                className="card"
-                data-slot={`report-${capture.id}`}
-                data-kind="product"
-                data-alt={capture.alt}
-                style={{ aspectRatio: capture.ratio }}
-              >
-                <img
-                  src={capture.src}
-                  width={capture.width}
-                  height={capture.height}
-                  alt={capture.alt}
-                  loading="lazy"
-                />
-              </div>
-              <figcaption className="grid max-w-[52ch] gap-1">
-                <span className="text-lg font-medium text-ink">
-                  <span className="font-display font-bold lg:hidden">{i + 1} </span>
-                  {capture.title}
-                </span>
-                <span className="text-md text-ink-2">{capture.line}</span>
-              </figcaption>
-            </figure>
-          ))}
+/** Split: an opened panel beside the way in to the full example. */
+export function DetailSplit() {
+  return (
+    <section className="border-y border-rule bg-paper-2 py-(--section-gap-s)">
+      <div className="container grid gap-12 lg:grid-cols-12 lg:items-center lg:gap-8">
+        <div className="grid gap-6 lg:col-span-5">
+          <h2>{DETAIL.title}</h2>
+          <p className="lead text-ink-2">{DETAIL.line}</p>
+          <Link to={EXAMPLE_PARCEL} className="btn btn--secondary w-fit">
+            Atverti pavyzdinę ataskaitą
+          </Link>
         </div>
+        <figure id={DETAIL.id} className="m-0 scroll-mt-(--nav-clear) lg:col-span-6 lg:col-start-7">
+          <div
+            className="frame shadow-card"
+            data-slot={`report-${DETAIL.id}`}
+            data-kind="product"
+            data-alt={DETAIL.alt}
+            style={{ aspectRatio: DETAIL.ratio }}
+          >
+            <img src={DETAIL.src} width={DETAIL.width} height={DETAIL.height} alt={DETAIL.alt} loading="lazy" />
+          </div>
+        </figure>
       </div>
     </section>
   );
@@ -136,7 +156,7 @@ export function SourcesSpec() {
   );
 
   return (
-    <section className="container pb-(--section-gap)">
+    <section className="container py-(--section-gap)">
       <div className="grid gap-12">
         <div className="grid gap-5 md:grid-cols-12 md:items-end md:gap-8">
           <h2 className="md:col-span-6">Duomenys iš valstybės registrų</h2>
@@ -148,7 +168,7 @@ export function SourcesSpec() {
         <div>
           <div
             aria-hidden="true"
-            className="hidden grid-cols-[minmax(0,5fr)_minmax(0,4fr)_minmax(0,3fr)] gap-8 border-b-2 border-ink pb-3 text-sm font-medium text-muted md:grid"
+            className="hidden grid-cols-[minmax(0,5fr)_minmax(0,4fr)_minmax(0,3fr)] gap-8 border-b border-ink pb-3 text-sm font-medium text-muted md:grid"
           >
             <span>Registras</span>
             <span>Tvarko</span>
@@ -162,7 +182,7 @@ export function SourcesSpec() {
               >
                 <span className="text-title font-medium leading-snug text-ink">{source.name}</span>
                 <span className="text-md text-ink-2">{source.publisher}</span>
-                <span className="code text-sm wrap-anywhere text-accent">
+                <span className="code text-sm wrap-anywhere text-ink-2">
                   <CodeText value={source.api} />
                 </span>
               </li>
@@ -178,14 +198,15 @@ export function SourcesSpec() {
   );
 }
 
-/** Close: the other way in, the explore map, beside a capture of it. */
+/** Close: the other way in, the explore map, on the tangerine field. */
 export function ExploreClose() {
+  // Over the tangerine field the focus ring turns ink, so it still reads.
   return (
-    <section className="border-t-2 border-ink pb-(--section-gap)">
-      <div className="container grid gap-12 pt-(--section-gap-s) lg:grid-cols-12 lg:items-center lg:gap-8">
+    <section className="bg-accent text-accent-ink [--color-focus:var(--color-ink)]">
+      <div className="container grid gap-12 py-(--section-gap-s) lg:grid-cols-12 lg:items-center lg:gap-8">
         <div className="grid gap-6 lg:col-span-4">
           <h2>Arba raskite sklypą žemėlapyje</h2>
-          <p className="text-lg text-ink-2">
+          <p className="text-lg">
             Naršykite po visą Lietuvą ir spustelėkite bet kurį sklypą, kad pamatytumėte jo ataskaitą.
           </p>
           <Link to="/zemelapis" className="btn btn--secondary w-fit">
@@ -194,17 +215,17 @@ export function ExploreClose() {
         </div>
         <figure className="m-0 lg:col-span-7 lg:col-start-6">
           <div
-            className="card"
+            className="frame shadow-lift"
             data-slot="explore-map"
             data-kind="product"
             data-alt="Naršymo žemėlapis, priartintas iki sklypų ribų."
-            style={{ aspectRatio: "1800 / 964" }}
+            style={{ aspectRatio: "1800 / 1004" }}
           >
             <img
               src="/screens/explore-map.jpg"
               width={1800}
-              height={964}
-              alt="Naršymo žemėlapis Vilniuje su pažymėtomis sklypų ribomis."
+              height={1004}
+              alt="Naršymo žemėlapis su sklypų ribomis ant ortofoto nuotraukos."
               loading="lazy"
             />
           </div>

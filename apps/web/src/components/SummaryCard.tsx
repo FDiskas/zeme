@@ -16,18 +16,40 @@ function revealPanel(panelKey: string) {
 
 type Props = {
   report: ParcelReport;
-  /** Report-level actions (PDF, refresh), shown right under the address. */
+  /** Report-level actions (PDF, refresh), shown at the foot of the card. */
   actions?: ReactNode;
 };
 
-// Flag meaning rides on the icon and the row, never on colour alone
-// (ux: color-not-only): a check = clear, a rust warning on a soft rust row =
+// Flag meaning rides on the chip's icon and word, never on colour alone
+// (ux: color-not-only): a check = clear, a warning on a tangerine fill =
 // something to check, an info mark = for reference.
-function FlagIcon({ state }: { state: SummaryFlag["state"] }) {
-  if (state === "clear") return <CheckIcon className="h-6 w-6 shrink-0 text-ink" />;
-  if (state === "present") return <WarningIcon className="h-6 w-6 shrink-0 text-accent" />;
-  return <InfoIcon className="h-6 w-6 shrink-0 text-muted" />;
+function FlagChip({ flag }: { flag: SummaryFlag }) {
+  const tone = flag.state === "clear" ? " chip--clear" : flag.state === "present" ? " chip--present" : "";
+  const Icon = flag.state === "clear" ? CheckIcon : flag.state === "present" ? WarningIcon : InfoIcon;
+  return (
+    <span className={`chip${tone} max-w-60 py-1.5 whitespace-normal`}>
+      <Icon className="h-4 w-4 shrink-0" />
+      {flag.detail}
+    </span>
+  );
 }
+
+// Numbers that get copied and retyped never break inside themselves: a pair
+// may wrap only after its comma.
+function Unbroken({ parts }: { parts: string[] }) {
+  return (
+    <>
+      {parts.map((part, i) => (
+        <span key={i} className="whitespace-nowrap">
+          {part}
+          {i < parts.length - 1 ? ", " : null}
+        </span>
+      ))}
+    </>
+  );
+}
+
+type Cell = { label: string; value: ReactNode; hint?: string; code?: boolean };
 
 export function SummaryCard({ report, actions }: Props) {
   const { facts, flags } = buildSummary(report);
@@ -38,7 +60,7 @@ export function SummaryCard({ report, actions }: Props) {
   // No street address → honest label instead of a fabricated one, plus the
   // locality (village, eldership, municipality) so the reader still learns where
   // the parcel is. An administrative-area label in `address` is not a street
-  // address either. The parcel centre powers the coordinate rows (WGS-84 for
+  // address either. The parcel centre powers the coordinate cells (WGS-84 for
   // phones and maps, LKS-94 for surveyors and the cadastre) and the navigation
   // links; undefined when the outline is unknown.
   const hasAddress = report.hasStreetAddress !== false && report.address.trim() !== "";
@@ -66,38 +88,50 @@ export function SummaryCard({ report, actions }: Props) {
     }
   }
 
+  // The notebook cells: the summary facts first, then the numbers a surveyor
+  // or a phone needs. An odd count lets the last cell span both columns, so no
+  // cell sits alone on its row.
+  const cells: Cell[] = [
+    ...facts.map((fact) => ({ label: fact.label, value: fact.value, hint: fact.hint })),
+    ...(uniqueNumber ? [{ label: "Unikalus Nr.", value: <Unbroken parts={[uniqueNumber]} />, code: true }] : []),
+    ...(wgs && lks
+      ? [
+          {
+            label: "Centras (WGS-84)",
+            code: true,
+            value: (
+              <>
+                <Unbroken parts={[center!.lat.toFixed(6), center!.lng.toFixed(6)]} />
+                <button type="button" onClick={copyCoordinates} className="link mt-1 flex w-fit items-center gap-1.5 font-body text-sm">
+                  <CopyIcon className="h-4 w-4 shrink-0" />
+                  <span aria-live="polite">{copied ? "Nukopijuota" : "Kopijuoti"}</span>
+                </button>
+              </>
+            ),
+          },
+          { label: "Centras (LKS-94)", code: true, value: <Unbroken parts={[lks.x.toFixed(2), lks.y.toFixed(2)]} /> },
+        ]
+      : []),
+  ];
+
   return (
-    <section className="card">
-      <div className="grid gap-6 p-6">
-        <div className="grid gap-3">
-          <h1 className="text-xl leading-[1.15]">
+    <>
+      <article className="entry" aria-labelledby="parcel-title">
+        {/* The ink head: the parcel's cadastral number, the one a reader searched by. */}
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 bg-ink px-5 py-3 text-paper">
+          <span className="text-sm font-medium">Kadastrinis Nr.</span>
+          <span className="code text-md">{report.cadastralRegNo}</span>
+        </div>
+
+        <div className="grid gap-2 px-5 pt-5 pb-4">
+          <h1 id="parcel-title" className="text-xl leading-[1.15] tracking-[-0.02em]">
             {hasAddress ? report.address : "Žemės sklypas be priskirto adreso"}
           </h1>
-          {locality ? <p className="text-md font-medium text-ink">Vietovė: {locality}</p> : null}
-          <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-4 gap-y-1 text-sm text-muted">
-            <dt>Kadastrinis Nr.</dt>
-            <dd className="code text-md text-accent">{report.cadastralRegNo}</dd>
-            {uniqueNumber ? (
-              <>
-                <dt>Unikalus Nr.</dt>
-                <dd className="code text-md text-ink">{uniqueNumber}</dd>
-              </>
-            ) : null}
-            {wgs && lks ? (
-              <>
-                <dt>Centras (WGS-84)</dt>
-                <dd className="code text-md text-ink">{wgs}</dd>
-                <dt>Centras (LKS-94)</dt>
-                <dd className="code text-md text-ink">
-                  {lks.x.toFixed(2)}, {lks.y.toFixed(2)}
-                </dd>
-              </>
-            ) : null}
-          </dl>
+          {locality ? <p className="text-md text-ink-2">Vietovė: {locality}</p> : null}
           {mapLinks.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-              <span className="inline-flex items-center gap-2 text-muted">
-                <PinIcon className="h-5 w-5 shrink-0" />
+            <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
+              <span className="inline-flex items-center gap-1.5">
+                <PinIcon className="h-4 w-4 shrink-0" />
                 Atidaryti:
               </span>
               {mapLinks.map((link) => (
@@ -105,68 +139,63 @@ export function SummaryCard({ report, actions }: Props) {
                   {link.name}
                 </a>
               ))}
-              <button type="button" onClick={copyCoordinates} className="link inline-flex items-center gap-1.5 whitespace-nowrap">
-                <CopyIcon className="h-4 w-4 shrink-0" />
-                <span aria-live="polite">{copied ? "Nukopijuota" : "Kopijuoti koordinates"}</span>
-              </button>
-            </div>
+            </p>
           ) : null}
         </div>
 
-        {actions}
-      </div>
+        {cells.length > 0 ? (
+          <dl className="cells">
+            {cells.map((cell, i) => (
+              <div key={cell.label} className={cells.length % 2 === 1 && i === cells.length - 1 ? "cells__wide" : undefined}>
+                <dt className="text-sm text-muted">{cell.label}</dt>
+                <dd className={`m-0 text-md font-medium text-ink tabular-nums wrap-break-word${cell.code ? " code" : ""}`}>
+                  {cell.value}
+                  {cell.hint ? <span className="block text-sm font-normal text-ink-2">{cell.hint}</span> : null}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        ) : null}
 
-      {facts.length > 0 ? (
-        <dl className="spec mx-6">
-          {facts.map((fact) => (
-            <div key={fact.label} className="flex items-baseline justify-between gap-4 py-3">
-              <dt className="text-sm text-muted">{fact.label}</dt>
-              <dd className="text-right text-md font-medium text-ink tabular-nums">
-                {fact.value}
-                {fact.hint ? <span className="block text-sm font-normal text-ink-2">{fact.hint}</span> : null}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      ) : null}
+        {actions ? <div className="p-5">{actions}</div> : null}
+      </article>
 
       {flags.length > 0 ? (
-        <ul className="spec mt-2">
-          {flags.map((flag) => {
-            const body = (
-              <>
-                <FlagIcon state={flag.state} />
-                {/* From sm up, label and value keep their own columns and a long
-                    value wraps inside its column; on a phone the value sits
-                    on its own line under the label, so neither is squeezed. */}
-                <span className="grid min-w-0 flex-1 grid-cols-1 items-baseline gap-x-3 text-md sm:grid-cols-[minmax(min-content,1fr)_minmax(min-content,auto)]">
-                  <span className="text-ink">{flag.label}</span>
-                  <span className="font-medium text-ink sm:max-w-44 sm:text-right">{flag.detail}</span>
-                </span>
-                {flag.panelKey ? <ChevronRight className="h-5 w-5 shrink-0 text-ink" /> : null}
-              </>
-            );
+        <section aria-labelledby="checks-title" className="grid gap-3">
+          <h2 id="checks-title" className="text-title">Ką verta patikrinti</h2>
+          <ul className="spec">
+            {flags.map((flag) => {
+              const body = (
+                <>
+                  {/* On a phone the chip always sits under its label, so every
+                      row reads the same way and neither is squeezed. */}
+                  <span className="flex min-w-0 flex-1 flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                    <span className="text-md text-ink">{flag.label}</span>
+                    <FlagChip flag={flag} />
+                  </span>
+                  {flag.panelKey ? <ChevronRight className="h-5 w-5 shrink-0 text-ink" /> : <span className="w-5 shrink-0" aria-hidden="true" />}
+                </>
+              );
 
-            // Rows that need a closer look keep a soft rust wash, so they
-            // stand out on a scan.
-            return (
-              <li key={flag.label} className={flag.state === "present" ? "bg-accent-soft" : undefined}>
-                {flag.panelKey ? (
-                  <button
-                    type="button"
-                    onClick={() => revealPanel(flag.panelKey!)}
-                    className="flex min-h-14 w-full items-center gap-3 px-6 py-3 text-left transition-colors duration-150 hover:bg-paper-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus active:bg-paper-3"
-                  >
-                    {body}
-                  </button>
-                ) : (
-                  <div className="flex min-h-14 items-center gap-3 px-6 py-3">{body}</div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+              return (
+                <li key={flag.label}>
+                  {flag.panelKey ? (
+                    <button
+                      type="button"
+                      onClick={() => revealPanel(flag.panelKey!)}
+                      className="flex min-h-14 w-full items-center gap-3 rounded-pill px-2 py-2 text-left transition-colors duration-150 hover:bg-paper-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus active:bg-paper-3"
+                    >
+                      {body}
+                    </button>
+                  ) : (
+                    <div className="flex min-h-14 items-center gap-3 px-2 py-2">{body}</div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       ) : null}
-    </section>
+    </>
   );
 }

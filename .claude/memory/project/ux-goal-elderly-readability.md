@@ -15,7 +15,8 @@ updated: 2026-10-26
 - Show only relevant info; remove clutter, fill genuine gaps. Avoid "everything at once" dumps.
 - Favor large legible type, high contrast, generous spacing, obvious affordances.
 - Reduce cognitive load — progressive disclosure over walls of data.
-- Visual direction is the Hallmark **Terrazzo** theme (full redesign 2026-10-26, replacing "Fresh Natural Green"): warm off-white paper, ink controls, Syne heads, Onest 18px body, rust as the one signal, cadastral codes in mono. Details in [[design-system-tokens]].
+- Visual direction is the Hallmark **Furrow** theme (second full redesign 2026-10-26, replacing Terrazzo): manila paper, Red Hat Display/Text 18px body, soft 6px keys, tangerine as a fill, green chips for "clear", cadastral codes in Red Hat Mono. Details in [[design-system-tokens]].
+- User preference (2026-10-26, from sklypoinfo.lt): **compact sections that don't overload the reader**, and a map with an **orthophoto toggle** ([[orthophoto-basemap]]). The report shows each panel's one-line finding in the closed row, quiet one-liners for empty panels, and "Rodyti visus" after 3 records.
 - User preference (2026-10-25): the **map should be big** and the **information concise**. Main audience is people checking a parcel before buying; it must be intuitive and work on mobile. Parcel page is map-first (sticky full-height map beside a narrow report column on desktop, edge-to-edge map first on phones). Don't shrink the map back or reintroduce tile/card grids for facts.
 - Follow [[redesign-approach]] for methodology (SOLID + ui-ux-pro-max + codebase MCP). Design tokens live in [[design-system-tokens]].
 - Pair with [[agent-memory-workflow]]; relates to the ReportPanel and map rendering work.

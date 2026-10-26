@@ -15,4 +15,4 @@ They lack what we have: crime, schools/health distances, flood risk, census hous
 
 ### Practical Impact
 
-When choosing new report features, check this list first. Done 2026-10-26: perimetras, LKS-94/WGS-84 coords, Google/Apple/Waze, statybos dokumentai by stage, per-section įžvalgos, TOC, KML, share, užstatymas (via [[ssva-open-data-hub]]). Soil/našumas/melioracija need ZIP ingest ([[neighbourhood-data-sources]]); SŽNS remains gated ([[geoportal-data-sources]]).
+When choosing new report features, check this list first. Done 2026-10-26: perimetras, LKS-94/WGS-84 coords, Google/Apple/Waze, statybos dokumentai by stage, per-section įžvalgos, TOC, KML, share, užstatymas (via [[ssva-open-data-hub]]), the Ortofoto map switch ([[orthophoto-basemap]]); their compact "verdict first, details on demand" sections are the model for the report layout. Soil/našumas/melioracija need ZIP ingest ([[neighbourhood-data-sources]]); SŽNS remains gated ([[geoportal-data-sources]]).

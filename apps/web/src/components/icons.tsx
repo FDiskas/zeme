@@ -61,6 +61,28 @@ export function PinIcon({ className }: IconProps) {
   );
 }
 
+/** Map base layers: the street map or the orthophoto. */
+export function LayersIcon({ className }: IconProps) {
+  return (
+    <Outline className={className}>
+      <path d="M12 3l9 4.5-9 4.5-9-4.5L12 3z" />
+      <path d="M3 12l9 4.5 9-4.5" />
+      <path d="M3 16.5L12 21l9-4.5" />
+    </Outline>
+  );
+}
+
+/** Bring the parcel back into view. */
+export function CrosshairIcon({ className }: IconProps) {
+  return (
+    <Outline className={className}>
+      <path d="M12 19a7 7 0 100-14 7 7 0 000 14z" />
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+      <path d="M12 13a1 1 0 100-2 1 1 0 000 2z" />
+    </Outline>
+  );
+}
+
 export function SearchIcon({ className }: IconProps) {
   return (
     <Outline className={className}>

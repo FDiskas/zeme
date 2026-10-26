@@ -59,7 +59,7 @@ export function ParcelAtPointPage() {
           </>
         ) : (
           <>
-            <p className="font-display text-2xl leading-tight font-bold tracking-display text-ink">
+            <p className="font-display text-2xl leading-tight font-semibold tracking-display text-ink">
               {effectiveState === "not-found"
                 ? "Šioje vietoje registruoto sklypo nerasta."
                 : "Nepavyko surasti sklypo. Bandykite dar kartą vėliau."}
