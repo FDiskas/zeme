@@ -12,6 +12,7 @@ import {
   parcelReportSchema,
   parcelSearchItemSchema,
   neighborParcelSchema,
+  orthoSeriesSchema,
 } from "@zeme/shared";
 import {
   buildComprehensiveReport,
@@ -33,6 +34,7 @@ import {
   fetchBroadband,
 } from "./services/neighbourhood-service";
 import { searchAddressAutocomplete } from "./services/autocomplete";
+import { listOrthoSeries } from "./services/ortho-service";
 
 function shouldReuseCachedReport(report: { address: string; reportData: string; updatedAt: Date }): boolean {
   if (!isCacheFresh(report.updatedAt)) return false;
@@ -279,6 +281,9 @@ const parcelsByBbox = os
     return fetchParcelsByBbox(input.minLat, input.minLng, input.maxLat, input.maxLng);
   });
 
+// The NŽT orthophoto series on offer for the map's year slider (see ortho-service).
+const orthoSeries = os.output(orthoSeriesSchema.array()).handler(() => listOrthoSeries());
+
 export const appRouter = {
   parcel: {
     autocomplete,
@@ -286,6 +291,9 @@ export const appRouter = {
     generatePdf,
     resolveByPoint,
     parcelsByBbox,
+  },
+  map: {
+    orthoSeries,
   },
 };
 

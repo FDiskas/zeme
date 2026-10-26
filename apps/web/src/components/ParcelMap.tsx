@@ -1,22 +1,21 @@
 import { MapContainer, Polygon, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Map as LeafletMap } from "leaflet";
 import type { ParcelReport } from "@zeme/shared";
 import { getParcelsByBbox } from "../lib/orpc";
+import type { OrthoSeries } from "@zeme/shared";
 import {
   ESRI_IMAGERY,
-  ORTHO_YEARS,
   OSM_TILES,
   createOrt10ltLayer,
-  orthoYearById,
+  orthoIndex,
   useBasemap,
-  useOrthoYear,
+  useOrthoChoice,
+  useOrthoSeries,
   type Basemap,
-  type OrthoYear,
-  type OrthoYearId,
 } from "../lib/basemap";
-import { CrosshairIcon, LayersIcon } from "./icons";
+import { CrosshairIcon, LayersIcon, MinusIcon, PlusIcon } from "./icons";
 import "leaflet/dist/leaflet.css";
 
 type BuildingShape = {
@@ -118,6 +117,36 @@ function FillContainer() {
   return null;
 }
 
+// Zoom keys over the map's top-left corner, in place of Leaflet's control
+// (whose keys are links to "#"): real buttons with spoken names, greyed at the
+// zoom limits. Further keys (recentre) stack beneath them.
+function MapZoomKeys({ map, children }: { map: LeafletMap | null; children?: ReactNode }) {
+  const [zoom, setZoom] = useState<number | null>(null);
+  useEffect(() => {
+    if (!map) return;
+    const update = () => setZoom(map.getZoom());
+    map.whenReady(update);
+    map.on("zoomend", update);
+    return () => {
+      map.off("zoomend", update);
+    };
+  }, [map]);
+
+  return (
+    <div className="absolute top-3 left-3 z-1000 grid gap-2">
+      <div role="group" aria-label="Mastelis" className="map-zoom">
+        <button type="button" aria-label="Priartinti" title="Priartinti" disabled={!map || zoom === map.getMaxZoom()} onClick={() => map?.zoomIn()}>
+          <PlusIcon className="h-5 w-5" />
+        </button>
+        <button type="button" aria-label="Nutolinti" title="Nutolinti" disabled={!map || zoom === map.getMinZoom()} onClick={() => map?.zoomOut()}>
+          <MinusIcon className="h-5 w-5" />
+        </button>
+      </div>
+      {children}
+    </div>
+  );
+}
+
 // From the lg breakpoint the parcel map stays put beside the report, so the
 // mouse wheel over it zooms the map. Below lg the map sits inside the scrolling
 // page, so the wheel keeps scrolling the page and zoom is left to pinch and +/-.
@@ -141,25 +170,26 @@ function WheelZoomOnWideScreens() {
 
 // The national orthophoto of the chosen years, laid over the Esri imagery once
 // the map is close enough for it to matter (see lib/basemap).
-function Ort10ltOverlay({ year }: { year: OrthoYear }) {
+function Ort10ltOverlay({ series, isNewest }: { series: OrthoSeries; isNewest: boolean }) {
   const map = useMap();
   useEffect(() => {
-    const layer = createOrt10ltLayer(year).addTo(map);
+    const layer = createOrt10ltLayer(series, isNewest).addTo(map);
     return () => {
       layer.remove();
     };
-  }, [map, year]);
+  }, [map, series, isNewest]);
   return null;
 }
 
 // The street map, or the orthophoto: Esri underneath so the view is never
 // blank, ORT10LT on top for the Lithuanian imagery of the chosen years.
-function BaseLayers({ basemap, year }: { basemap: Basemap; year: OrthoYear }) {
+function BaseLayers({ basemap, ortho }: { basemap: Basemap; ortho: OrthoState }) {
   if (basemap === "ortho") {
+    const index = orthoIndex(ortho.series, ortho.choice);
     return (
       <>
         <TileLayer key="esri" url={ESRI_IMAGERY.url} attribution={ESRI_IMAGERY.attribution} maxNativeZoom={ESRI_IMAGERY.maxNativeZoom} maxZoom={20} zIndex={1} />
-        <Ort10ltOverlay year={year} />
+        <Ort10ltOverlay series={ortho.series[index]!} isNewest={index === ortho.series.length - 1} />
       </>
     );
   }
@@ -171,11 +201,24 @@ const BASEMAP_OPTIONS: { value: Basemap; label: string }[] = [
   { value: "ortho", label: "Ortofoto" },
 ];
 
+// The orthophoto series on offer and the reader's choice (a service name, or
+// null to follow the newest).
+type OrthoState = {
+  series: OrthoSeries[];
+  choice: string | null;
+  setChoice: (next: string | null) => void;
+};
+
+function useOrtho(): OrthoState {
+  const series = useOrthoSeries();
+  const [choice, setChoice] = useOrthoChoice();
+  return { series, choice, setChoice };
+}
+
 type LayerControlProps = {
   basemap: Basemap;
   onBasemapChange: (next: Basemap) => void;
-  yearId: OrthoYearId;
-  onYearChange: (next: OrthoYearId) => void;
+  ortho: OrthoState;
 };
 
 // Over the map's top-right corner: two soft keys for the base layer, the
@@ -183,9 +226,17 @@ type LayerControlProps = {
 // survey years, oldest on the left, the chosen years set large: under the
 // keys on wide maps, along the bottom edge on a phone, so it never sits on
 // the parcel in the middle. Both choices hold for the visit, on every map.
-function MapLayerControl({ basemap, onBasemapChange, yearId, onYearChange }: LayerControlProps) {
-  const index = Math.max(0, ORTHO_YEARS.findIndex((year) => year.id === yearId));
-  const year = ORTHO_YEARS[index]!;
+function MapLayerControl({ basemap, onBasemapChange, ortho }: LayerControlProps) {
+  const { series } = ortho;
+  const index = orthoIndex(series, ortho.choice);
+  const last = series.length - 1;
+  // The newest layer is named "Naujausia"; it is shown with the years of the
+  // newest dated series it follows, so the reader sees concrete years.
+  const newestYears = series[last - 1]?.label;
+  const labelOf = (i: number) =>
+    i === last && newestYears && !/\d/.test(series[i]!.label) ? `${newestYears} (naujausia)` : series[i]!.label;
+  const yearLabel = labelOf(index);
+  const lastYear = /(\d{4})\D*$/.exec(newestYears ?? "")?.[1];
 
   return (
     <>
@@ -199,30 +250,35 @@ function MapLayerControl({ basemap, onBasemapChange, yearId, onYearChange }: Lay
       </div>
 
       {basemap === "ortho" ? (
-        <div className="map-panel absolute inset-x-3 bottom-11 z-1000 max-sm:py-2 sm:inset-x-auto sm:top-19 sm:right-3 sm:bottom-auto sm:w-72">
-          <label htmlFor="ortho-year" className="flex items-baseline justify-between gap-3 whitespace-nowrap">
+        <div className="map-panel absolute inset-x-3 bottom-11 z-1000 max-sm:py-2 sm:inset-x-auto sm:top-19 sm:right-3 sm:bottom-auto sm:w-80">
+          <label htmlFor="ortho-year" className="flex flex-wrap items-baseline justify-between gap-x-3">
             <span className="text-sm text-muted">Nuotraukos metai</span>
-            <output htmlFor="ortho-year" className="code text-md text-ink">{year.label}</output>
+            <output htmlFor="ortho-year" className="text-md font-medium whitespace-nowrap text-ink">{yearLabel}</output>
           </label>
           <input
             id="ortho-year"
             type="range"
             min={0}
-            max={ORTHO_YEARS.length - 1}
+            max={last}
             step={1}
             value={index}
-            aria-valuetext={year.label}
-            onChange={(event) => onYearChange(ORTHO_YEARS[Number(event.target.value)]!.id)}
+            aria-valuetext={yearLabel}
+            // The right end follows the newest flights rather than pinning
+            // today's newest series.
+            onChange={(event) => {
+              const next = Number(event.target.value);
+              ortho.setChoice(next === last ? null : series[next]!.service);
+            }}
             className="ortho-range"
           />
           <div className="ortho-ticks" aria-hidden="true">
-            {ORTHO_YEARS.map((option) => (
-              <span key={option.id} />
+            {series.map((option) => (
+              <span key={option.service} />
             ))}
           </div>
           <div className="flex justify-between text-xs text-muted max-sm:hidden" aria-hidden="true">
-            <span>{ORTHO_YEARS[0].label.slice(0, 4)}</span>
-            <span>Naujausia</span>
+            <span>{series[0]!.label.slice(0, 4)}</span>
+            <span>{lastYear ?? labelOf(last)}</span>
           </div>
         </div>
       ) : null}
@@ -355,7 +411,8 @@ function ZoomHint() {
 export function ExploreMap() {
   const navigate = useNavigate();
   const [basemap, setBasemap] = useBasemap();
-  const [yearId, setYearId] = useOrthoYear();
+  const ortho = useOrtho();
+  const [map, setMap] = useState<LeafletMap | null>(null);
 
   function navigateToParcel(cadastralRegNo: string) {
     navigate(`/parcel/${encodeURIComponent(cadastralRegNo)}`);
@@ -367,13 +424,14 @@ export function ExploreMap() {
       className="-mx-(--gutter) flex min-h-96 flex-1 flex-col overflow-hidden isolate border-y border-rule bg-plate md:mx-0 md:rounded-card md:border"
     >
       <div className="relative min-h-0 flex-1">
-        <MapContainer center={LITHUANIA_CENTER} zoom={LITHUANIA_ZOOM} maxZoom={20} className="h-full w-full">
+        <MapContainer ref={setMap} center={LITHUANIA_CENTER} zoom={LITHUANIA_ZOOM} maxZoom={20} zoomControl={false} className="h-full w-full">
           <FillContainer />
           <ZoomHint />
           <ViewportParcelsLayer excludeIds={EMPTY_IDS} onNavigate={navigateToParcel} />
-          <BaseLayers basemap={basemap} year={orthoYearById(yearId)} />
+          <BaseLayers basemap={basemap} ortho={ortho} />
         </MapContainer>
-        <MapLayerControl basemap={basemap} onBasemapChange={setBasemap} yearId={yearId} onYearChange={setYearId} />
+        <MapZoomKeys map={map} />
+        <MapLayerControl basemap={basemap} onBasemapChange={setBasemap} ortho={ortho} />
       </div>
     </div>
   );
@@ -387,7 +445,7 @@ const EMPTY_IDS: ReadonlySet<string> = new Set();
 export function ParcelMap({ report }: Props) {
   const navigate = useNavigate();
   const [basemap, setBasemap] = useBasemap();
-  const [yearId, setYearId] = useOrthoYear();
+  const ortho = useOrtho();
   const [map, setMap] = useState<LeafletMap | null>(null);
   const polygon = toLatLngPath(report);
   const buildings = toBuildingShapes(report);
@@ -422,16 +480,16 @@ export function ParcelMap({ report }: Props) {
   return (
     <div
       data-basemap={basemap}
-      className="-mx-(--gutter) flex flex-col overflow-hidden isolate border-y border-rule bg-plate md:mx-0 md:rounded-card md:border lg:h-full"
+      className="relative -mx-(--gutter) flex flex-col overflow-hidden isolate border-y border-rule bg-plate md:mx-0 md:rounded-card md:border lg:h-full"
     >
       <div className="relative h-[52svh] min-h-80 w-full lg:h-auto lg:min-h-0 lg:flex-1">
-        <MapContainer ref={setMap} center={center} zoom={16} maxZoom={20} scrollWheelZoom={false} className="h-full w-full">
+        <MapContainer ref={setMap} center={center} zoom={16} maxZoom={20} scrollWheelZoom={false} zoomControl={false} className="h-full w-full">
           <WheelZoomOnWideScreens />
           <FillContainer />
           <FitToParcel positions={polygon} />
           <ZoomHint />
           <ViewportParcelsLayer excludeIds={excludeIds} onNavigate={navigateToParcel} />
-          <BaseLayers basemap={basemap} year={orthoYearById(yearId)} />
+          <BaseLayers basemap={basemap} ortho={ortho} />
 
           {/* Neighbours first so they sit beneath the subject parcel and its buildings. */}
           {neighbors.map((n) => (
@@ -468,39 +526,38 @@ export function ParcelMap({ report }: Props) {
           ))}
         </MapContainer>
 
-        <MapLayerControl basemap={basemap} onBasemapChange={setBasemap} yearId={yearId} onYearChange={setYearId} />
+        <MapLayerControl basemap={basemap} onBasemapChange={setBasemap} ortho={ortho} />
 
-        <button
-          type="button"
-          onClick={() => map && frameParcel(map, polygon)}
-          aria-label="Centruoti sklypą"
-          title="Centruoti sklypą"
-          className="btn btn--secondary btn--icon absolute top-27 left-[10px] z-1000"
-        >
-          <CrosshairIcon className="h-5 w-5" />
-        </button>
-
-        {/* Legend so the colours on the map mean something at a glance. */}
-        {/* Desktop shapes carry their own "spustelėkite" tooltip, so the floating
-            legend stays short and covers as little of the map as it can. */}
-        <ul className="pointer-events-none absolute bottom-3 left-3 z-1000 hidden gap-1 rounded-pill border border-rule bg-plate px-4 py-3 text-sm text-ink lg:grid">
-          <MapLegendItems hasBuildings={hasBuildings} neighborHint={false} />
-        </ul>
+        <MapZoomKeys map={map}>
+          <button
+            type="button"
+            onClick={() => map && frameParcel(map, polygon)}
+            aria-label="Centruoti sklypą"
+            title="Centruoti sklypą"
+            className="btn btn--secondary btn--icon"
+          >
+            <CrosshairIcon className="h-5 w-5" />
+          </button>
+        </MapZoomKeys>
       </div>
 
-      <ul className="flex flex-wrap gap-x-6 gap-y-2 border-t border-rule px-(--gutter) py-3 text-sm text-ink md:px-4 lg:hidden">
-        <MapLegendItems hasBuildings={hasBuildings} neighborHint />
+      {/* Legend so the colours on the map mean something at a glance: one
+          list, below the map on a phone, floating over its lower-left corner
+          on desktop, where the shapes carry their own "spustelėkite" tooltip
+          and the hint is left out so the legend covers as little as it can. */}
+      <ul className="flex flex-wrap gap-x-6 gap-y-2 border-t border-rule px-(--gutter) py-3 text-sm text-ink md:px-4 lg:pointer-events-none lg:absolute lg:bottom-3 lg:left-3 lg:z-1000 lg:grid lg:gap-1 lg:rounded-pill lg:border lg:bg-plate lg:py-3">
+        <MapLegendItems hasBuildings={hasBuildings} />
       </ul>
     </div>
   );
 }
 
-function MapLegendItems({ hasBuildings, neighborHint }: { hasBuildings: boolean; neighborHint: boolean }) {
+function MapLegendItems({ hasBuildings }: { hasBuildings: boolean }) {
   return (
     <>
       <li className="flex items-center gap-2">
         <span className="inline-block h-4 w-4 shrink-0 rounded-[3px] border-2 border-accent bg-accent-soft" aria-hidden="true" />
-        Jūsų sklypas
+        Šis sklypas
       </li>
       {hasBuildings ? (
         <li className="flex items-center gap-2">
@@ -510,7 +567,9 @@ function MapLegendItems({ hasBuildings, neighborHint }: { hasBuildings: boolean;
       ) : null}
       <li className="flex items-center gap-2">
         <span className="inline-block h-4 w-4 shrink-0 rounded-[3px] border border-dashed border-ink-2 bg-paper" aria-hidden="true" />
-        {neighborHint ? "Gretimi sklypai: spustelėkite, kad atidarytumėte" : "Gretimi sklypai"}
+        <span>
+          Gretimi sklypai<span className="lg:hidden">: spustelėkite, kad atidarytumėte</span>
+        </span>
       </li>
     </>
   );

@@ -1,10 +1,13 @@
+import { useEffect, useState } from "react";
 import L from "leaflet";
+import { ORTHO_SERIES_FALLBACK, type OrthoSeries } from "@zeme/shared";
+import { getOrthoSeries } from "./orpc";
 import { useSessionStorage } from "./useLocalStorage";
 
 export type Basemap = "map" | "ortho";
 
 const BASEMAP_KEY = "zeme-basemap";
-const ORTHO_YEAR_KEY = "zeme-ortho-year";
+const ORTHO_YEAR_KEY = "zeme-ortho-series";
 
 /** The base-layer choice, shared by every map in the app. Kept for the visit
  *  only, so each new visit opens on the street map. */
@@ -12,31 +15,37 @@ export function useBasemap() {
   return useSessionStorage<Basemap>(BASEMAP_KEY, "map");
 }
 
-// The orthophoto series NŽT publishes on geoportal.lt, oldest first, so the
-// year slider reads left to right through time. "Naujausia" is the cached
-// layer of the most recent flights.
-export const ORTHO_YEARS = [
-  { id: "1995", label: "1995-2001", service: "ORT10LT_1995_2001" },
-  { id: "2005", label: "2005-2006", service: "ORT10LT_2005_2006" },
-  { id: "2009", label: "2009-2010", service: "ORT10LT_2009_2010" },
-  { id: "2012", label: "2012-2013", service: "ORT10LT_2012_2013" },
-  { id: "2015", label: "2015", service: "ORT10LT_2015" },
-  { id: "2018", label: "2018-2020", service: "ORT10LT_2018_2020" },
-  { id: "2021", label: "2021-2023", service: "ORT10LT_2021_2023" },
-  { id: "2024", label: "2024-2026", service: "ORT10LT_2024_2026" },
-  { id: "latest", label: "Naujausia", service: "ORT10LT_Web_Mercator_102100" },
-] as const;
-
-export type OrthoYear = (typeof ORTHO_YEARS)[number];
-export type OrthoYearId = OrthoYear["id"];
-
-/** Which orthophoto series the maps show; the newest unless the reader moves the slider. */
-export function useOrthoYear() {
-  return useSessionStorage<OrthoYearId>(ORTHO_YEAR_KEY, "latest");
+/** The orthophoto series to offer: the bundled list at first, then the live
+ *  one from the server, which reads geoportal.lt, so new flights appear on
+ *  their own. */
+export function useOrthoSeries(): OrthoSeries[] {
+  const [series, setSeries] = useState<OrthoSeries[]>(ORTHO_SERIES_FALLBACK);
+  useEffect(() => {
+    let active = true;
+    getOrthoSeries()
+      .then((live) => {
+        if (active && live.length > 1) setSeries(live);
+      })
+      .catch(() => {
+        // Server unreachable: the bundled list keeps the slider working.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+  return series;
 }
 
-export function orthoYearById(id: OrthoYearId): OrthoYear {
-  return ORTHO_YEARS.find((year) => year.id === id) ?? ORTHO_YEARS[ORTHO_YEARS.length - 1]!;
+/** The chosen series by service name; null follows the newest, so a reader
+ *  on "Naujausia" moves on to new flights when they are published. */
+export function useOrthoChoice() {
+  return useSessionStorage<string | null>(ORTHO_YEAR_KEY, null);
+}
+
+/** Index of the chosen series in the list; unknown or null means the newest. */
+export function orthoIndex(series: OrthoSeries[], choice: string | null): number {
+  const index = choice === null ? -1 : series.findIndex((s) => s.service === choice);
+  return index >= 0 ? index : series.length - 1;
 }
 
 export const OSM_TILES = {
@@ -80,12 +89,12 @@ class Ort10ltLayer extends L.TileLayer {
 }
 
 /** One ORT10LT series, drawn over Esri from zoom 12, inside Lithuania only. */
-export function createOrt10ltLayer(year: OrthoYear): L.TileLayer {
-  return new Ort10ltLayer(year.service, {
+export function createOrt10ltLayer(series: OrthoSeries, isNewest: boolean): L.TileLayer {
+  return new Ort10ltLayer(series.service, {
     minZoom: 12,
     maxZoom: 20,
     bounds: LITHUANIA_BOUNDS,
-    attribution: `Ortofoto ${year.id === "latest" ? "" : `${year.label} `}&copy; <a href="https://www.geoportal.lt">NŽT, geoportal.lt</a>`,
+    attribution: `Ortofoto ${isNewest ? "" : `${series.label} `}&copy; <a href="https://www.geoportal.lt">NŽT, geoportal.lt</a>`,
     // Above the Esri layer, whatever order the two are added in.
     zIndex: 2,
   });

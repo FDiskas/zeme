@@ -6,24 +6,49 @@ import {
   type CuratedItem,
   type CuratedPanel,
 } from "../lib/report-format";
-import { ArrowUpIcon, ChevronDown, PinIcon, SourceIcon } from "./icons";
+import { ArrowUpIcon, ChevronDown, InfoIcon, PinIcon, RefreshIcon, SourceIcon } from "./icons";
 
-function SourceLine({ source }: { source: NonNullable<CuratedPanel["source"]> }) {
+const formatDate = (iso: string) => new Date(iso).toISOString().slice(0, 10);
+
+// The registry a citizen recognises, and how fresh its data are. The dataset's
+// technical name (ntr_sklypai, CENSUS2021_…) is for whoever wants to verify,
+// so it waits behind the ℹ key.
+function SourceLine({ source, checkedAt }: { source: NonNullable<CuratedPanel["source"]>; checkedAt: string }) {
   return (
-    <p className="flex items-start gap-2 text-sm text-muted">
+    <div className="flex items-start gap-2 text-sm text-muted">
       <SourceIcon className="mt-1 h-4 w-4 shrink-0" />
-      <span className="min-w-0">
-        Šaltinis: {source.name} ({source.api})
-      </span>
-    </p>
+      <div className="min-w-0">
+        <p>
+          Šaltinis: {source.name}.{" "}
+          {source.dataDate ? `Duomenų data: ${source.dataDate}.` : `Patikrinta ${formatDate(checkedAt)}.`}
+        </p>
+        <details className="group">
+          <summary className="inline-flex cursor-pointer list-none [&::-webkit-details-marker]:hidden items-center gap-1.5 rounded-pill py-1 hover:text-ink focus-visible:outline-2 focus-visible:outline-focus">
+            <InfoIcon className="h-4 w-4 shrink-0" />
+            <span className="underline decoration-rule underline-offset-4">Techninis pavadinimas</span>
+          </summary>
+          <p className="code wrap-break-word">{source.api}</p>
+        </details>
+      </div>
+    </div>
   );
 }
 
 type Props = {
   report: ParcelReport;
+  /** Ask the sources again, offered on a panel whose source failed. */
+  onRetry?: () => void;
+  retrying?: boolean;
 };
 
-function FieldValue({ value, isLink, href }: { value: string; isLink?: boolean; href?: string }) {
+function FieldValue({ value, isLink, href, externalHref }: { value: string; isLink?: boolean; href?: string; externalHref?: string }) {
+  if (externalHref) {
+    return (
+      <a href={externalHref} target="_blank" rel="noreferrer" className="link wrap-break-word">
+        {value}
+      </a>
+    );
+  }
   if (href) {
     return (
       <Link to={href} className="link inline-flex items-start gap-1.5">
@@ -57,7 +82,7 @@ function ItemBlock({ item }: { item: CuratedItem }) {
           <div key={field.label} className={`flex min-w-0 flex-col${field.wide ? " @sm:col-span-2" : ""}`}>
             <dt className="text-sm text-muted">{field.label}</dt>
             <dd className="text-md text-ink">
-              <FieldValue value={field.value} isLink={field.isLink} href={field.href} />
+              <FieldValue value={field.value} isLink={field.isLink} href={field.href} externalHref={field.externalHref} />
             </dd>
           </div>
         ))}
@@ -70,17 +95,35 @@ function ItemBlock({ item }: { item: CuratedItem }) {
 // read the gist, few enough that one panel never floods the column.
 const FIRST_ITEMS = 3;
 
-function Panel({ panel }: { panel: CuratedPanel }) {
+type PanelProps = { panel: CuratedPanel; checkedAt: string; onRetry?: () => void; retrying: boolean };
+
+function Panel({ panel, checkedAt, onRetry, retrying }: PanelProps) {
   const [showAll, setShowAll] = useState(false);
 
   // Empty or upstream-unavailable panels: one quiet row, not an expandable
   // one, so they don't add clutter or imply hidden content. The source is
-  // intentionally omitted here; it only appears inside an expanded panel.
+  // intentionally omitted here; it only appears inside an expanded panel. A
+  // failed source gets a key to ask again; a gated one, where to check.
   if (panel.state !== "ok") {
     return (
-      <li id={`panel-${panel.key}`} className="grid scroll-mt-[calc(var(--nav-clear)+1rem)] gap-0.5 px-2 py-3">
+      <li id={`panel-${panel.key}`} className="grid scroll-mt-[calc(var(--nav-clear)+1rem)] justify-items-start gap-1 px-2 py-3">
         <span className="text-md text-ink-2">{panel.title}</span>
-        {panel.message ? <span className="line-clamp-2 text-sm text-muted">{panel.message}</span> : null}
+        {panel.message ? <span className="line-clamp-3 text-sm text-muted">{panel.message}</span> : null}
+        {panel.links ? (
+          <span className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+            {panel.links.map((link) => (
+              <a key={link.href} href={link.href} target="_blank" rel="noreferrer" className="link whitespace-nowrap">
+                {link.label}
+              </a>
+            ))}
+          </span>
+        ) : null}
+        {panel.retryable && onRetry ? (
+          <button type="button" onClick={onRetry} disabled={retrying} aria-busy={retrying} className="btn btn--secondary btn--s mt-1">
+            <RefreshIcon className="h-5 w-5" />
+            {retrying ? "Bandoma…" : "Bandyti dar kartą"}
+          </button>
+        ) : null}
       </li>
     );
   }
@@ -97,8 +140,8 @@ function Panel({ panel }: { panel: CuratedPanel }) {
           <span className="grid min-w-0 flex-1 gap-0.5">
             <span className="text-md font-medium text-ink">{panel.title}</span>
             {panel.insight ? <span className="report-insight line-clamp-2 text-sm text-ink-2">{panel.insight}</span> : null}
-          </span>
-          <span className="chip code min-h-8 shrink-0 px-2.5 py-1.5" aria-label={`Įrašų: ${panel.count}`}>{panel.count}</span>
+          </span>{" "}
+          {panel.countLabel ? <span className="chip min-h-8 shrink-0 px-2.5 py-1.5 whitespace-nowrap">{panel.countLabel}</span> : null}
           <ChevronDown className="report-chevron h-5 w-5 shrink-0 text-ink" />
         </summary>
         <div className="mx-2 mb-3 divide-y divide-rule rounded-card bg-paper-2 px-4 pt-4 pb-3">
@@ -122,7 +165,7 @@ function Panel({ panel }: { panel: CuratedPanel }) {
           {panel.note ? <p className="py-3 text-sm text-ink-2">{panel.note}</p> : null}
           {panel.source ? (
             <div className="pt-3">
-              <SourceLine source={panel.source} />
+              <SourceLine source={panel.source} checkedAt={checkedAt} />
             </div>
           ) : null}
         </div>
@@ -131,10 +174,26 @@ function Panel({ panel }: { panel: CuratedPanel }) {
   );
 }
 
+const isPlainEmpty = (panel: CuratedPanel) => panel.state === "empty" && !panel.message;
+
 const generatedAt = (iso: string) =>
   new Intl.DateTimeFormat("lt-LT", { year: "numeric", month: "long", day: "numeric" }).format(new Date(iso));
 
-export function ReportPanel({ report }: Props) {
+// Panels that found nothing and have nothing more to say, gathered into one
+// "Nerasta: …" line so they don't each take a row. Each keeps its anchor, so
+// a summary flag can still jump to it.
+function NothingFound({ panels }: { panels: CuratedPanel[] }) {
+  return (
+    <li className="px-2 py-3 text-md text-ink-2">
+      {panels.map((panel) => (
+        <span key={panel.key} id={`panel-${panel.key}`} className="scroll-mt-[calc(var(--nav-clear)+1rem)]" />
+      ))}
+      <span className="font-medium text-ink">Nerasta:</span> {panels.map((panel) => panel.title).join(", ")}
+    </li>
+  );
+}
+
+export function ReportPanel({ report, onRetry, retrying = false }: Props) {
   const categories = curateReport(report);
 
   return (
@@ -156,9 +215,12 @@ export function ReportPanel({ report }: Props) {
         <section key={category.id} id={`skyrius-${category.id}`} className="grid scroll-mt-[calc(var(--nav-clear)+1rem)] gap-2">
           <h3 className="text-lg leading-tight">{category.title}</h3>
           <ul className="spec">
-            {category.panels.map((panel) => (
-              <Panel key={panel.key} panel={panel} />
-            ))}
+            {category.panels
+              .filter((panel) => !isPlainEmpty(panel))
+              .map((panel) => (
+                <Panel key={panel.key} panel={panel} checkedAt={report.fetchedAt} onRetry={onRetry} retrying={retrying} />
+              ))}
+            {category.panels.some(isPlainEmpty) ? <NothingFound panels={category.panels.filter(isPlainEmpty)} /> : null}
           </ul>
         </section>
       ))}

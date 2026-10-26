@@ -167,6 +167,22 @@ export function MenuIcon({ className }: IconProps) {
   );
 }
 
+export function PlusIcon({ className }: IconProps) {
+  return (
+    <Outline className={className}>
+      <path d="M12 4.5v15m7.5-7.5h-15" />
+    </Outline>
+  );
+}
+
+export function MinusIcon({ className }: IconProps) {
+  return (
+    <Outline className={className}>
+      <path d="M19.5 12h-15" />
+    </Outline>
+  );
+}
+
 export function CloseIcon({ className }: IconProps) {
   return (
     <Outline className={className}>

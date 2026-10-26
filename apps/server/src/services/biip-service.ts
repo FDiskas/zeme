@@ -51,7 +51,6 @@ export interface ResolvedBiipParcel {
   municipalityName: string;
   purposeName: string;
   purposeFullName: string;
-  purposeGroup: string;
   status: string;
   updatedAt: string;
 }
@@ -158,7 +157,6 @@ function mapParcel(raw: Parcel, cadastralRegNo?: string): ResolvedBiipParcel | n
     municipalityName: raw.municipality?.name || "",
     purposeName: raw.purpose?.name || "",
     purposeFullName: raw.purpose?.full_name || "",
-    purposeGroup: raw.purpose?.purpose_group?.name || "",
     status: raw.status?.name || "",
     updatedAt: raw.updated_at || "",
   };

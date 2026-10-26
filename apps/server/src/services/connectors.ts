@@ -41,7 +41,8 @@ export async function fetchBiipBoundary(cadastralRegNo: string, address: string)
           municipality: parcel.municipalityName,
           municipalityCode: parcel.uniqueNumber ? String(parcel.uniqueNumber).slice(0, 2) : "41",
           areaHectares: parcel.areaHa,
-          landPurpose: parcel.purposeGroup || "Kita",
+          // BIIP's purpose group is always "Žemės naudojimo" (the name of the
+          // group, not a value), so only the purpose itself is passed on.
           landUse: parcel.purposeFullName || parcel.purposeName || "Kita (žemės)",
           status: parcel.status || "N/A",
           updatedAt: parcel.updatedAt || "N/A",

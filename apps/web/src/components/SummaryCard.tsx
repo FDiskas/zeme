@@ -1,8 +1,9 @@
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { ParcelReport } from "@zeme/shared";
-import { buildSummary, findParcelUniqueNumber, parcelCenter, type SummaryFlag } from "../lib/report-format";
+import { buildSummary, findParcelUniqueNumber, parcelCenter, type FlagState, type SummaryFlag } from "../lib/report-format";
 import { wgs84ToLks94 } from "../lib/geo";
-import { CheckIcon, ChevronRight, CopyIcon, InfoIcon, PinIcon, WarningIcon } from "./icons";
+import { CopyButton } from "./CopyButton";
+import { CheckIcon, ChevronRight, InfoIcon, PinIcon, RefreshIcon, WarningIcon } from "./icons";
 
 // Smoothly bring the related detailed panel into view (and open it if it is a
 // collapsible <details>), so a summary flag like "Taršos rizika · Yra (1)" jumps
@@ -18,17 +19,26 @@ type Props = {
   report: ParcelReport;
   /** Report-level actions (PDF, refresh), shown at the foot of the card. */
   actions?: ReactNode;
+  /** Ask the sources again, offered next to a fact whose source failed. */
+  onRetry?: () => void;
+  retrying?: boolean;
 };
 
-// Flag meaning rides on the chip's icon and word, never on colour alone
-// (ux: color-not-only): a check = clear, a warning on a tangerine fill =
-// something to check, an info mark = for reference.
+// Flag meaning rides on the chip's icon, its word and a spoken tone, never on
+// colour alone (ux: color-not-only): a check on green = fine, a warning on
+// tangerine = worth a closer look, an info mark = look it up elsewhere.
+const FLAG_TONES: Record<FlagState, { chip: string; Icon: typeof CheckIcon; spoken: string }> = {
+  good: { chip: " chip--clear", Icon: CheckIcon, spoken: "Gerai" },
+  attention: { chip: " chip--present", Icon: WarningIcon, spoken: "Dėmesio" },
+  check: { chip: "", Icon: InfoIcon, spoken: "Tikrinti" },
+};
+
 function FlagChip({ flag }: { flag: SummaryFlag }) {
-  const tone = flag.state === "clear" ? " chip--clear" : flag.state === "present" ? " chip--present" : "";
-  const Icon = flag.state === "clear" ? CheckIcon : flag.state === "present" ? WarningIcon : InfoIcon;
+  const { chip, Icon, spoken } = FLAG_TONES[flag.state];
   return (
-    <span className={`chip${tone} max-w-60 py-1.5 whitespace-normal`}>
+    <span className={`chip${chip} max-w-64 py-1.5 whitespace-normal`}>
       <Icon className="h-4 w-4 shrink-0" />
+      <span className="sr-only">{spoken}: </span>
       {flag.detail}
     </span>
   );
@@ -49,13 +59,11 @@ function Unbroken({ parts }: { parts: string[] }) {
   );
 }
 
-type Cell = { label: string; value: ReactNode; hint?: string; code?: boolean };
+type Cell = { label: string; value: ReactNode; hints?: string[]; code?: boolean };
 
-export function SummaryCard({ report, actions }: Props) {
+export function SummaryCard({ report, actions, onRetry, retrying = false }: Props) {
   const { facts, flags } = buildSummary(report);
   const uniqueNumber = findParcelUniqueNumber(report);
-
-  const [copied, setCopied] = useState(false);
 
   // No street address → honest label instead of a fabricated one, plus the
   // locality (village, eldership, municipality) so the reader still learns where
@@ -76,23 +84,26 @@ export function SummaryCard({ report, actions }: Props) {
       ]
     : [];
 
-  async function copyCoordinates() {
-    if (!wgs) return;
-    try {
-      await navigator.clipboard.writeText(wgs);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard blocked (insecure context, denied permission): the
-      // coordinates stay on screen to copy by hand.
-    }
-  }
-
   // The notebook cells: the summary facts first, then the numbers a surveyor
   // or a phone needs. An odd count lets the last cell span both columns, so no
   // cell sits alone on its row.
   const cells: Cell[] = [
-    ...facts.map((fact) => ({ label: fact.label, value: fact.value, hint: fact.hint })),
+    ...facts.map((fact) => ({
+      label: fact.label,
+      hints: fact.hints,
+      value:
+        fact.unavailable && onRetry ? (
+          <>
+            <span className="text-ink-2">{fact.value}</span>
+            <button type="button" onClick={onRetry} disabled={retrying} aria-busy={retrying} className="link mt-1 flex w-fit items-center gap-1.5 font-body text-sm">
+              <RefreshIcon className="h-4 w-4 shrink-0" />
+              {retrying ? "Bandoma…" : "Bandyti dar kartą"}
+            </button>
+          </>
+        ) : (
+          fact.value
+        ),
+    })),
     ...(uniqueNumber ? [{ label: "Unikalus Nr.", value: <Unbroken parts={[uniqueNumber]} />, code: true }] : []),
     ...(wgs && lks
       ? [
@@ -102,10 +113,7 @@ export function SummaryCard({ report, actions }: Props) {
             value: (
               <>
                 <Unbroken parts={[center!.lat.toFixed(6), center!.lng.toFixed(6)]} />
-                <button type="button" onClick={copyCoordinates} className="link mt-1 flex w-fit items-center gap-1.5 font-body text-sm">
-                  <CopyIcon className="h-4 w-4 shrink-0" />
-                  <span aria-live="polite">{copied ? "Nukopijuota" : "Kopijuoti"}</span>
-                </button>
+                <CopyButton text={wgs} label="Kopijuoti koordinates" className="link mt-1 flex" />
               </>
             ),
           },
@@ -117,10 +125,18 @@ export function SummaryCard({ report, actions }: Props) {
   return (
     <>
       <article className="entry" aria-labelledby="parcel-title">
-        {/* The ink head: the parcel's cadastral number, the one a reader searched by. */}
-        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 bg-ink px-5 py-3 text-paper">
+        {/* The ink head: the parcel's cadastral number, the one a reader
+            searched by and the one most often copied into a form. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 bg-ink px-5 py-3 text-paper [--color-focus:var(--color-paper)]">
           <span className="text-sm font-medium">Kadastrinis Nr.</span>
-          <span className="code text-md">{report.cadastralRegNo}</span>
+          <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span className="code text-md">{report.cadastralRegNo}</span>
+            <CopyButton
+              text={report.cadastralRegNo}
+              label="Kopijuoti kadastrinį numerį"
+              className="rounded-pill px-1 text-paper underline decoration-paper/50 underline-offset-4 hover:decoration-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+            />
+          </span>
         </div>
 
         <div className="grid gap-2 px-5 pt-5 pb-4">
@@ -150,7 +166,9 @@ export function SummaryCard({ report, actions }: Props) {
                 <dt className="text-sm text-muted">{cell.label}</dt>
                 <dd className={`m-0 text-md font-medium text-ink tabular-nums wrap-break-word${cell.code ? " code" : ""}`}>
                   {cell.value}
-                  {cell.hint ? <span className="block text-sm font-normal text-ink-2">{cell.hint}</span> : null}
+                  {cell.hints?.map((hint) => (
+                    <span key={hint} className="block font-body text-sm font-normal text-ink-2">{hint}</span>
+                  ))}
                 </dd>
               </div>
             ))}
@@ -162,7 +180,7 @@ export function SummaryCard({ report, actions }: Props) {
 
       {flags.length > 0 ? (
         <section aria-labelledby="checks-title" className="grid gap-3">
-          <h2 id="checks-title" className="text-title">Ką verta patikrinti</h2>
+          <h2 id="checks-title" className="text-title">Svarbiausia trumpai</h2>
           <ul className="spec">
             {flags.map((flag) => {
               const body = (
@@ -178,7 +196,7 @@ export function SummaryCard({ report, actions }: Props) {
               );
 
               return (
-                <li key={flag.label}>
+                <li key={flag.label} className="grid">
                   {flag.panelKey ? (
                     <button
                       type="button"
@@ -190,6 +208,16 @@ export function SummaryCard({ report, actions }: Props) {
                   ) : (
                     <div className="flex min-h-14 items-center gap-3 px-2 py-2">{body}</div>
                   )}
+                  {/* Links sit beside the row's button, never inside it. */}
+                  {flag.links ? (
+                    <p className="flex flex-wrap gap-x-4 gap-y-1 px-2 pb-3 text-sm">
+                      {flag.links.map((link) => (
+                        <a key={link.href} href={link.href} target="_blank" rel="noreferrer" className="link whitespace-nowrap">
+                          {link.label}
+                        </a>
+                      ))}
+                    </p>
+                  ) : null}
                 </li>
               );
             })}

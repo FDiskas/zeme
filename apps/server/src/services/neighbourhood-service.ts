@@ -1,5 +1,6 @@
 import type { UpstreamPanel } from "./connectors";
 import { parcelCentre } from "./geometry";
+import { describeCrimeComparison } from "@zeme/shared";
 
 // Neighbourhood context — what surrounds the parcel rather than the parcel
 // itself: nearest schools / kindergartens / health facilities, registered crime
@@ -227,14 +228,16 @@ async function latestCrimePeriods(): Promise<{ fullYear?: number; halfYear?: num
 // otherwise always read as "above average".
 const LOW_CRIME_PER_YEAR = 20;
 
+// The words give the actual numbers ("3 veikos – ~2,5 karto mažiau nei
+// apylinkių vidurkis (7,4)"); the level, which colours the web flag, keeps
+// quiet cells "lower" whatever the average.
 function compareWithArea(cellCount: number, areaAveragePerKm2: number) {
-  if (cellCount < LOW_CRIME_PER_YEAR) {
-    return { comparison: `Mažas (iki ${LOW_CRIME_PER_YEAR} veikų per metus)`, comparisonLevel: "lower" };
-  }
+  const comparison = describeCrimeComparison(cellCount, areaAveragePerKm2);
+  if (cellCount < LOW_CRIME_PER_YEAR) return { comparison, comparisonLevel: "lower" };
   const ratio = cellCount / Math.max(areaAveragePerKm2, 1);
-  if (ratio < 0.75) return { comparison: "Mažiau nei apylinkių vidurkis", comparisonLevel: "lower" };
-  if (ratio > 1.25) return { comparison: "Daugiau nei apylinkių vidurkis", comparisonLevel: "higher" };
-  return { comparison: "Panašiai kaip apylinkių vidurkis", comparisonLevel: "similar" };
+  if (ratio < 0.75) return { comparison, comparisonLevel: "lower" };
+  if (ratio > 1.25) return { comparison, comparisonLevel: "higher" };
+  return { comparison, comparisonLevel: "similar" };
 }
 
 // Registered crime for the 1 km grid cell the parcel sits in, compared with the

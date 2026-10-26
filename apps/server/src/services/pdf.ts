@@ -36,8 +36,7 @@ const FIELD_LABELS: Record<string, string> = {
   eldership: "Seniūnija",
   areaHectares: "Plotas, ha",
   registeredAreaHa: "Registruotas plotas, ha",
-  landPurpose: "Paskirtis",
-  landUse: "Naudojimo būdas",
+  landUse: "Pagrindinė naudojimo paskirtis",
   status: "Būsena",
   updatedAt: "Atnaujinta",
   address: "Adresas",
@@ -101,9 +100,10 @@ function escapeHtml(value: unknown): string {
 }
 
 // Fields that steer the web UI (a flag's colour, a link target) but mean nothing
-// printed. `measuredMethod` was a hard-coded placeholder, not registry data; older
-// cached reports still carry it, so it is dropped here too.
-const MACHINE_ONLY_FIELDS = new Set(["comparisonLevel", "lat", "lng", "measuredMethod"]);
+// printed. `measuredMethod` was a hard-coded placeholder and `landPurpose` BIIP's
+// group name ("Žemės naudojimo"), not registry data; older cached reports still
+// carry them, so they are dropped here too.
+const MACHINE_ONLY_FIELDS = new Set(["comparisonLevel", "lat", "lng", "measuredMethod", "landPurpose"]);
 
 function humanizeKey(key: string): string {
   if (FIELD_LABELS[key]) return FIELD_LABELS[key];
@@ -169,7 +169,7 @@ function getReportMetrics(report: ParcelReport) {
 
   return {
     areaHa: boundary?.areaHectares ?? ospSummary?.registeredAreaHa,
-    landUse: boundary?.landUse ?? boundary?.landPurpose,
+    landUse: boundary?.landUse,
     municipality: boundary?.municipality ?? ospSummary?.municipality,
     eldership: ospSummary?.eldership,
     buildingsCount:
@@ -272,7 +272,7 @@ function buildReportHtml(report: ParcelReport, mapHtml: string): string {
 
   const summaryTable = renderSummaryTable([
     renderSummaryRow("Plotas", metrics.areaHa != null ? `${formatValue(metrics.areaHa)} ha` : null),
-    renderSummaryRow("Naudojimo būdas", metrics.landUse),
+    renderSummaryRow("Paskirtis", metrics.landUse),
     renderSummaryRow("Savivaldybė", metrics.municipality),
     renderSummaryRow("Seniūnija", metrics.eldership),
     renderSummaryRow("Pastatai sklype", metrics.buildingsCount),

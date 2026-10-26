@@ -317,30 +317,31 @@
 	background: var(--color-paper-2);
 }
 
-.leaflet-bar,
-.leaflet-touch .leaflet-bar {
+/* Our own zoom keys (real buttons, not Leaflet's href="#" links): one white
+   column of two 48px keys parted by a hairline. */
+.map-zoom {
+	display: grid;
 	overflow: hidden;
 	border: var(--rule-hair) solid var(--color-rule);
 	border-radius: var(--radius-card);
 	box-shadow: var(--shadow-card);
 }
 
-.leaflet-bar a,
-.leaflet-bar a:first-child,
-.leaflet-bar a:last-child {
-	width: 44px;
-	height: 44px;
-	border-radius: 0;
+.map-zoom button {
+	display: grid;
+	place-items: center;
+	width: 48px;
+	height: 48px;
 	background: var(--color-plate);
 	color: var(--color-ink);
-	font: 500 1.375rem / 44px var(--font-body);
 	transition: background-color var(--dur-micro) var(--ease-out);
 }
 
-.leaflet-bar a + a { border-top: var(--rule-hair) solid var(--color-rule); }
-.leaflet-bar a:hover { background: var(--color-paper); color: var(--color-ink); }
-.leaflet-bar a:active { background: var(--color-paper-2); }
-.leaflet-bar a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -3px; }
+.map-zoom button + button { border-top: var(--rule-hair) solid var(--color-rule); }
+.map-zoom button:hover { background: var(--color-paper); }
+.map-zoom button:active { background: var(--color-paper-2); }
+.map-zoom button:disabled { color: var(--color-muted); cursor: default; }
+.map-zoom button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -3px; }
 
 .leaflet-tooltip {
 	border: var(--rule-hair) solid var(--color-ink);

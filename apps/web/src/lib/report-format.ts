@@ -1,4 +1,4 @@
-import type { ParcelReport } from "@zeme/shared";
+import { describeCrimeComparison, ltCount, type ParcelReport } from "@zeme/shared";
 import { DATA_SOURCES } from "./data-sources";
 import { parcelPolygons, perimeterM, pointInPolygons, polygonAreaM2, ringCentre } from "./geo";
 
@@ -27,6 +27,30 @@ const NOTE_PANEL_KEYS = new Set([
   "broadband",
   "flood-risk",
 ]);
+
+// Panels that always hold one record — the parcel's own registry entry, its
+// valuation — where a "1 įrašas" count would say nothing.
+const SINGLE_RECORD_PANEL_KEYS = new Set([
+  "biip-boundary",
+  "osp-parcel-summary",
+  "rc-masvert",
+  "ssva-built-up",
+  "census-households",
+]);
+
+// What a panel's records are, so the closed row can say "3 laikotarpiai"
+// rather than a bare "3" a reader takes for three crimes.
+const COUNT_NOUNS: Record<string, readonly [string, string, string]> = {
+  "biip-addresses": ["adresas", "adresai", "adresų"],
+  "grpk-buildings": ["pastatas", "pastatai", "pastatų"],
+  "pdbis-building-data": ["pastatas", "pastatai", "pastatų"],
+  "osp-building-permits": ["dokumentas", "dokumentai", "dokumentų"],
+  "asgr-regulations": ["reglamentas", "reglamentai", "reglamentų"],
+  "nearby-services": ["įstaiga", "įstaigos", "įstaigų"],
+  "crime-stats": ["laikotarpis", "laikotarpiai", "laikotarpių"],
+  broadband: ["technologija", "technologijos", "technologijų"],
+};
+const DEFAULT_COUNT_NOUN = ["įrašas", "įrašai", "įrašų"] as const;
 
 // Panels intentionally kept out of the curated view. Empty by design — the
 // fabricated "scraping-fallback" panel was removed at the source. Add a panel
@@ -63,6 +87,46 @@ export function isNoiseValue(value: unknown): boolean {
   return false;
 }
 
+// The main land-use purposes, by the name the cadastre gives and the code the
+// planning registry (TPDR) uses. Readers meet both on one page, so each is
+// shown with the other: "Kita (KT)".
+const LAND_PURPOSES = [
+  { code: "KT", name: "Kita", full: "Kitos paskirties žemė, skirta statybai" },
+  { code: "Ž", name: "Žemės ūkio", full: "Žemės ūkio paskirties žemė" },
+  { code: "M", name: "Miškų ūkio", full: "Miškų ūkio paskirties žemė" },
+  { code: "K", name: "Konservacinė", full: "Konservacinės paskirties žemė" },
+  { code: "V", name: "Vandens ūkio", full: "Vandens ūkio paskirties žemė" },
+];
+
+function landPurposeByName(name: string) {
+  return LAND_PURPOSES.find((purpose) => purpose.name.toLowerCase() === name.trim().toLowerCase());
+}
+
+// "Kita" → "Kita (KT)"; an unknown purpose is left as it is.
+function describeLandPurpose(name: string): string {
+  const purpose = landPurposeByName(name);
+  return purpose ? `${purpose.name} (${purpose.code})` : name;
+}
+
+// "Pagrindinė žemės naudojimo paskirtis: KT." → "… paskirtis: Kita (KT)."
+function decodePurposeCodes(text: string): string {
+  return text.replace(/(^|:\s*)(KT|Ž|M|K|V)(?=\.?$)/, (_, lead: string, code: string) => {
+    const purpose = LAND_PURPOSES.find((p) => p.code === code)!;
+    return `${lead}${purpose.name} (${code})`;
+  });
+}
+
+// Where a reader checks what this report cannot show. The TPDR map searches
+// planning documents by number; geoportal.lt shows the special land-use
+// conditions on its map; the Registrų centras self-service sells the NTR extract.
+const TPDR_MAP_URL = "https://tpdr.planuojustatau.lt/map/main.html";
+const CHECK_ELSEWHERE_LINKS: ExternalLink[] = [
+  { label: "geoportal.lt žemėlapis", href: "https://www.geoportal.lt/map/" },
+  { label: "Užsakyti NTR išrašą", href: "https://www.registrucentras.lt/savitarna/" },
+];
+
+export type ExternalLink = { label: string; href: string };
+
 type FieldRule = {
   label: string;
   unit?: string;
@@ -71,6 +135,9 @@ type FieldRule = {
   isUniqueNumber?: boolean; // format as 4400-4756-6034 (grouped registry number)
   linksToParcelAtPoint?: boolean; // link the value to the parcel at the item's lat/lng
   wide?: boolean; // long text (addresses, names): spans both grid columns
+  prefixesHeading?: boolean; // shown before the heading ("2021-03-19 · Leidimas…") instead of as a row
+  format?: (value: string) => string; // decode a registry code into words
+  externalHref?: (value: string) => string; // where the value can be looked up
 };
 
 // Per-panel field rules. A field absent from its panel's map is HIDDEN by
@@ -90,8 +157,9 @@ const FIELD_RULES: Record<string, Record<string, FieldRule>> = {
   "biip-boundary": {
     municipality: { label: "Savivaldybė" },
     areaHectares: { label: "Sklypo plotas", unit: "ha" },
-    landPurpose: { label: "Pagrindinė naudojimo paskirtis" },
-    landUse: { label: "Naudojimo būdas" },
+    // landPurpose is BIIP's purpose group, which is always "Žemės naudojimo":
+    // the name of the group, not a value, so it is left out.
+    landUse: { label: "Pagrindinė naudojimo paskirtis", format: describeLandPurpose },
     status: { label: "Statusas" },
     updatedAt: { label: "Atnaujinta" },
   },
@@ -143,8 +211,8 @@ const FIELD_RULES: Record<string, Record<string, FieldRule>> = {
     link: { label: "Daugiau informacijos", isLink: true },
   },
   "asgr-regulations": {
-    summary: { label: "Aprašymas", isHeading: true },
-    mainPurpose: { label: "Pagrindinė paskirtis" },
+    summary: { label: "Aprašymas", isHeading: true, format: decodePurposeCodes },
+    mainPurpose: { label: "Pagrindinė paskirtis", format: decodePurposeCodes },
     useMethod: { label: "Naudojimo būdas" },
     useType: { label: "Naudojimo tipas" },
     functionalZone: { label: "Funkcinė zona" },
@@ -152,16 +220,17 @@ const FIELD_RULES: Record<string, Record<string, FieldRule>> = {
     maxIntensity: { label: "Didžiausias užstatymo intensyvumas" },
     maxDensityPct: { label: "Didžiausias užstatymo tankis", unit: "%" },
     minGreeneryPct: { label: "Mažiausias apželdinimas", unit: "%" },
-    documentNo: { label: "Dokumento Nr." },
+    // TPDR has no per-document address, so the number leads to its search map.
+    documentNo: { label: "Dokumento Nr.", externalHref: () => TPDR_MAP_URL },
     approvedAt: { label: "Patvirtinta" },
   },
   "szns-restrictions": {
     intersectingConditions: { label: "Galiojančių sąlygų skaičius" },
   },
   "osp-building-permits": {
+    issuedDate: { label: "Data", prefixesHeading: true },
     permitType: { label: "Dokumento tipas", isHeading: true },
-    permitNumber: { label: "Leidimo Nr." },
-    issuedDate: { label: "Išdavimo data" },
+    permitNumber: { label: "Dokumento Nr." },
     status: { label: "Statusas" },
     buildingDescription: { label: "Statinio pavadinimas", wide: true },
     buildingPurpose: { label: "Statinio paskirtis" },
@@ -198,7 +267,7 @@ const FIELD_RULES: Record<string, Record<string, FieldRule>> = {
     // The short facts pair up first; the address closes every card on a full
     // row, whether or not the optional "Tipas" (health places have none) is there.
     category: { label: "Kas tai" },
-    distanceKm: { label: "Atstumas tiesia linija", unit: "km" },
+    distanceKm: { label: "Atstumas tiesia linija", unit: "km", format: (km) => `~${km}` },
     type: { label: "Tipas" },
     address: { label: "Adresas", linksToParcelAtPoint: true, wide: true },
   },
@@ -233,7 +302,7 @@ const FIELD_RULES: Record<string, Record<string, FieldRule>> = {
 // small and muted at the bottom of each expanded panel — trustworthy, not loud.
 // Derived from the single DATA_SOURCES catalog (data-sources.ts) so the panel
 // footer and the /duomenu-saltiniai page can never name a source differently.
-type SourceInfo = { name: string; api: string };
+type SourceInfo = { name: string; api: string; dataDate?: string };
 const PANEL_SOURCES: Record<string, SourceInfo> = Object.fromEntries(
   DATA_SOURCES.filter((s) => s.panelKey).map((s) => [s.panelKey as string, { name: s.name, api: s.api }]),
 );
@@ -314,20 +383,21 @@ function num(value: unknown): number | undefined {
 //
 // Infostatyba holds ~60 document kinds (requests, permits, completion acts,
 // unauthorised-construction acts) with as many statuses. A buyer asks three
-// things of them: what was built, what is allowed, what went wrong. So the list
-// is grouped by stage instead of shown in registry order.
+// things of them: what went wrong, how the building came about, and whether
+// it was finished. So violations come first, then the valid documents as one
+// timeline (request → permit → completion), then what was turned down.
 // ---------------------------------------------------------------------------
 
 type PermitStage = "completed" | "permit" | "request" | "violation" | "rejected" | "structure" | "other";
 
-const PERMIT_STAGES: { stage: PermitStage; title: string }[] = [
-  { stage: "completed", title: "Užbaigta statyba" },
-  { stage: "permit", title: "Išduoti leidimai" },
-  { stage: "request", title: "Prašymai" },
-  { stage: "violation", title: "Pažeidimai ir privalomieji nurodymai" },
-  { stage: "rejected", title: "Atmesta arba nebegalioja" },
-  { stage: "structure", title: "Projektuose numatyti statiniai" },
-  { stage: "other", title: "Kiti dokumentai" },
+// Stages read together as the course of the construction, oldest first.
+const TIMELINE_STAGES = new Set<PermitStage>(["request", "permit", "completed", "other"]);
+
+const PERMIT_GROUPS: { stages: Set<PermitStage>; title: string; oldestFirst: boolean }[] = [
+  { stages: new Set(["violation"]), title: "Pažeidimai ir privalomieji nurodymai", oldestFirst: false },
+  { stages: TIMELINE_STAGES, title: "Statybos eiga", oldestFirst: true },
+  { stages: new Set(["rejected"]), title: "Atmesta arba nebegalioja", oldestFirst: false },
+  { stages: new Set(["structure"]), title: "Projektuose numatyti statiniai", oldestFirst: false },
 ];
 
 const REJECTED_STATUS = /^(atmest|nepatenkint|negaliojant|neišduot|nutraukt|nepatvirtint|pasiūlymams nepritarta)/i;
@@ -347,15 +417,50 @@ function permitStage(item: RawItem): PermitStage {
   return "other";
 }
 
-// Stage order, newest document first within a stage; each item carries its
-// stage title with the stage's count, ready to render as a sub-heading.
+// Group order, by date within a group; each item carries its group title with
+// the group's count, ready to render as a sub-heading.
 function groupPermits(items: RawItem[]): { raw: RawItem; group: string }[] {
-  return PERMIT_STAGES.flatMap(({ stage, title }) => {
-    const inStage = items
-      .filter((item) => permitStage(item) === stage)
-      .sort((a, b) => String(b.issuedDate ?? "").localeCompare(String(a.issuedDate ?? "")));
-    return inStage.map((raw) => ({ raw, group: `${title} (${inStage.length})` }));
+  return PERMIT_GROUPS.flatMap(({ stages, title, oldestFirst }) => {
+    const inGroup = items
+      .filter((item) => stages.has(permitStage(item)))
+      .sort((a, b) => {
+        const order = String(a.issuedDate ?? "").localeCompare(String(b.issuedDate ?? ""));
+        return oldestFirst ? order : -order;
+      });
+    return inGroup.map((raw) => ({ raw, group: `${title} (${inGroup.length})` }));
   });
+}
+
+const yearOf = (item: RawItem) => /^\d{4}/.exec(String(item.issuedDate ?? ""))?.[0];
+
+// The newest valid document of a kind, for the one-line verdict.
+function newestPermit(items: RawItem[], kind: RegExp): RawItem | undefined {
+  return items
+    .filter((item) => !REJECTED_STATUS.test(String(item.status ?? "")) && kind.test(String(item.permitType ?? "")))
+    .sort((a, b) => String(b.issuedDate ?? "").localeCompare(String(a.issuedDate ?? "")))[0];
+}
+
+const COMPLETION = /užbaigim/i;
+const BUILD_PERMIT = /^(leidimas|rašytinis pritarimas)/i;
+
+// "Užbaigta 2024 m. (garažas)" — what the documents add up to, from the newest
+// completion act, or else the newest building permit. `text` fits a summary
+// chip; the panel's insight puts "Statyba" in front of a completion.
+function permitVerdict(items: RawItem[]): { text: string; completed: boolean; state: FlagState } | undefined {
+  const completion = newestPermit(items, COMPLETION);
+  if (completion) {
+    // Say what was finished: a garage's completion says nothing of the house.
+    const year = yearOf(completion);
+    const what = String(completion.buildingDescription ?? "");
+    const subject = !isNoiseValue(what) && what.length <= 40 ? ` (${what.charAt(0).toLowerCase()}${what.slice(1)})` : "";
+    return { text: `Užbaigta${year ? ` ${year}\u00a0m.` : ""}${subject}`, completed: true, state: "good" };
+  }
+  const permit = newestPermit(items, BUILD_PERMIT);
+  if (permit) {
+    const year = yearOf(permit);
+    return { text: `Leidimas statyti${year ? ` ${year}\u00a0m.` : ""}, užbaigimas neįformintas`, completed: false, state: "check" };
+  }
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -366,7 +471,7 @@ function groupPermits(items: RawItem[]): { raw: RawItem; group: string }[] {
 
 const PAPER_ONLY_NOTE = "Senesnė, tik popieriuje registruota statyba čia nematoma.";
 
-const INSIGHTS: Record<string, (items: RawItem[]) => string | undefined> = {
+const INSIGHTS: Record<string, (items: RawItem[], note?: string) => string | undefined> = {
   "geoportal-constraints": (items) =>
     items.length > 0
       ? "Sklypas patenka į saugomą teritoriją. Statybai ir ūkinei veiklai gali galioti papildomi reikalavimai, kuriuos nustato teritorijos nuostatai ir planavimo dokumentai."
@@ -388,9 +493,14 @@ const INSIGHTS: Record<string, (items: RawItem[]) => string | undefined> = {
       return `Infostatyboje šiam sklypui elektroninių statybos dokumentų nerasta. ${PAPER_ONLY_NOTE}`;
     }
     const violations = items.filter((item) => permitStage(item) === "violation").length;
-    return violations > 0
-      ? `Rasta statybos pažeidimų dokumentų (${violations}). Prieš perkant verta išsiaiškinti, ar pažeidimai pašalinti. ${PAPER_ONLY_NOTE}`
-      : PAPER_ONLY_NOTE;
+    if (violations > 0) {
+      return `Rasta statybos pažeidimų dokumentų (${violations}). Prieš perkant verta išsiaiškinti, ar pažeidimai pašalinti. ${PAPER_ONLY_NOTE}`;
+    }
+    const verdict = permitVerdict(items);
+    const sentence = verdict && (verdict.completed ? `Statyba u${verdict.text.slice(1)}` : verdict.text);
+    // The verdict may already end in "m." — no second period after it.
+    const lead = sentence ? `${sentence.replace(/\.$/, "")}. ` : "";
+    return `${lead}Pažeidimų dokumentų nerasta. ${PAPER_ONLY_NOTE}`;
   },
   "asgr-regulations": (items) => {
     if (items.length === 0) return undefined;
@@ -417,6 +527,12 @@ const INSIGHTS: Record<string, (items: RawItem[]) => string | undefined> = {
     items.some((item) => num(item.marketValueEur))
       ? "Tai Registrų centro masiniu vertinimu nustatyta statistinė vertė, ne konkretaus sandorio kaina. Reali rinkos kaina gali skirtis."
       : undefined,
+  // The operators' reporting date, which the summary chip cannot carry.
+  broadband: (items, note) => {
+    if (items.length === 0) return undefined;
+    const date = note?.match(/\d{4}-\d{2}-\d{2}/)?.[0];
+    return `${date ? `Operatorių duomenys ${date}. ` : ""}Mobiliojo ryšio (4G/5G) aprėptis čia nevertinama.`;
+  },
   "szns-restrictions": () =>
     "Apsaugos zonų ir servitutų duomenis Registrų centras teikia tik pagal sutartį, todėl jų čia neparodome. Pasitikrinkite Nekilnojamojo turto registro išraše arba geoportal.lt žemėlapyje.",
 };
@@ -426,6 +542,7 @@ export type CuratedField = {
   value: string;
   isLink?: boolean;
   href?: string; // in-site route the value links to
+  externalHref?: string; // another site where the value can be looked up
   wide?: boolean;
 };
 
@@ -440,7 +557,10 @@ export type CuratedPanel = {
   title: string;
   state: "ok" | "empty" | "unavailable";
   count: number;
-  message?: string; // shown when empty / unavailable
+  countLabel?: string; // "3 laikotarpiai"; absent for one-record panels
+  retryable?: boolean; // the source failed and asking again may help
+  links?: ExternalLink[]; // where to check what the source would not give
+  message?: string; // shown when empty / unavailable; absent for a plain "nothing found"
   insight?: string; // plain-language meaning of the finding, shown first
   note?: string; // reading guide under the items (scope, data date)
   items: CuratedItem[];
@@ -452,12 +572,44 @@ export type CuratedCategory = {
   panels: CuratedPanel[];
 };
 
+// Registry strings carry decimals with a point ("253.9"); readers expect the
+// Lithuanian comma. Only plain decimals are converted: years, codes and
+// numbers with leading zeros stay as they came.
+const DECIMAL_STRING = /^-?\d+\.\d+$/;
+
 function formatScalar(value: unknown, unit?: string): string {
   let out: string;
   if (typeof value === "boolean") out = value ? "Taip" : "Ne";
   else if (typeof value === "number") out = value.toLocaleString("lt-LT");
+  else if (typeof value === "string" && DECIMAL_STRING.test(value.trim())) out = Number(value).toLocaleString("lt-LT");
   else out = String(value);
   return unit ? `${out} ${unit}` : out;
+}
+
+// Per-panel touch-ups of a raw record before its fields are curated.
+const ITEM_ADJUSTERS: Record<string, (item: RawItem) => RawItem> = {
+  // The comparison is rewritten from the counts, so cached reports read the
+  // same as fresh ones, and a half-year says that the year is not over.
+  "crime-stats": (item) => ({
+    ...item,
+    period: /pusmetis/i.test(String(item.period)) ? `${item.period} (metų duomenys dar nepilni)` : item.period,
+    comparison:
+      typeof item.allCrimes === "number" && typeof item.areaAveragePerKm2 === "number"
+        ? describeCrimeComparison(item.allCrimes, item.areaAveragePerKm2)
+        : item.comparison,
+  }),
+};
+
+// The date a panel's data describe, where the source states one; otherwise
+// the data are as of the report itself.
+function panelDataDate(panel: ParcelReport["reportPanels"][number]): string | undefined {
+  if (panel.key === "osp-parcel-summary") {
+    const date = (panel.items as RawItem[])[0]?.cadastralDataDate;
+    return typeof date === "string" && !isNoiseValue(date) ? date : undefined;
+  }
+  if (panel.key === "census-households") return "2021 m. surašymas";
+  if (panel.key === "broadband") return panel.note?.match(/\d{4}-\d{2}-\d{2}/)?.[0];
+  return undefined;
 }
 
 function curatePanel(
@@ -466,28 +618,31 @@ function curatePanel(
   const title = PANEL_TITLES[panel.key] ?? panel.title;
   const rules = FIELD_RULES[panel.key] ?? {};
   const source = PANEL_SOURCES[panel.key];
+  const sourceWithDate = source ? { ...source, dataDate: panelDataDate(panel) } : undefined;
 
   const insightFor = INSIGHTS[panel.key];
 
   // An upstream failure is not an empty result: say no answer came back, never
   // "Įrašų nerasta." (which would read as a clean bill). Panels gated by design
-  // (SŽNS) explain themselves through their insight instead.
+  // (SŽNS) explain themselves through their insight and point to where the
+  // reader can check instead.
   if (panel.status === "error" || panel.status === "partial") {
+    const gated = panel.status === "partial" && insightFor !== undefined;
     return {
       key: panel.key,
       title,
       state: "unavailable",
       count: 0,
-      message:
-        panel.status === "partial" && insightFor
-          ? insightFor([])
-          : "Duomenų gauti nepavyko. Pabandykite atnaujinti vėliau.",
+      retryable: !gated,
+      links: gated ? CHECK_ELSEWHERE_LINKS : undefined,
+      message: gated ? insightFor([]) : "Duomenų gauti nepavyko.",
       items: [],
-      source,
+      source: sourceWithDate,
     };
   }
 
-  const rawItems = panel.items as RawItem[];
+  const adjust = ITEM_ADJUSTERS[panel.key] ?? ((item: RawItem) => item);
+  const rawItems = (panel.items as RawItem[]).map(adjust);
   const ordered =
     panel.key === "osp-building-permits"
       ? groupPermits(rawItems)
@@ -495,47 +650,64 @@ function curatePanel(
 
   const items: CuratedItem[] = ordered.map(({ raw, group }) => {
     let heading: string | undefined;
+    let headingPrefix: string | undefined;
     const fields: CuratedField[] = [];
 
     for (const [key, rule] of Object.entries(rules)) {
       const value = raw[key];
       if (isNoiseValue(value)) continue;
+      const text = rule.isUniqueNumber
+        ? formatUniqueNumber(String(value))
+        : rule.format
+          ? formatScalar(rule.format(formatScalar(value)), rule.unit)
+          : formatScalar(value, rule.unit);
       if (rule.isHeading) {
-        heading = formatScalar(value);
+        heading = text;
+        continue;
+      }
+      if (rule.prefixesHeading) {
+        headingPrefix = text;
         continue;
       }
       fields.push({
         label: rule.label,
-        value: rule.isUniqueNumber
-          ? formatUniqueNumber(String(value))
-          : formatScalar(value, rule.unit),
+        value: text,
         isLink: rule.isLink,
         href:
           rule.linksToParcelAtPoint && typeof raw.lat === "number" && typeof raw.lng === "number"
             ? parcelAtPointHref(raw.lat, raw.lng)
             : undefined,
+        externalHref: rule.externalHref?.(String(value)),
         wide: rule.wide,
       });
     }
 
+    if (headingPrefix) heading = heading ? `${headingPrefix} · ${heading}` : headingPrefix;
     return { heading, group, fields };
   });
 
   // Drop items that ended up entirely empty after filtering.
   const visibleItems = items.filter((it) => it.heading || it.fields.length > 0);
+  const count = visibleItems.length;
 
   const note = NOTE_PANEL_KEYS.has(panel.key) ? panel.note : undefined;
-  const insight = insightFor?.(rawItems);
+  const insight = insightFor?.(rawItems, panel.note);
   return {
     key: panel.key,
     title,
-    state: visibleItems.length > 0 ? "ok" : "empty",
-    count: visibleItems.length,
-    message: visibleItems.length === 0 ? (insight ?? note ?? "Įrašų nerasta.") : undefined,
-    insight: visibleItems.length > 0 ? insight : undefined,
-    note: visibleItems.length > 0 ? note : undefined,
+    state: count > 0 ? "ok" : "empty",
+    count,
+    countLabel:
+      count > 0 && !SINGLE_RECORD_PANEL_KEYS.has(panel.key)
+        ? ltCount(count, COUNT_NOUNS[panel.key] ?? DEFAULT_COUNT_NOUN)
+        : undefined,
+    // A plain "nothing found" carries no message: the report gathers those
+    // panels into one "Nerasta: …" line.
+    message: count === 0 ? (insight ?? note) : undefined,
+    insight: count > 0 ? insight : undefined,
+    note: count > 0 ? note : undefined,
     items: visibleItems,
-    source,
+    source: sourceWithDate,
   };
 }
 
@@ -561,13 +733,20 @@ export function curateReport(report: ParcelReport): CuratedCategory[] {
 // Derived from the raw panels; never hand-duplicated.
 // ---------------------------------------------------------------------------
 
-// `hint` is a short secondary line under the value (an allowed maximum).
-export type SummaryFact = { label: string; value: string; hint?: string };
+// `hints` are short secondary lines under the value (how it was measured, an
+// allowed maximum). `unavailable` marks a fact whose source failed, so the
+// card can offer to ask again.
+export type SummaryFact = { label: string; value: string; hints?: string[]; unavailable?: boolean };
+
+// good = nothing to worry about, attention = worth a closer look, check = this
+// report cannot tell, look it up elsewhere.
+export type FlagState = "good" | "attention" | "check";
 export type SummaryFlag = {
   label: string;
-  state: "clear" | "present" | "info";
+  state: FlagState;
   detail: string;
   panelKey?: string; // the detailed panel this flag jumps to when clicked
+  links?: ExternalLink[]; // where to check what the report cannot
 };
 export type ReportSummary = {
   facts: SummaryFact[];
@@ -585,17 +764,17 @@ function firstItem(report: ParcelReport, key: string): RawItem | undefined {
 }
 
 // Yes/no flag over a panel's records. A check that failed upstream is unknown,
-// never "Nėra": a clean answer must come from a source that actually answered.
+// never "Nerasta": a clean answer must come from a source that actually answered.
 function presenceFlag(report: ParcelReport, key: string, label: string): SummaryFlag {
   const panel = findPanel(report, key);
   if (!panel || panel.status !== "ok") {
-    return { label, state: "info", detail: "Nepavyko patikrinti", panelKey: key };
+    return { label, state: "check", detail: "Nepavyko patikrinti", panelKey: key };
   }
   const count = panel.items.length;
   return {
     label,
-    state: count > 0 ? "present" : "clear",
-    detail: count > 0 ? `Yra (${count})` : "Nėra",
+    state: count > 0 ? "attention" : "good",
+    detail: count > 0 ? `Rasta (${count})` : "Nerasta",
     panelKey: key,
   };
 }
@@ -615,11 +794,12 @@ const formatM2 = (m2: number) => `${Math.round(m2).toLocaleString("lt-LT")}\u00a
 const formatPct = (pct: number) => `${pct.toLocaleString("lt-LT", { maximumFractionDigits: 1 })}\u00a0%`;
 
 // Užstatymas: how much of the parcel is built on and how much floor area stands
-// on it. SSVA ratios come first: they count roofed structures too and draw the
-// gross floor area from the property register. Without them, the built-up area
-// falls back to the sum of our own building footprints. Where the planning
-// regulation sets a maximum density or intensity, the allowed amount is shown
-// alongside, so an owner sees how much more may be built.
+// on it. One figure leads: our building footprints, the same ones the map and
+// the "Pastatai" panel show. SSVA's density also counts roofed structures
+// (carports, canopies), so where it is noticeably larger it is given as a
+// second line rather than a rival number. Without footprints, SSVA leads.
+// Where the planning regulation sets a maximum density or intensity, the
+// allowed amount is shown alongside, so an owner sees how much more may be built.
 function builtUpFacts(
   report: ParcelReport,
   areaHa: number | undefined,
@@ -635,31 +815,31 @@ function builtUpFacts(
   const allowedPct = firstLimit("maxDensityPct");
   const allowedIntensity = firstLimit("maxIntensity");
 
-  let builtM2: number | undefined;
   const densityPct = num(ssva?.densityPct);
-  if (densityPct) builtM2 = (densityPct / 100) * parcelM2;
-  else if (buildings && buildings.length > 0) {
-    builtM2 = buildings.reduce(
-      (sum, b) => sum + (b.areaSqM ?? polygonAreaM2(b.geometry.coordinates)),
-      0,
-    );
-  }
+  const roofedM2 = densityPct ? (densityPct / 100) * parcelM2 : undefined;
+  const footprintM2 =
+    buildings && buildings.length > 0
+      ? buildings.reduce((sum, b) => sum + (b.areaSqM ?? polygonAreaM2(b.geometry.coordinates)), 0)
+      : undefined;
+  const builtM2 = footprintM2 ?? roofedM2;
+  const share = (m2: number) => `${formatM2(m2)} (${formatPct((m2 / parcelM2) * 100)})`;
 
   const facts: SummaryFact[] = [];
   if (builtM2) {
-    facts.push({
-      label: "Užstatytas plotas",
-      value: `≈ ${formatM2(builtM2)} (${formatPct((builtM2 / parcelM2) * 100)})`,
-      hint: allowedPct ? `Leidžiama iki ${formatPct(allowedPct)}` : undefined,
-    });
+    const hints: string[] = [];
+    if (footprintM2 && roofedM2 && roofedM2 > footprintM2 * 1.05) {
+      hints.push(`Pastatų kontūrai; su stoginėmis ≈ ${share(roofedM2)}`);
+    }
+    if (allowedPct) hints.push(`Leidžiama iki ${formatPct(allowedPct)}`);
+    facts.push({ label: "Užstatytas plotas", value: `≈ ${share(builtM2)}`, hints });
   }
   const intensity = num(ssva?.intensity);
   if (intensity) {
-    facts.push({
-      label: "Pastatų bendrasis plotas",
-      value: `≈ ${formatM2(intensity * parcelM2)}`,
-      hint: allowedIntensity ? `Leidžiama iki ≈ ${formatM2(allowedIntensity * parcelM2)}` : undefined,
-    });
+    // Floor area can be smaller than the built-up area: it counts the
+    // registered floors only, without carports and terraces.
+    const hints = ["Registruotas visų aukštų plotas, be stoginių ir terasų"];
+    if (allowedIntensity) hints.push(`Leidžiama iki ≈ ${formatM2(allowedIntensity * parcelM2)}`);
+    facts.push({ label: "Pastatų bendrasis plotas", value: `≈ ${formatM2(intensity * parcelM2)}`, hints });
   }
   return facts;
 }
@@ -722,12 +902,17 @@ export function buildSummary(report: ParcelReport): ReportSummary {
     facts.push({ label: "Perimetras", value: `${Math.round(perimeterM(polygons)).toLocaleString("lt-LT")} m` });
   }
 
-  // Paskirtis — derived from "Naudojimo būdas" (landUse): the specific permitted
-  // use says more to a reader than the broad purpose group. Fall back to the
-  // purpose group only when the use method is missing.
-  const purpose = boundary?.landUse ?? boundary?.landPurpose;
-  if (purpose && !isNoiseValue(purpose)) {
-    facts.push({ label: "Paskirtis", value: String(purpose) });
+  // Paskirtis — BIIP's purpose name ("Kita"), with the code the planning
+  // documents use for it and its full name. landPurpose is BIIP's group name
+  // ("Žemės naudojimo"), never a value, so it is not a fallback.
+  const purpose = boundary?.landUse;
+  if (typeof purpose === "string" && !isNoiseValue(purpose)) {
+    const known = landPurposeByName(purpose);
+    facts.push({
+      label: "Paskirtis",
+      value: describeLandPurpose(purpose),
+      hints: known ? [known.full] : undefined,
+    });
   }
 
   // Pastatų skaičius — footprints inside the parcel are the most trustworthy count.
@@ -746,47 +931,59 @@ export function buildSummary(report: ParcelReport): ReportSummary {
 
   facts.push(...builtUpFacts(report, areaHa, buildings));
 
-  // Vidutinė rinkos vertė — RC mass valuation (registrucentras.lt masvert).
+  // Vidutinė rinkos vertė — RC mass valuation (registrucentras.lt masvert). A
+  // buyer's first question, so a failed lookup stays on the card with a way to
+  // ask again instead of silently dropping out.
+  const valuation = findPanel(report, "rc-masvert");
   const marketValue = firstItem(report, "rc-masvert")?.marketValueEur;
   if (typeof marketValue === "number" && marketValue > 0) {
     facts.push({
       label: "Vidutinė rinkos vertė",
       value: `${marketValue.toLocaleString("lt-LT")} €`,
     });
+  } else if (valuation?.status === "error") {
+    facts.push({ label: "Vidutinė rinkos vertė", value: "Nepavyko gauti", unavailable: true });
   }
 
   // Artimiausia mokykla / darželis — the distance a family asks about first.
+  // Measured as the crow flies, which the "~" and the words say: by road it
+  // is further, in the countryside often by half again.
   for (const [category, label] of [
     ["Mokykla", "Artimiausia mokykla"],
     ["Darželis", "Artimiausias darželis"],
   ] as const) {
     const distanceKm = nearestDistanceKm(report, category);
     if (distanceKm != null) {
-      facts.push({ label, value: `${distanceKm.toLocaleString("lt-LT")} km` });
+      facts.push({ label, value: `~${distanceKm.toLocaleString("lt-LT")} km tiesia linija` });
     }
   }
 
-  // Flags — the yes/no answers a buyer/owner worries about.
+  // Flags — the answers a buyer/owner worries about, each with its tone.
   const flags: SummaryFlag[] = [];
 
   flags.push(presenceFlag(report, "geoportal-constraints", "Saugomos teritorijos"));
   flags.push(presenceFlag(report, "kvr-heritage", "Kultūros paveldas"));
   flags.push(presenceFlag(report, "osp-pollution-risks", "Taršos rizika"));
 
-  // Unauthorised construction or binding orders — raised only when present: the
-  // registry covers electronic records only, so absence is no proof of a clean past.
+  // Building documents: unauthorised construction or binding orders first;
+  // otherwise what the valid documents add up to. Nothing is said when there
+  // are no documents: the registry covers electronic records only, so absence
+  // is no proof of either a clean or a troubled past.
   const permits = findPanel(report, "osp-building-permits");
-  const violations =
-    permits?.status === "ok"
-      ? (permits.items as RawItem[]).filter((item) => permitStage(item) === "violation").length
-      : 0;
-  if (violations > 0) {
-    flags.push({
-      label: "Statybos pažeidimai",
-      state: "present",
-      detail: `Yra (${violations})`,
-      panelKey: "osp-building-permits",
-    });
+  if (permits?.status === "ok") {
+    const permitItems = permits.items as RawItem[];
+    const violations = permitItems.filter((item) => permitStage(item) === "violation").length;
+    const verdict = permitVerdict(permitItems);
+    if (violations > 0) {
+      flags.push({
+        label: "Statybos dokumentai",
+        state: "attention",
+        detail: `Pažeidimų: ${violations}`,
+        panelKey: "osp-building-permits",
+      });
+    } else if (verdict) {
+      flags.push({ label: "Statybos dokumentai", state: verdict.state, detail: verdict.text, panelKey: "osp-building-permits" });
+    }
   }
 
   const floodPanel = findPanel(report, "flood-risk");
@@ -794,49 +991,67 @@ export function buildSummary(report: ParcelReport): ReportSummary {
     const floodCount = floodPanel.items.length;
     flags.push({
       label: "Potvynių rizika",
-      state: floodCount > 0 ? "present" : "clear",
-      detail: floodCount > 0 ? "Yra" : "Nėra",
+      state: floodCount > 0 ? "attention" : "good",
+      detail: floodCount > 0 ? "Patenka į rizikos zoną" : "Nerasta",
       panelKey: "flood-risk",
     });
   }
 
   // Crime — the full-year item carries the comparison with the surroundings.
+  // The server's level keeps quiet village cells "good" even when they sit
+  // above an empty-field average; the words give the actual numbers.
   const crimePanel = findPanel(report, "crime-stats");
   const crimeYear = crimePanel?.status === "ok"
     ? (crimePanel.items as RawItem[]).find((item) => typeof item.comparison === "string")
     : undefined;
   if (crimeYear) {
     const level = crimeYear.comparisonLevel;
+    const count = num(crimeYear.allCrimes);
+    const average = num(crimeYear.areaAveragePerKm2);
     flags.push({
-      label: "Nusikalstamumas",
-      state: level === "higher" ? "present" : level === "lower" ? "clear" : "info",
-      detail: String(crimeYear.comparison),
+      label: `Nusikalstamumas, ${String(crimeYear.period).replace(/ m\.$/, "\u00a0m.")}`,
+      state: level === "higher" ? "attention" : level === "lower" ? "good" : "check",
+      detail: count !== undefined && average !== undefined
+        ? describeCrimeComparison(count, average)
+        : String(crimeYear.comparison),
       panelKey: "crime-stats",
     });
   }
 
-  // Šviesolaidis — fibre in the surrounding 1 km² cell. Absence is shown as
-  // neutral info, not a warning: copper/wireless still gives a connection.
+  // Šviesolaidis — fibre in the surrounding 1 km² cell. Its absence is worth a
+  // look for anyone working from home, so it is said with what there is instead.
   const broadbandPanel = findPanel(report, "broadband");
   if (broadbandPanel?.status === "ok") {
     const technologies = broadbandPanel.items as RawItem[];
     const hasFibre = technologies.some((item) => String(item.technology).startsWith("Šviesolaidis"));
+    // "Telefono linija (DSL)" → "telefono linija (DSL)": mid-sentence, with
+    // the abbreviation left alone.
+    const others = technologies.map((item) => {
+      const name = String(item.technology);
+      return name.charAt(0).toLowerCase() + name.slice(1);
+    });
     flags.push({
       label: "Šviesolaidinis internetas aplinkui",
-      state: hasFibre ? "clear" : "info",
-      detail: hasFibre ? "Yra" : technologies.length > 0 ? "Nėra" : "Nėra duomenų",
+      state: hasFibre ? "good" : technologies.length > 0 ? "attention" : "check",
+      detail: hasFibre
+        ? "Yra"
+        : technologies.length > 0
+          ? `Nėra, tik ${others.join(", ")}`
+          : "Nėra duomenų",
       panelKey: "broadband",
     });
   }
 
-  // SŽNS feature data is gated upstream — be honest rather than imply "Nėra".
+  // SŽNS feature data is gated upstream — be honest rather than imply "Nerasta",
+  // and hand the reader the two places to check.
   const szns = findPanel(report, "szns-restrictions");
   if (szns && szns.status !== "ok") {
     flags.push({
       label: "Specialiosios naudojimo sąlygos",
-      state: "info",
-      detail: "Tikrinti atskirai",
+      state: "check",
+      detail: "Duomenys neviešinami",
       panelKey: "szns-restrictions",
+      links: CHECK_ELSEWHERE_LINKS,
     });
   }
 

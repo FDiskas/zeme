@@ -1,6 +1,6 @@
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
-import type { NeighborParcel, ParcelPdfOutput, ParcelReport, ParcelSearchItem } from "@zeme/shared";
+import type { NeighborParcel, OrthoSeries, ParcelPdfOutput, ParcelReport, ParcelSearchItem } from "@zeme/shared";
 
 type ParcelClient = {
   parcel: {
@@ -9,6 +9,9 @@ type ParcelClient = {
     generatePdf(input: { cadastralRegNo: string }): Promise<ParcelPdfOutput>;
     resolveByPoint(input: { lat: number; lng: number }): Promise<{ cadastralRegNo: string } | null>;
     parcelsByBbox(input: { minLat: number; minLng: number; maxLat: number; maxLng: number }): Promise<NeighborParcel[]>;
+  };
+  map: {
+    orthoSeries(): Promise<OrthoSeries[]>;
   };
 };
 
@@ -60,4 +63,16 @@ export function getParcelsByBbox(bbox: {
   maxLng: number;
 }): Promise<NeighborParcel[]> {
   return orpcClient.parcel.parcelsByBbox(bbox);
+}
+
+// The NŽT orthophoto series on offer, oldest first, "Naujausia" last. Asked
+// once per page load and shared by every map.
+let orthoSeriesRequest: Promise<OrthoSeries[]> | null = null;
+
+export function getOrthoSeries(): Promise<OrthoSeries[]> {
+  orthoSeriesRequest ??= orpcClient.map.orthoSeries().catch((error) => {
+    orthoSeriesRequest = null;
+    throw error;
+  });
+  return orthoSeriesRequest;
 }

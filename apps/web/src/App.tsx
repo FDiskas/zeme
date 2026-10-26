@@ -303,13 +303,9 @@ function ParcelPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cadastralRegNo]);
 
-  const freshness = report
-    ? report.cached
-      ? report.cacheAgeDays
-        ? `Duomenys atnaujinti prieš ${report.cacheAgeDays} d.`
-        : "Duomenys atnaujinti šiandien"
-      : "Duomenys ką tik atnaujinti"
-    : "";
+  // The exact time the sources were read, so "Atnaujinti" beside it reads as
+  // "read them again now" rather than a mystery.
+  const freshness = report ? `Duomenys atnaujinti ${formatFetchedAt(report.fetchedAt)}` : "";
 
   const refreshButton = (
     <button
@@ -396,20 +392,34 @@ function ParcelPage() {
                     <p className="text-sm text-muted">{freshness}</p>
                   </div>
                 }
+                onRetry={onRefresh}
+                retrying={loading}
               />
 
               <section className="grid grid-cols-[minmax(0,1fr)] gap-4">
                 <h2 className="text-xl tracking-[-0.02em]">Detali informacija</h2>
-                <ReportPanel report={report} />
+                <ReportPanel report={report} onRetry={onRefresh} retrying={loading} />
               </section>
             </>
           ) : null}
 
-          <RecentlyViewed history={history} showEmptyState />
+          {/* The parcel on screen is not "recent": it is left out of its own list. */}
+          <RecentlyViewed history={history.filter((entry) => entry.id !== cadastralRegNo)} />
         </div>
       </div>
     </main>
   );
+}
+
+// "šiandien 14:52", "vakar 09:10", or "2026-10-20 14:52".
+function formatFetchedAt(iso: string): string {
+  const at = new Date(iso);
+  const time = at.toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit" });
+  const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const daysAgo = Math.round((dayStart(new Date()) - dayStart(at)) / 86_400_000);
+  if (daysAgo === 0) return `šiandien ${time}`;
+  if (daysAgo === 1) return `vakar ${time}`;
+  return `${at.toLocaleDateString("lt-LT")} ${time}`;
 }
 
 // Remount ParcelPage per cadastral number: navigating from "Neseniai peržiūrėta"

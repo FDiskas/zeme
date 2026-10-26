@@ -97,6 +97,55 @@ export const parcelPdfOutputSchema = z.object({
   pdfUrl: z.string(),
 });
 
+// One NŽT orthophoto series on geoportal.lt: the ArcGIS service name and the
+// years it was flown ("1995-2001", "2015"), or "Naujausia" for the newest.
+export const orthoSeriesSchema = z.object({
+  service: z.string(),
+  label: z.string(),
+});
+
+// The series as published when this list was written, oldest first. Used until
+// the live list arrives, and whenever geoportal.lt cannot be reached.
+export const ORTHO_SERIES_FALLBACK: OrthoSeries[] = [
+  { service: "ORT10LT_1995_2001", label: "1995-2001" },
+  { service: "ORT10LT_2005_2006", label: "2005-2006" },
+  { service: "ORT10LT_2009_2010", label: "2009-2010" },
+  { service: "ORT10LT_2012_2013", label: "2012-2013" },
+  { service: "ORT10LT_2015", label: "2015" },
+  { service: "ORT10LT_2018_2020", label: "2018-2020" },
+  { service: "ORT10LT_2021_2023", label: "2021-2023" },
+  { service: "ORT10LT_2024_2026", label: "2024-2026" },
+  { service: "ORT10LT_Web_Mercator_102100", label: "Naujausia" },
+];
+
+// Lithuanian counts take one of three noun forms: 1 įrašas, 2 įrašai, 10 įrašų.
+export function ltCount(n: number, [one, few, many]: readonly [string, string, string]): string {
+  const tens = n % 100;
+  const units = n % 10;
+  const form = tens >= 11 && tens <= 19 ? many : units === 1 ? one : units >= 2 ? few : many;
+  return `${n.toLocaleString("lt-LT")} ${form}`;
+}
+
+const formatDecimal = (n: number) => n.toLocaleString("lt-LT", { maximumFractionDigits: 1 });
+
+// "3 veikos – ~2,5 karto mažiau nei apylinkių vidurkis (7,4)": the parcel's
+// 1 km² cell against the per-km² average of the 5×5 km around it. Shared, so
+// the web report and the PDF word it the same way.
+export function describeCrimeComparison(count: number, areaAverage: number): string {
+  const crimes = ltCount(count, ["veika", "veikos", "veikų"]);
+  const average = `apylinkių vidurkis (${formatDecimal(areaAverage)})`;
+  if (count === 0) return `${crimes}; ${average}`;
+  const ratio = count / Math.max(areaAverage, 0.1);
+  const times = (r: number) => {
+    const rounded = Math.round(r * 10) / 10;
+    return Number.isInteger(rounded) ? ltCount(rounded, ["kartą", "kartus", "kartų"]) : `${formatDecimal(rounded)} karto`;
+  };
+  if (ratio < 0.75) return `${crimes} – ~${times(1 / ratio)} mažiau nei ${average}`;
+  if (ratio > 1.25) return `${crimes} – ~${times(ratio)} daugiau nei ${average}`;
+  return `${crimes} – panašiai kaip ${average}`;
+}
+
+export type OrthoSeries = z.infer<typeof orthoSeriesSchema>;
 export type ParcelSearchItem = z.infer<typeof parcelSearchItemSchema>;
 export type BuildingFootprint = z.infer<typeof buildingFootprintSchema>;
 export type NeighborParcel = z.infer<typeof neighborParcelSchema>;
