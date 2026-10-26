@@ -7,14 +7,20 @@ import type { OrthoSeries } from "@zeme/shared";
 import { getParcelsByBbox } from "../lib/orpc";
 import { buildingsInParcel } from "../lib/geo";
 import {
+  COVERAGE_LEGEND,
+  COVERAGE_OPACITY,
+  COVERAGE_OPERATORS,
   ESRI_IMAGERY,
   OSM_TILES,
+  createCoverageLayer,
   createOrt10ltLayer,
   orthoIndex,
   useBasemap,
+  useCoverageOperator,
   useOrthoChoice,
   useOrthoSeries,
   type Basemap,
+  type CoverageOperator,
 } from "../lib/basemap";
 import { CrosshairIcon, LayersIcon, MinusIcon, PlusIcon } from "./icons";
 import "leaflet/dist/leaflet.css";
@@ -182,9 +188,34 @@ function Ort10ltOverlay({ series, isNewest }: { series: OrthoSeries; isNewest: b
   return null;
 }
 
+// One operator's 5G coverage from RRT, laid over the street map.
+function CoverageOverlay({ operator }: { operator: CoverageOperator }) {
+  const map = useMap();
+  useEffect(() => {
+    const layer = createCoverageLayer(operator).addTo(map);
+    return () => {
+      layer.remove();
+    };
+  }, [map, operator]);
+  return null;
+}
+
+const StreetMap = () => (
+  <TileLayer key="osm" url={OSM_TILES.url} attribution={OSM_TILES.attribution} maxNativeZoom={OSM_TILES.maxNativeZoom} maxZoom={20} zIndex={1} />
+);
+
 // The street map, or the orthophoto: Esri underneath so the view is never
-// blank, ORT10LT on top for the Lithuanian imagery of the chosen years.
-function BaseLayers({ basemap, ortho }: { basemap: Basemap; ortho: OrthoState }) {
+// blank, ORT10LT on top for the Lithuanian imagery of the chosen years. The
+// 5G view is the street map with the chosen operator's coverage on top.
+function BaseLayers({ basemap, ortho, coverage }: { basemap: Basemap; ortho: OrthoState; coverage: CoverageState }) {
+  if (basemap === "coverage") {
+    return (
+      <>
+        <StreetMap />
+        <CoverageOverlay operator={coverage.operator} />
+      </>
+    );
+  }
   if (basemap === "ortho") {
     const index = orthoIndex(ortho.series, ortho.choice);
     return (
@@ -194,13 +225,24 @@ function BaseLayers({ basemap, ortho }: { basemap: Basemap; ortho: OrthoState })
       </>
     );
   }
-  return <TileLayer key="osm" url={OSM_TILES.url} attribution={OSM_TILES.attribution} maxNativeZoom={OSM_TILES.maxNativeZoom} maxZoom={20} zIndex={1} />;
+  return <StreetMap />;
 }
 
 const BASEMAP_OPTIONS: { value: Basemap; label: string }[] = [
   { value: "map", label: "Žemėlapis" },
   { value: "ortho", label: "Ortofoto" },
+  { value: "coverage", label: "5G" },
 ];
+
+type CoverageState = {
+  operator: CoverageOperator;
+  setOperator: (next: CoverageOperator) => void;
+};
+
+function useCoverage(): CoverageState {
+  const [operator, setOperator] = useCoverageOperator();
+  return { operator, setOperator };
+}
 
 // The orthophoto series on offer and the reader's choice (a service name, or
 // null to follow the newest).
@@ -220,14 +262,19 @@ type LayerControlProps = {
   basemap: Basemap;
   onBasemapChange: (next: Basemap) => void;
   ortho: OrthoState;
+  coverage: CoverageState;
 };
 
-// Over the map's top-right corner: two soft keys for the base layer, the
-// chosen one a tinted well in heavier type. With the orthophoto on, a panel steps through the
-// survey years, oldest on the left, the chosen years set large: under the
-// keys on wide maps, along the bottom edge on a phone, so it never sits on
-// the parcel in the middle. Both choices hold for the visit, on every map.
-function MapLayerControl({ basemap, onBasemapChange, ortho }: LayerControlProps) {
+// Where the panel under the base keys sits: under the keys on wide maps,
+// along the bottom edge on a phone, so it never sits on the parcel in the middle.
+const MAP_PANEL_PLACE = "map-panel absolute inset-x-3 bottom-11 z-1000 max-sm:py-2 sm:inset-x-auto sm:top-19 sm:right-3 sm:bottom-auto sm:w-80";
+
+// Over the map's top-right corner: soft keys for the base layer, the chosen
+// one a tinted well in heavier type. With the orthophoto on, a panel steps
+// through the survey years, oldest on the left, the chosen years set large;
+// with 5G on, it picks the operator and explains the colours. The choices
+// hold for the visit, on every map.
+function MapLayerControl({ basemap, onBasemapChange, ortho, coverage }: LayerControlProps) {
   const { series } = ortho;
   const index = orthoIndex(series, ortho.choice);
   const last = series.length - 1;
@@ -251,7 +298,7 @@ function MapLayerControl({ basemap, onBasemapChange, ortho }: LayerControlProps)
       </div>
 
       {basemap === "ortho" ? (
-        <div className="map-panel absolute inset-x-3 bottom-11 z-1000 max-sm:py-2 sm:inset-x-auto sm:top-19 sm:right-3 sm:bottom-auto sm:w-80">
+        <div className={MAP_PANEL_PLACE}>
           <label htmlFor="ortho-year" className="flex flex-wrap items-baseline justify-between gap-x-3">
             <span className="text-sm text-muted">Nuotraukos metai</span>
             <output htmlFor="ortho-year" className="text-md font-medium whitespace-nowrap text-ink">{yearLabel}</output>
@@ -283,7 +330,39 @@ function MapLayerControl({ basemap, onBasemapChange, ortho }: LayerControlProps)
           </div>
         </div>
       ) : null}
+
+      {basemap === "coverage" ? <CoveragePanel coverage={coverage} /> : null}
     </>
+  );
+}
+
+// The operator keys and what the colours mean. The swatches carry the map's
+// opacity so they look like the cells over the street map.
+function CoveragePanel({ coverage }: { coverage: CoverageState }) {
+  return (
+    <div className={MAP_PANEL_PLACE}>
+      <span className="text-sm text-muted max-sm:hidden">5G ryšys pagal operatorių</span>
+      <div role="group" aria-label="Operatorius" className="seg seg--inset">
+        {COVERAGE_OPERATORS.map((option) => (
+          <button key={option.value} type="button" aria-pressed={coverage.operator === option.value} onClick={() => coverage.setOperator(option.value)}>
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink">
+        {COVERAGE_LEGEND.map((item) => (
+          <li key={item.label} className="flex items-center gap-2">
+            <span className="inline-block h-4 w-4 shrink-0 rounded-[3px]" style={{ backgroundColor: item.color, opacity: COVERAGE_OPACITY }} aria-hidden="true" />
+            {item.label}
+          </li>
+        ))}
+        <li className="flex items-center gap-2">
+          <span className="inline-block h-4 w-4 shrink-0 rounded-[3px] border border-rule bg-paper" aria-hidden="true" />
+          Nėra 5G
+        </li>
+      </ul>
+      <p className="text-xs text-muted max-sm:hidden">Tikėtina aprėptis pagal RRT skaičiavimus. Tikrasis ryšys priklauso ir nuo pastato sienų bei telefono.</p>
+    </div>
   );
 }
 
@@ -413,6 +492,7 @@ export function ExploreMap() {
   const navigate = useNavigate();
   const [basemap, setBasemap] = useBasemap();
   const ortho = useOrtho();
+  const coverage = useCoverage();
   const [map, setMap] = useState<LeafletMap | null>(null);
 
   function navigateToParcel(cadastralRegNo: string) {
@@ -429,10 +509,10 @@ export function ExploreMap() {
           <FillContainer />
           <ZoomHint />
           <ViewportParcelsLayer excludeIds={EMPTY_IDS} onNavigate={navigateToParcel} />
-          <BaseLayers basemap={basemap} ortho={ortho} />
+          <BaseLayers basemap={basemap} ortho={ortho} coverage={coverage} />
         </MapContainer>
         <MapZoomKeys map={map} />
-        <MapLayerControl basemap={basemap} onBasemapChange={setBasemap} ortho={ortho} />
+        <MapLayerControl basemap={basemap} onBasemapChange={setBasemap} ortho={ortho} coverage={coverage} />
       </div>
     </div>
   );
@@ -447,6 +527,7 @@ export function ParcelMap({ report }: Props) {
   const navigate = useNavigate();
   const [basemap, setBasemap] = useBasemap();
   const ortho = useOrtho();
+  const coverage = useCoverage();
   const [map, setMap] = useState<LeafletMap | null>(null);
   const polygon = toLatLngPath(report);
   const buildings = toBuildingShapes(report);
@@ -490,7 +571,7 @@ export function ParcelMap({ report }: Props) {
           <FitToParcel positions={polygon} />
           <ZoomHint />
           <ViewportParcelsLayer excludeIds={excludeIds} onNavigate={navigateToParcel} />
-          <BaseLayers basemap={basemap} ortho={ortho} />
+          <BaseLayers basemap={basemap} ortho={ortho} coverage={coverage} />
 
           {/* Neighbours first so they sit beneath the subject parcel and its buildings. */}
           {neighbors.map((n) => (
@@ -527,7 +608,7 @@ export function ParcelMap({ report }: Props) {
           ))}
         </MapContainer>
 
-        <MapLayerControl basemap={basemap} onBasemapChange={setBasemap} ortho={ortho} />
+        <MapLayerControl basemap={basemap} onBasemapChange={setBasemap} ortho={ortho} coverage={coverage} />
 
         <MapZoomKeys map={map}>
           <button

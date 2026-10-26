@@ -99,7 +99,11 @@ export function Footer() {
           <a href="https://www.geoportal.lt" target="_blank" rel="noreferrer" className="link">
             NŽT, geoportal.lt
           </a>{" "}
-          ir Esri. Programos kodas atviras:{" "}
+          ir Esri; 5G aprėptis:{" "}
+          <a href="https://www.rrt.lt/judriojo-rysio-tinklu-tiketinos-aprepties-zonos/" target="_blank" rel="noreferrer" className="link">
+            RRT
+          </a>
+          . Programos kodas atviras:{" "}
           <a href="https://github.com/FDiskas/zeme" target="_blank" rel="noreferrer" className="link">
             GitHub
           </a>
