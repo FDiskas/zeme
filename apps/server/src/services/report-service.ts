@@ -8,6 +8,7 @@ import {
   fetchAsgrRegulations,
   fetchKvrData,
   fetchForestCuttingPermits,
+  fetchBuiltUpRatios,
   buildPdbisPanel,
   type UpstreamPanel,
 } from "./connectors";
@@ -151,6 +152,7 @@ export async function buildComprehensiveReport(
     floodRisk,
     censusHouseholds,
     broadband,
+    builtUp,
     locality,
   ] = await Promise.all([
     fetchBiipBoundary(targetCadastralRegNo, resolvedAddress),
@@ -175,6 +177,7 @@ export async function buildComprehensiveReport(
     fetchFloodRisk(resolvedCoordinates),
     fetchCensusHouseholds(resolvedCoordinates),
     fetchBroadband(resolvedCoordinates),
+    fetchBuiltUpRatios(resolvedCoordinates),
     hasStreetAddress ? Promise.resolve("") : resolveLocalityOf(resolvedCoordinates),
   ]);
 
@@ -222,7 +225,8 @@ export async function buildComprehensiveReport(
       "OSP gydymo įstaigos",
       "Aplinkos ministerija potvynių rizikos žemėlapiai",
       "OSP 2021 m. gyventojų ir būstų surašymas",
-      "RRT fiksuotojo ryšio tinklai (data.gov.lt)"
+      "RRT fiksuotojo ryšio tinklai (data.gov.lt)",
+      "SSVA pastatų bendrojo ploto ir sklypo santykis"
     ],
     reportPanels: [
       ospParcelSummary,
@@ -230,6 +234,7 @@ export async function buildComprehensiveReport(
       marketValue,
       biipAddresses,
       grpkBuildings.panel,
+      builtUp,
       geoportal,
       asgr,
       szns,

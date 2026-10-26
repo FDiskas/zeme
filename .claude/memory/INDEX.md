@@ -9,6 +9,8 @@
 - [ux-goal-elderly-readability](project/ux-goal-elderly-readability.md) — full redesign: modern + comfortable for elderly; theme = land & buildings; direction = Hallmark Terrazzo (2026-10-26); map big + info concise (map-first parcel page). keywords: ux, ui, redesign, modern, theme, land, buildings, readability, elderly, accessibility, design-goal, terrazzo
 - [forest-fish-and-infostatyba-sources](project/forest-fish-and-infostatyba-sources.md) — forest-cutting permits OPEN via lkmp.alisas.lt geometry dump (not data.gov.lt — that misses state forest); fish stocking gated; Infostatyba kadastro_nr padding bug fixed. keywords: miskas, kirtimo leidimai, zuvinimas, infostatyba, kadastro_nr, padding, lkmp, amvmt, biip
 - [neighbourhood-data-sources](project/neighbourhood-data-sources.md) — integrated crime/public-order, schools, health, flood, census households, broadband; rejected apartment-deal grid + bad population grids + stale EIIS; noise/soil need ZIP ingest. keywords: nusikalstamumas, crime, mokyklos, darzeliai, gydymo istaigos, triuksmas, potvyniai, overpass
+- [competitor-sklypoinfo](project/competitor-sklypoinfo.md) — sklypoinfo.lt example report = benchmark; their 23 sections vs our neighbourhood edge. keywords: sklypoinfo, competitor, benchmark, features
+- [ssva-open-data-hub](project/ssva-open-data-hub.md) — SSVA ArcGIS hub: per-parcel užstatymo tankis/intensyvumas INTEGRATED (ssva-built-up); block census + green access candidates. keywords: ssva, užstatymas, tankis, intensyvumas, kvartalai
 
 ## feedback/
 

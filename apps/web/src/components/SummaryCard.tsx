@@ -1,7 +1,8 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { ParcelReport } from "@zeme/shared";
 import { buildSummary, findParcelUniqueNumber, parcelCenter, type SummaryFlag } from "../lib/report-format";
-import { CheckIcon, ChevronRight, InfoIcon, PinIcon, WarningIcon } from "./icons";
+import { wgs84ToLks94 } from "../lib/geo";
+import { CheckIcon, ChevronRight, CopyIcon, InfoIcon, PinIcon, WarningIcon } from "./icons";
 
 // Smoothly bring the related detailed panel into view (and open it if it is a
 // collapsible <details>), so a summary flag like "Taršos rizika · Yra (1)" jumps
@@ -32,18 +33,38 @@ export function SummaryCard({ report, actions }: Props) {
   const { facts, flags } = buildSummary(report);
   const uniqueNumber = findParcelUniqueNumber(report);
 
+  const [copied, setCopied] = useState(false);
+
   // No street address → honest label instead of a fabricated one, plus the
   // locality (village, eldership, municipality) so the reader still learns where
   // the parcel is. An administrative-area label in `address` is not a street
-  // address either. The parcel centre powers both the secondary "Sklypo
-  // centras" line (no-address case) and the Google Maps link; undefined when
-  // the outline is unknown.
+  // address either. The parcel centre powers the coordinate rows (WGS-84 for
+  // phones and maps, LKS-94 for surveyors and the cadastre) and the navigation
+  // links; undefined when the outline is unknown.
   const hasAddress = report.hasStreetAddress !== false && report.address.trim() !== "";
   const locality = !hasAddress ? report.locality : undefined;
   const center = parcelCenter(report);
-  const mapsUrl = center
-    ? `https://www.google.com/maps/search/?api=1&query=${center.lat},${center.lng}`
-    : undefined;
+  const wgs = center ? `${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}` : undefined;
+  const lks = center ? wgs84ToLks94(center.lng, center.lat) : undefined;
+  const mapLinks = center
+    ? [
+        { name: "Google", href: `https://www.google.com/maps/search/?api=1&query=${center.lat},${center.lng}` },
+        { name: "Apple", href: `https://maps.apple.com/?ll=${center.lat},${center.lng}&q=${encodeURIComponent(report.cadastralRegNo)}` },
+        { name: "Waze", href: `https://waze.com/ul?ll=${center.lat},${center.lng}&navigate=yes` },
+      ]
+    : [];
+
+  async function copyCoordinates() {
+    if (!wgs) return;
+    try {
+      await navigator.clipboard.writeText(wgs);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard blocked (insecure context, denied permission): the
+      // coordinates stay on screen to copy by hand.
+    }
+  }
 
   return (
     <section className="card">
@@ -62,20 +83,33 @@ export function SummaryCard({ report, actions }: Props) {
                 <dd className="code text-md text-ink">{uniqueNumber}</dd>
               </>
             ) : null}
-            {report.hasStreetAddress === false && center ? (
+            {wgs && lks ? (
               <>
-                <dt>Sklypo centras</dt>
+                <dt>Centras (WGS-84)</dt>
+                <dd className="code text-md text-ink">{wgs}</dd>
+                <dt>Centras (LKS-94)</dt>
                 <dd className="code text-md text-ink">
-                  {center.lat.toFixed(5)}, {center.lng.toFixed(5)}
+                  {lks.x.toFixed(2)}, {lks.y.toFixed(2)}
                 </dd>
               </>
             ) : null}
           </dl>
-          {mapsUrl ? (
-            <a href={mapsUrl} target="_blank" rel="noreferrer" className="link inline-flex w-fit items-center gap-2 whitespace-nowrap text-sm">
-              <PinIcon className="h-5 w-5 shrink-0" />
-              Žemėlapyje (Google)
-            </a>
+          {mapLinks.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+              <span className="inline-flex items-center gap-2 text-muted">
+                <PinIcon className="h-5 w-5 shrink-0" />
+                Atidaryti:
+              </span>
+              {mapLinks.map((link) => (
+                <a key={link.name} href={link.href} target="_blank" rel="noreferrer" className="link whitespace-nowrap">
+                  {link.name}
+                </a>
+              ))}
+              <button type="button" onClick={copyCoordinates} className="link inline-flex items-center gap-1.5 whitespace-nowrap">
+                <CopyIcon className="h-4 w-4 shrink-0" />
+                <span aria-live="polite">{copied ? "Nukopijuota" : "Kopijuoti koordinates"}</span>
+              </button>
+            </div>
           ) : null}
         </div>
 
@@ -87,7 +121,10 @@ export function SummaryCard({ report, actions }: Props) {
           {facts.map((fact) => (
             <div key={fact.label} className="flex items-baseline justify-between gap-4 py-3">
               <dt className="text-sm text-muted">{fact.label}</dt>
-              <dd className="text-right text-md font-medium text-ink tabular-nums">{fact.value}</dd>
+              <dd className="text-right text-md font-medium text-ink tabular-nums">
+                {fact.value}
+                {fact.hint ? <span className="block text-sm font-normal text-ink-2">{fact.hint}</span> : null}
+              </dd>
             </div>
           ))}
         </dl>

@@ -24,6 +24,7 @@ import {
 import { resolveParcelByCoordinates } from "./services/biip-service";
 import { fetchParcelByPoint, fetchParcelsByBbox, formatUniqueNumber } from "./services/osp-service";
 import { getMarketValuePanel } from "./services/masvert-service";
+import { fetchBuiltUpRatios } from "./services/connectors";
 import {
   fetchNearbyServices,
   fetchCrimeStats,
@@ -84,12 +85,15 @@ async function refreshMissingMarketValue(
   return updated;
 }
 
-const NEIGHBOURHOOD_PANELS = {
+// Panels added after reports were first cached; a cached report missing one
+// fetches it on read (see upgradeCachedReport).
+const BACKFILLED_PANELS = {
   "nearby-services": fetchNearbyServices,
   "crime-stats": fetchCrimeStats,
   "flood-risk": fetchFloodRisk,
   "census-households": fetchCensusHouseholds,
   broadband: fetchBroadband,
+  "ssva-built-up": fetchBuiltUpRatios,
 } as const;
 
 // A cached panel from an older build that lacks data the UI now relies on:
@@ -105,7 +109,7 @@ function isOutdatedPanel(panel: ParcelReport["reportPanels"][number]): boolean {
   return field !== undefined && panel.items.some((item) => !(field in item));
 }
 
-// Reports cached before the neighbourhood panels / locality existed get them
+// Reports cached before these panels / locality existed get them
 // added on read instead of waiting out the six-month cache. Saved only when
 // every added piece succeeded, so a transient upstream error is retried on the
 // next view.
@@ -116,7 +120,7 @@ async function upgradeCachedReport(
 ): Promise<ParcelReport> {
   if (!hasUsableGeometry(report.coordinates)) return report;
 
-  const stale = Object.entries(NEIGHBOURHOOD_PANELS).filter(([key]) => {
+  const stale = Object.entries(BACKFILLED_PANELS).filter(([key]) => {
     const panel = report.reportPanels.find((p) => p.key === key);
     return !panel || isOutdatedPanel(panel);
   });

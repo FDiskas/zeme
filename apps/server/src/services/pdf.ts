@@ -7,7 +7,7 @@ import { env } from "../env";
 import { renderParcelMapHtml } from "./parcel-map-image";
 
 // Bump whenever the PDF layout changes so already-generated PDFs are re-rendered.
-const PDF_TEMPLATE_VERSION = 2;
+const PDF_TEMPLATE_VERSION = 3;
 
 function safeFileId(cadastralRegNo: string): string {
   return cadastralRegNo.replace(/[^a-zA-Z0-9-_.]/g, "_");
@@ -40,7 +40,6 @@ const FIELD_LABELS: Record<string, string> = {
   landUse: "Naudojimo būdas",
   status: "Būsena",
   updatedAt: "Atnaujinta",
-  measuredMethod: "Matavimo būdas",
   address: "Adresas",
   addressesCount: "Adresų sk.",
   buildingsCount: "Pastatų sk.",
@@ -87,6 +86,8 @@ const FIELD_LABELS: Record<string, string> = {
   constructionYear: "Statybos metai",
   floors: "Aukštų sk.",
   apartments: "Butų / patalpų sk.",
+  densityPct: "Užstatymo tankis, %",
+  intensity: "Užstatymo intensyvumas",
   source: "Šaltinis",
 };
 
@@ -99,8 +100,10 @@ function escapeHtml(value: unknown): string {
     .replaceAll("'", "&#39;");
 }
 
-// Fields that steer the web UI (a flag's colour, a link target) but mean nothing printed.
-const MACHINE_ONLY_FIELDS = new Set(["comparisonLevel", "lat", "lng"]);
+// Fields that steer the web UI (a flag's colour, a link target) but mean nothing
+// printed. `measuredMethod` was a hard-coded placeholder, not registry data; older
+// cached reports still carry it, so it is dropped here too.
+const MACHINE_ONLY_FIELDS = new Set(["comparisonLevel", "lat", "lng", "measuredMethod"]);
 
 function humanizeKey(key: string): string {
   if (FIELD_LABELS[key]) return FIELD_LABELS[key];

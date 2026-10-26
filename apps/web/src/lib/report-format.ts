@@ -1,5 +1,6 @@
 import type { ParcelReport } from "@zeme/shared";
 import { DATA_SOURCES } from "./data-sources";
+import { parcelPolygons, perimeterM, pointInPolygons, polygonAreaM2, ringCentre } from "./geo";
 
 // ---------------------------------------------------------------------------
 // Curation layer
@@ -109,6 +110,10 @@ const FIELD_RULES: Record<string, Record<string, FieldRule>> = {
     apartments: { label: "Butų skaičius" },
     constructionYear: { label: "Statybos metai" },
     condition: { label: "Būklė" },
+  },
+  "ssva-built-up": {
+    densityPct: { label: "Užstatymo tankis", unit: "%" },
+    intensity: { label: "Užstatymo intensyvumas" },
   },
   "pdbis-building-data": {
     address: { label: "Adresas", isHeading: true },
@@ -239,12 +244,13 @@ const PANEL_TITLES: Record<string, string> = {
   "biip-boundary": "Sklypo ribos ir paskirtis",
   "biip-addresses": "Adresai ir patalpos",
   "grpk-buildings": "Pastatai sklype",
+  "ssva-built-up": "Esamas užstatymas",
   "pdbis-building-data": "Pastatų duomenų bankas",
   "geoportal-constraints": "Saugomos teritorijos",
   "kvr-heritage": "Kultūros paveldas",
   "asgr-regulations": "Teritorijų planavimo reglamentai",
   "szns-restrictions": "Specialiosios žemės naudojimo sąlygos",
-  "osp-building-permits": "Statybos leidimai (Infostatyba)",
+  "osp-building-permits": "Statybos dokumentai (Infostatyba)",
   "osp-pollution-risks": "Taršos ir aplinkos rizikos",
   "rc-masvert": "Vidutinė rinkos vertė (masinis vertinimas)",
   "forest-cutting-permits": "Miško kirtimo leidimai",
@@ -271,7 +277,7 @@ export const CATEGORIES: { id: string; title: string; panelKeys: string[] }[] =
     {
       id: "pastatai",
       title: "Pastatai",
-      panelKeys: ["grpk-buildings", "pdbis-building-data"],
+      panelKeys: ["grpk-buildings", "ssva-built-up", "pdbis-building-data"],
     },
     {
       id: "statyba",
@@ -296,6 +302,125 @@ export const CATEGORIES: { id: string; title: string; panelKeys: string[] }[] =
     },
   ];
 
+// A finite number from a panel field, which may arrive as a number, a numeric
+// string, or a "N/A" placeholder.
+function num(value: unknown): number | undefined {
+  const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  return Number.isFinite(n) ? n : undefined;
+}
+
+// ---------------------------------------------------------------------------
+// Building documents by stage
+//
+// Infostatyba holds ~60 document kinds (requests, permits, completion acts,
+// unauthorised-construction acts) with as many statuses. A buyer asks three
+// things of them: what was built, what is allowed, what went wrong. So the list
+// is grouped by stage instead of shown in registry order.
+// ---------------------------------------------------------------------------
+
+type PermitStage = "completed" | "permit" | "request" | "violation" | "rejected" | "structure" | "other";
+
+const PERMIT_STAGES: { stage: PermitStage; title: string }[] = [
+  { stage: "completed", title: "Užbaigta statyba" },
+  { stage: "permit", title: "Išduoti leidimai" },
+  { stage: "request", title: "Prašymai" },
+  { stage: "violation", title: "Pažeidimai ir privalomieji nurodymai" },
+  { stage: "rejected", title: "Atmesta arba nebegalioja" },
+  { stage: "structure", title: "Projektuose numatyti statiniai" },
+  { stage: "other", title: "Kiti dokumentai" },
+];
+
+const REJECTED_STATUS = /^(atmest|nepatenkint|negaliojant|neišduot|nutraukt|nepatvirtint|pasiūlymams nepritarta)/i;
+
+// A rejected or annulled document says nothing about the parcel today, so the
+// status wins over the document kind (an annulled violation act is no violation).
+// Rows with no document kind at all are not documents but the structures a
+// construction project lists (a building, a sewer line).
+function permitStage(item: RawItem): PermitStage {
+  if (isNoiseValue(item.permitType)) return "structure";
+  const type = String(item.permitType);
+  if (REJECTED_STATUS.test(String(item.status ?? ""))) return "rejected";
+  if (/savavališk|privalomasis nurodymas|sustabdymo aktas/i.test(type)) return "violation";
+  if (/^(prašymas|paraiška)/i.test(type)) return "request";
+  if (/užbaigim|be nukrypimų/i.test(type)) return "completed";
+  if (/^(leidimas|rašytinis pritarimas)/i.test(type)) return "permit";
+  return "other";
+}
+
+// Stage order, newest document first within a stage; each item carries its
+// stage title with the stage's count, ready to render as a sub-heading.
+function groupPermits(items: RawItem[]): { raw: RawItem; group: string }[] {
+  return PERMIT_STAGES.flatMap(({ stage, title }) => {
+    const inStage = items
+      .filter((item) => permitStage(item) === stage)
+      .sort((a, b) => String(b.issuedDate ?? "").localeCompare(String(a.issuedDate ?? "")));
+    return inStage.map((raw) => ({ raw, group: `${title} (${inStage.length})` }));
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Insights: one plain-language sentence per panel on what the finding means for
+// the reader. An empty result is an answer too ("does not fall in a protected
+// area"), so it gets a sentence rather than a bare "Įrašų nerasta.".
+// ---------------------------------------------------------------------------
+
+const PAPER_ONLY_NOTE = "Senesnė, tik popieriuje registruota statyba čia nematoma.";
+
+const INSIGHTS: Record<string, (items: RawItem[]) => string | undefined> = {
+  "geoportal-constraints": (items) =>
+    items.length > 0
+      ? "Sklypas patenka į saugomą teritoriją. Statybai ir ūkinei veiklai gali galioti papildomi reikalavimai, kuriuos nustato teritorijos nuostatai ir planavimo dokumentai."
+      : "Sklypas nepatenka į saugomą teritoriją, todėl papildomi gamtosaugos apribojimai netaikomi.",
+  "kvr-heritage": (items) =>
+    items.length > 0
+      ? "Sklype yra kultūros paveldo objektas arba jo apsaugos zona. Statybos ir tvarkymo darbams gali reikėti Kultūros paveldo departamento pritarimo."
+      : "Kultūros vertybių registre sklype objektų ar jų apsaugos zonų nerasta.",
+  "osp-pollution-risks": (items) =>
+    items.length > 0
+      ? "Sklype ar šalia jo registruotas potencialus taršos židinys. Prieš perkant verta pasidomėti jo būkle ir, jei reikia, užsakyti grunto tyrimą."
+      : "Žinomų potencialių taršos židinių nerasta.",
+  "flood-risk": (items) =>
+    items.length > 0
+      ? "Sklypas kertasi su potvynių rizikos zona. Tai gali turėti įtakos statybai, pamatų sprendiniams ir draudimo kainai."
+      : undefined,
+  "osp-building-permits": (items) => {
+    if (items.length === 0) {
+      return `Infostatyboje šiam sklypui elektroninių statybos dokumentų nerasta. ${PAPER_ONLY_NOTE}`;
+    }
+    const violations = items.filter((item) => permitStage(item) === "violation").length;
+    return violations > 0
+      ? `Rasta statybos pažeidimų dokumentų (${violations}). Prieš perkant verta išsiaiškinti, ar pažeidimai pašalinti. ${PAPER_ONLY_NOTE}`
+      : PAPER_ONLY_NOTE;
+  },
+  "asgr-regulations": (items) => {
+    if (items.length === 0) return undefined;
+    const withLimits = items.find((item) => num(item.maxHeightM) || num(item.maxDensityPct) || num(item.maxIntensity));
+    if (!withLimits) {
+      return "Šiame reglamente konkretūs užstatymo dydžiai (aukštis, tankis) nenurodyti. Juos tikslinkite savivaldybėje arba detaliajame plane.";
+    }
+    const limits = [
+      num(withLimits.maxHeightM) ? `pastatų aukštis iki ${formatScalar(num(withLimits.maxHeightM), "m")}` : null,
+      num(withLimits.maxDensityPct) ? `užstatymo tankis iki ${formatScalar(num(withLimits.maxDensityPct), "%")}` : null,
+      num(withLimits.maxIntensity) ? `užstatymo intensyvumas iki ${formatScalar(num(withLimits.maxIntensity))}` : null,
+    ].filter(Boolean);
+    return `Galiojantis reglamentas leidžia: ${limits.join(", ")}.`;
+  },
+  "ssva-built-up": (items) =>
+    items.length > 0
+      ? "Tankis rodo, kurią sklypo dalį užima pastatai ir stogais dengti statiniai; intensyvumas – kiek kartų pastatų bendrasis plotas didesnis už sklypo plotą. Juos galima lyginti su planavimo reglamento leidžiamais dydžiais."
+      : undefined,
+  "grpk-buildings": (items) =>
+    items.length > 0
+      ? "Pastatų kontūrai iš georeferencinio pagrindo kadastro. Oficialų užstatymo plotą nurodo kadastro byla."
+      : "Sklype pastatų kontūrų nerasta.",
+  "rc-masvert": (items) =>
+    items.some((item) => num(item.marketValueEur))
+      ? "Tai Registrų centro masiniu vertinimu nustatyta statistinė vertė, ne konkretaus sandorio kaina. Reali rinkos kaina gali skirtis."
+      : undefined,
+  "szns-restrictions": () =>
+    "Apsaugos zonų ir servitutų duomenis Registrų centras teikia tik pagal sutartį, todėl jų čia neparodome. Pasitikrinkite Nekilnojamojo turto registro išraše arba geoportal.lt žemėlapyje.",
+};
+
 export type CuratedField = {
   label: string;
   value: string;
@@ -308,13 +433,15 @@ export type CuratedField = {
 export function parcelAtPointHref(lat: number, lng: number): string {
   return `/vieta?lat=${lat}&lng=${lng}`;
 }
-export type CuratedItem = { heading?: string; fields: CuratedField[] };
+// `group` is a sub-heading the item sits under (building documents by stage).
+export type CuratedItem = { heading?: string; group?: string; fields: CuratedField[] };
 export type CuratedPanel = {
   key: string;
   title: string;
   state: "ok" | "empty" | "unavailable";
   count: number;
   message?: string; // shown when empty / unavailable
+  insight?: string; // plain-language meaning of the finding, shown first
   note?: string; // reading guide under the items (scope, data date)
   items: CuratedItem[];
   source?: SourceInfo;
@@ -340,19 +467,33 @@ function curatePanel(
   const rules = FIELD_RULES[panel.key] ?? {};
   const source = PANEL_SOURCES[panel.key];
 
+  const insightFor = INSIGHTS[panel.key];
+
+  // An upstream failure is not an empty result: say no answer came back, never
+  // "Įrašų nerasta." (which would read as a clean bill). Panels gated by design
+  // (SŽNS) explain themselves through their insight instead.
   if (panel.status === "error" || panel.status === "partial") {
     return {
       key: panel.key,
       title,
       state: "unavailable",
       count: 0,
-      message: "Įrašų nerasta.",
+      message:
+        panel.status === "partial" && insightFor
+          ? insightFor([])
+          : "Duomenų gauti nepavyko. Pabandykite atnaujinti vėliau.",
       items: [],
       source,
     };
   }
 
-  const items: CuratedItem[] = (panel.items as RawItem[]).map((raw) => {
+  const rawItems = panel.items as RawItem[];
+  const ordered =
+    panel.key === "osp-building-permits"
+      ? groupPermits(rawItems)
+      : rawItems.map((raw) => ({ raw, group: undefined }));
+
+  const items: CuratedItem[] = ordered.map(({ raw, group }) => {
     let heading: string | undefined;
     const fields: CuratedField[] = [];
 
@@ -377,19 +518,21 @@ function curatePanel(
       });
     }
 
-    return { heading, fields };
+    return { heading, group, fields };
   });
 
   // Drop items that ended up entirely empty after filtering.
   const visibleItems = items.filter((it) => it.heading || it.fields.length > 0);
 
   const note = NOTE_PANEL_KEYS.has(panel.key) ? panel.note : undefined;
+  const insight = insightFor?.(rawItems);
   return {
     key: panel.key,
     title,
     state: visibleItems.length > 0 ? "ok" : "empty",
     count: visibleItems.length,
-    message: visibleItems.length === 0 ? (note ?? "Įrašų nerasta.") : undefined,
+    message: visibleItems.length === 0 ? (insight ?? note ?? "Įrašų nerasta.") : undefined,
+    insight: visibleItems.length > 0 ? insight : undefined,
     note: visibleItems.length > 0 ? note : undefined,
     items: visibleItems,
     source,
@@ -418,7 +561,8 @@ export function curateReport(report: ParcelReport): CuratedCategory[] {
 // Derived from the raw panels; never hand-duplicated.
 // ---------------------------------------------------------------------------
 
-export type SummaryFact = { label: string; value: string };
+// `hint` is a short secondary line under the value (an allowed maximum).
+export type SummaryFact = { label: string; value: string; hint?: string };
 export type SummaryFlag = {
   label: string;
   state: "clear" | "present" | "info";
@@ -440,11 +584,84 @@ function firstItem(report: ParcelReport, key: string): RawItem | undefined {
   return (panel.items as RawItem[])[0];
 }
 
-// Count real (data-bearing) items in a panel, ignoring unavailable/empty panels.
-function dataCount(report: ParcelReport, key: string): number {
+// Yes/no flag over a panel's records. A check that failed upstream is unknown,
+// never "Nėra": a clean answer must come from a source that actually answered.
+function presenceFlag(report: ParcelReport, key: string, label: string): SummaryFlag {
   const panel = findPanel(report, key);
-  if (!panel || panel.status !== "ok") return 0;
-  return (panel.items as RawItem[]).length;
+  if (!panel || panel.status !== "ok") {
+    return { label, state: "info", detail: "Nepavyko patikrinti", panelKey: key };
+  }
+  const count = panel.items.length;
+  return {
+    label,
+    state: count > 0 ? "present" : "clear",
+    detail: count > 0 ? `Yra (${count})` : "Nėra",
+    panelKey: key,
+  };
+}
+
+// Buildings whose footprint centre lies inside the parcel. The GRPK query also
+// returns neighbours' buildings that merely touch the boundary.
+function buildingsInParcel(report: ParcelReport): ParcelReport["buildings"] {
+  const polygons = parcelPolygons(report);
+  if (!report.buildings || polygons.length === 0) return report.buildings;
+  return report.buildings.filter((building) => {
+    const outer = building.geometry.coordinates[0];
+    return outer !== undefined && outer.length > 0 && pointInPolygons(ringCentre(outer), polygons);
+  });
+}
+
+const formatM2 = (m2: number) => `${Math.round(m2).toLocaleString("lt-LT")}\u00a0m²`;
+const formatPct = (pct: number) => `${pct.toLocaleString("lt-LT", { maximumFractionDigits: 1 })}\u00a0%`;
+
+// Užstatymas: how much of the parcel is built on and how much floor area stands
+// on it. SSVA ratios come first: they count roofed structures too and draw the
+// gross floor area from the property register. Without them, the built-up area
+// falls back to the sum of our own building footprints. Where the planning
+// regulation sets a maximum density or intensity, the allowed amount is shown
+// alongside, so an owner sees how much more may be built.
+function builtUpFacts(
+  report: ParcelReport,
+  areaHa: number | undefined,
+  buildings: ParcelReport["buildings"],
+): SummaryFact[] {
+  if (!areaHa) return [];
+  const parcelM2 = areaHa * 10000;
+  const ssva = firstItem(report, "ssva-built-up");
+
+  const regulations = (findPanel(report, "asgr-regulations")?.items ?? []) as RawItem[];
+  const firstLimit = (field: string) =>
+    regulations.map((item) => num(item[field])).find((value) => value !== undefined && value > 0);
+  const allowedPct = firstLimit("maxDensityPct");
+  const allowedIntensity = firstLimit("maxIntensity");
+
+  let builtM2: number | undefined;
+  const densityPct = num(ssva?.densityPct);
+  if (densityPct) builtM2 = (densityPct / 100) * parcelM2;
+  else if (buildings && buildings.length > 0) {
+    builtM2 = buildings.reduce(
+      (sum, b) => sum + (b.areaSqM ?? polygonAreaM2(b.geometry.coordinates)),
+      0,
+    );
+  }
+
+  const facts: SummaryFact[] = [];
+  if (builtM2) {
+    facts.push({
+      label: "Užstatytas plotas",
+      value: `≈ ${formatM2(builtM2)} (${formatPct((builtM2 / parcelM2) * 100)})`,
+      hint: allowedPct ? `Leidžiama iki ${formatPct(allowedPct)}` : undefined,
+    });
+  }
+  const intensity = num(ssva?.intensity);
+  if (intensity) {
+    facts.push({
+      label: "Pastatų bendrasis plotas",
+      value: `≈ ${formatM2(intensity * parcelM2)}`,
+      hint: allowedIntensity ? `Leidžiama iki ≈ ${formatM2(allowedIntensity * parcelM2)}` : undefined,
+    });
+  }
+  return facts;
 }
 
 // Distance to the nearest place of one category in the nearby-services panel
@@ -462,7 +679,7 @@ function nearestDistanceKm(report: ParcelReport, category: string): number | und
 export function parcelCenter(
   report: ParcelReport,
 ): { lat: number; lng: number } | undefined {
-  const ring = report.coordinates.coordinates[0] ?? [];
+  const ring = parcelPolygons(report)[0]?.[0] ?? [];
   if (ring.length === 0) return undefined;
   let sumLng = 0;
   let sumLat = 0;
@@ -500,6 +717,11 @@ export function buildSummary(report: ParcelReport): ReportSummary {
     });
   }
 
+  const polygons = parcelPolygons(report);
+  if (polygons.length > 0) {
+    facts.push({ label: "Perimetras", value: `${Math.round(perimeterM(polygons)).toLocaleString("lt-LT")} m` });
+  }
+
   // Paskirtis — derived from "Naudojimo būdas" (landUse): the specific permitted
   // use says more to a reader than the broad purpose group. Fall back to the
   // purpose group only when the use method is missing.
@@ -508,9 +730,10 @@ export function buildSummary(report: ParcelReport): ReportSummary {
     facts.push({ label: "Paskirtis", value: String(purpose) });
   }
 
-  // Pastatų skaičius — footprints drawn on the map are the most trustworthy count.
+  // Pastatų skaičius — footprints inside the parcel are the most trustworthy count.
+  const buildings = buildingsInParcel(report);
   const buildingCount =
-    report.buildings?.length ??
+    buildings?.length ??
     (typeof ospSummary?.buildingsCount === "number"
       ? ospSummary.buildingsCount
       : undefined);
@@ -520,6 +743,8 @@ export function buildSummary(report: ParcelReport): ReportSummary {
       value: buildingCount === 0 ? "Nėra" : `${buildingCount}`,
     });
   }
+
+  facts.push(...builtUpFacts(report, areaHa, buildings));
 
   // Vidutinė rinkos vertė — RC mass valuation (registrucentras.lt masvert).
   const marketValue = firstItem(report, "rc-masvert")?.marketValueEur;
@@ -544,29 +769,25 @@ export function buildSummary(report: ParcelReport): ReportSummary {
   // Flags — the yes/no answers a buyer/owner worries about.
   const flags: SummaryFlag[] = [];
 
-  const protectedCount = dataCount(report, "geoportal-constraints");
-  flags.push({
-    label: "Saugomos teritorijos",
-    state: protectedCount > 0 ? "present" : "clear",
-    detail: protectedCount > 0 ? `Yra (${protectedCount})` : "Nėra",
-    panelKey: "geoportal-constraints",
-  });
+  flags.push(presenceFlag(report, "geoportal-constraints", "Saugomos teritorijos"));
+  flags.push(presenceFlag(report, "kvr-heritage", "Kultūros paveldas"));
+  flags.push(presenceFlag(report, "osp-pollution-risks", "Taršos rizika"));
 
-  const heritageCount = dataCount(report, "kvr-heritage");
-  flags.push({
-    label: "Kultūros paveldas",
-    state: heritageCount > 0 ? "present" : "clear",
-    detail: heritageCount > 0 ? `Yra (${heritageCount})` : "Nėra",
-    panelKey: "kvr-heritage",
-  });
-
-  const pollutionCount = dataCount(report, "osp-pollution-risks");
-  flags.push({
-    label: "Taršos rizika",
-    state: pollutionCount > 0 ? "present" : "clear",
-    detail: pollutionCount > 0 ? `Yra (${pollutionCount})` : "Nėra",
-    panelKey: "osp-pollution-risks",
-  });
+  // Unauthorised construction or binding orders — raised only when present: the
+  // registry covers electronic records only, so absence is no proof of a clean past.
+  const permits = findPanel(report, "osp-building-permits");
+  const violations =
+    permits?.status === "ok"
+      ? (permits.items as RawItem[]).filter((item) => permitStage(item) === "violation").length
+      : 0;
+  if (violations > 0) {
+    flags.push({
+      label: "Statybos pažeidimai",
+      state: "present",
+      detail: `Yra (${violations})`,
+      panelKey: "osp-building-permits",
+    });
+  }
 
   const floodPanel = findPanel(report, "flood-risk");
   if (floodPanel?.status === "ok") {

@@ -60,6 +60,19 @@ export const DATA_SOURCES: DataSource[] = [
     status: "live",
   },
   {
+    panelKey: "ssva-built-up",
+    name: "Pastatų bendrojo ploto ir sklypo santykis",
+    publisher: "Statybos sektoriaus vystymo agentūra (SSVA)",
+    api: "ArcGIS Online · Pastatų_bendrojo_ploto_ir_sklypo_santykis",
+    url: "https://atviri-duomenys-pi-ssva.hub.arcgis.com",
+    coverage:
+      "Esamas sklypo užstatymo tankis (kiek sklypo užima pastatai ir stogais dengti statiniai) " +
+      "ir intensyvumas (pastatų bendrasis plotas, padalytas iš sklypo ploto).",
+    updateFrequency: "Tikrinama tiesiogiai kiekvienos ataskaitos metu.",
+    status: "live",
+    caveat: "Rodikliai orientaciniai. Oficialius užstatymo duomenis nurodo kadastro byla ir NT registras.",
+  },
+  {
     panelKey: "pdbis-building-data",
     name: "Pastatų duomenų bankas (PDBIS)",
     publisher: "Lietuvos statistikos departamentas (OSP)",

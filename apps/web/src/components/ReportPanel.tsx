@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import type { ParcelReport } from "@zeme/shared";
 import { Link } from "react-router-dom";
 import {
@@ -5,7 +6,7 @@ import {
   type CuratedItem,
   type CuratedPanel,
 } from "../lib/report-format";
-import { ChevronDown, PinIcon, SourceIcon } from "./icons";
+import { ArrowUpIcon, ChevronDown, InfoIcon, PinIcon, SourceIcon } from "./icons";
 
 function SourceLine({ source }: { source: NonNullable<CuratedPanel["source"]> }) {
   return (
@@ -21,7 +22,6 @@ function SourceLine({ source }: { source: NonNullable<CuratedPanel["source"]> })
 type Props = {
   report: ParcelReport;
 };
-
 
 function FieldValue({ value, isLink, href }: { value: string; isLink?: boolean; href?: string }) {
   if (href) {
@@ -91,8 +91,21 @@ function Panel({ panel }: { panel: CuratedPanel }) {
           <ChevronDown className="report-chevron h-5 w-5 shrink-0 text-ink" />
         </summary>
         <div className="divide-y divide-rule bg-paper-2 px-5 pt-4 pb-5">
+          {panel.insight ? (
+            <p className="flex gap-2 pb-4 text-md text-ink">
+              <InfoIcon className="mt-1 h-5 w-5 shrink-0 text-muted" />
+              <span>{panel.insight}</span>
+            </p>
+          ) : null}
           {panel.items.map((item, i) => (
-            <ItemBlock key={i} item={item} />
+            <Fragment key={i}>
+              {/* A stage sub-heading opens each run of items in the same group;
+                  it sits flush on its first item, with no hairline between. */}
+              {item.group && item.group !== panel.items[i - 1]?.group ? (
+                <p className="border-b-0 pt-5 pb-1 text-md font-medium text-accent">{item.group}</p>
+              ) : null}
+              <ItemBlock item={item} />
+            </Fragment>
           ))}
           {panel.note ? <p className="py-3 text-sm text-ink-2">{panel.note}</p> : null}
           {panel.source ? (
@@ -106,13 +119,29 @@ function Panel({ panel }: { panel: CuratedPanel }) {
   );
 }
 
+const generatedAt = (iso: string) =>
+  new Intl.DateTimeFormat("lt-LT", { year: "numeric", month: "long", day: "numeric" }).format(new Date(iso));
+
 export function ReportPanel({ report }: Props) {
   const categories = curateReport(report);
 
   return (
     <div className="grid gap-10">
+      {/* Table of contents: the report is long, so every section is one tap away. */}
+      <nav aria-label="Ataskaitos skyriai">
+        <ul className="flex flex-wrap gap-2">
+          {categories.map((category) => (
+            <li key={category.id}>
+              <a href={`#skyrius-${category.id}`} className="btn btn--secondary btn--s">
+                {category.title}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+
       {categories.map((category) => (
-        <section key={category.id} className="grid gap-3">
+        <section key={category.id} id={`skyrius-${category.id}`} className="grid scroll-mt-(--nav-clear) gap-3">
           <h3 className="text-lg leading-tight">{category.title}</h3>
           <ul className="spec">
             {category.panels.map((panel) => (
@@ -121,6 +150,24 @@ export function ReportPanel({ report }: Props) {
           </ul>
         </section>
       ))}
+
+      <footer className="grid gap-4 border-t-2 border-ink pt-6 text-sm text-ink-2">
+        {/* The Lithuanian long date already ends in "d.", so no closing period. */}
+        <p>Ataskaita sugeneruota {generatedAt(report.fetchedAt)}</p>
+        <p>
+          Ataskaita sudaryta iš viešų valstybės registrų duomenų. Duomenys gali keistis, todėl prieš
+          priimdami svarbų sprendimą (pirkdami, statydami) informaciją pasitikrinkite pirminiuose
+          šaltiniuose: Nekilnojamojo turto registre, savivaldybėje ar pas matininką.
+        </p>
+        <button
+          type="button"
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          className="btn btn--secondary btn--s w-fit"
+        >
+          <ArrowUpIcon className="h-5 w-5" />
+          Grįžti į viršų
+        </button>
+      </footer>
     </div>
   );
 }

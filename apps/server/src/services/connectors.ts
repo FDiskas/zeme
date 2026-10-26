@@ -45,7 +45,6 @@ export async function fetchBiipBoundary(cadastralRegNo: string, address: string)
           landUse: parcel.purposeFullName || parcel.purposeName || "Kita (žemės)",
           status: parcel.status || "N/A",
           updatedAt: parcel.updatedAt || "N/A",
-          measuredMethod: "Kadastriniai matavimai (LKS-94)",
         },
       ],
     };
@@ -519,6 +518,80 @@ export async function fetchAsgrRegulations(geometry: any): Promise<UpstreamPanel
       status: "error",
       items: [],
       note: `Klaida tikrinant ASGR planavimo reglamentus: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
+// SSVA (Statybos sektoriaus vystymo agentūra) per-parcel built-up ratios, open
+// data (CC BY 4.0): ADP_SP = % of the parcel under building footprints and roofed
+// structures (užstatymo tankis), PBP_SP = buildings' gross floor area ÷ parcel
+// area (užstatymo intensyvumas). Gross floor area comes from the real-property
+// register, which we can't read ourselves. The layer has no cadastral number, so
+// the subject parcel is the feature whose centroid lies inside our outline;
+// neighbours that merely touch the boundary have their centroid outside.
+const SSVA_PARCEL_RATIOS_LAYER =
+  "https://services-eu1.arcgis.com/IylpCF7DjNdsT4Zm/arcgis/rest/services/Pastat%C5%B3_bendrojo_ploto_ir_sklypo_santykis/FeatureServer/0";
+
+export async function fetchBuiltUpRatios(geometry: any): Promise<UpstreamPanel> {
+  const base: Pick<UpstreamPanel, "key" | "title" | "source"> = {
+    key: "ssva-built-up",
+    title: "Esamas užstatymas",
+    source: "SSVA atviri duomenys: pastatų bendrojo ploto ir sklypo santykis",
+  };
+
+  const arcgisGeom = getArcgisGeometry(geometry);
+  if (!arcgisGeom) {
+    return { ...base, status: "error", items: [], note: "Sklypo geometrija nepasiekiama; užstatymo patikrinti negalima." };
+  }
+
+  try {
+    const response = await fetch(`${SSVA_PARCEL_RATIOS_LAYER}/query`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        geometry: JSON.stringify(arcgisGeom),
+        geometryType: "esriGeometryPolygon",
+        spatialRel: "esriSpatialRelIntersects",
+        inSR: "4326",
+        outSR: "4326",
+        outFields: "PBP_SP,ADP_SP",
+        returnGeometry: "false",
+        returnCentroid: "true",
+        f: "json",
+      }).toString(),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!response.ok) throw new Error(`HTTP error ${response.status} from ArcGIS service`);
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message || "ArcGIS query error");
+
+    const subject = (data.features || []).find((f: any) => {
+      const c = f.centroid;
+      return c && arcgisGeom.rings.some((ring: number[][]) => pointInRing([c.x, c.y], ring));
+    });
+    const a = subject?.attributes;
+    const items =
+      a && (typeof a.ADP_SP === "number" || typeof a.PBP_SP === "number")
+        ? [{
+            densityPct: typeof a.ADP_SP === "number" ? Math.round(a.ADP_SP * 10) / 10 : "N/A",
+            intensity: typeof a.PBP_SP === "number" ? Math.round(a.PBP_SP * 100) / 100 : "N/A",
+          }]
+        : [];
+
+    return {
+      ...base,
+      status: "ok",
+      items,
+      note: items.length === 0
+        ? "Šiam sklypui užstatymo rodiklių nėra (sklypas neužstatytas arba neįtrauktas į rinkinį)."
+        : "Rodikliai orientaciniai: apskaičiuoti iš registruotų pastatų ir jų kontūrų.",
+    };
+  } catch (err: any) {
+    return {
+      ...base,
+      status: "error",
+      items: [],
+      note: `Klaida tikrinant užstatymo rodiklius: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
 }

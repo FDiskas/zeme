@@ -87,6 +87,32 @@ export function DownloadIcon({ className }: IconProps) {
   );
 }
 
+export function CopyIcon({ className }: IconProps) {
+  return (
+    <Outline className={className}>
+      <rect x="8" y="8" width="12" height="12" rx="2" />
+      <path d="M16 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2h2" />
+    </Outline>
+  );
+}
+
+export function ShareIcon({ className }: IconProps) {
+  return (
+    <Outline className={className}>
+      <path d="M12 3v12M8 7l4-4 4 4" />
+      <path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
+    </Outline>
+  );
+}
+
+export function ArrowUpIcon({ className }: IconProps) {
+  return (
+    <Outline className={className}>
+      <path d="M12 20V5M5 12l7-7 7 7" />
+    </Outline>
+  );
+}
+
 export function ChevronRight({ className }: IconProps) {
   return (
     <Outline className={className}>

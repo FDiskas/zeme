@@ -15,13 +15,16 @@ import {
   ChevronLeft,
   ChevronRight,
   DownloadIcon,
+  PinIcon,
   RefreshIcon,
   SearchIcon,
+  ShareIcon,
   Spinner,
   WarningIcon,
 } from "./components/icons";
 import { orpcClient, getParcelReport, generateParcelPdf } from "./lib/orpc";
 import { useLocalStorage } from "./lib/useLocalStorage";
+import { parcelKml, parcelPolygons } from "./lib/geo";
 
 const HISTORY_KEY = "zeme-search-history";
 
@@ -175,6 +178,7 @@ function ParcelPage() {
   const [loading, setLoading] = useState(true);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [shareNote, setShareNote] = useState<string | null>(null);
   const [history, setHistory] = useLocalStorage<SearchHistoryItem[]>(HISTORY_KEY, []);
 
   function rememberLookup(data: ParcelReport) {
@@ -211,6 +215,38 @@ function ParcelPage() {
       window.open(pdfUrl, "_blank", "noreferrer");
     } finally {
       setPdfLoading(false);
+    }
+  }
+
+  // Parcel outline as KML for Google Earth / QGIS, built in the browser from
+  // the geometry the report already carries.
+  function onDownloadKml() {
+    if (!report) return;
+    const polygons = parcelPolygons(report);
+    if (polygons.length === 0) return;
+    const name = `Sklypas ${report.cadastralRegNo}`;
+    const blob = new Blob([parcelKml(name, polygons)], { type: "application/vnd.google-earth.kml+xml" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `sklypas-${report.cadastralRegNo.replace(/[^\w-]+/g, "_")}.kml`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // The phone's own share sheet where there is one; elsewhere copy the link.
+  async function onShare() {
+    const url = window.location.href;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `Sklypas ${cadastralRegNo}`, url });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      setShareNote("Nuoroda nukopijuota");
+      setTimeout(() => setShareNote(null), 2500);
+    } catch {
+      // Share sheet dismissed or clipboard blocked: nothing to report.
     }
   }
 
@@ -321,6 +357,18 @@ function ParcelPage() {
                         {pdfLoading ? "Generuojama…" : "Atsisiųsti PDF"}
                       </button>
                       {refreshButton}
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      {parcelPolygons(report).length > 0 ? (
+                        <button type="button" onClick={onDownloadKml} className="btn btn--secondary btn--s flex-1">
+                          <PinIcon className="h-5 w-5" />
+                          Ribos (KML)
+                        </button>
+                      ) : null}
+                      <button type="button" onClick={onShare} className="btn btn--secondary btn--s flex-1">
+                        <ShareIcon className="h-5 w-5" />
+                        <span aria-live="polite">{shareNote ?? "Dalintis"}</span>
+                      </button>
                     </div>
                     <p className="text-sm text-muted">{freshness}</p>
                   </div>
