@@ -51,6 +51,7 @@ const COUNT_NOUNS: Record<string, readonly [string, string, string]> = {
   "crime-stats": ["laikotarpis", "laikotarpiai", "laikotarpių"],
   broadband: ["technologija", "technologijos", "technologijų"],
   "energy-certificates": ["pastatas", "pastatai", "pastatų"],
+  "szns-restrictions": ["sąlyga", "sąlygos", "sąlygų"],
 };
 const DEFAULT_COUNT_NOUN = ["įrašas", "įrašai", "įrašų"] as const;
 
@@ -133,20 +134,8 @@ function decodePurposeCodes(text: string): string {
   });
 }
 
-// Where a reader checks what this report cannot show. The TPDR map searches
-// planning documents by number; geoportal.lt shows the special land-use
-// conditions on its map; the Registrų centras self-service sells the NTR extract.
+// The TPDR map searches planning documents by number.
 const TPDR_MAP_URL = "https://tpdr.planuojustatau.lt/map/main.html";
-const CHECK_ELSEWHERE_LINKS: ExternalLink[] = [
-  { label: "geoportal.lt žemėlapis", href: "https://www.geoportal.lt/map/" },
-  { label: "Užsakyti NTR išrašą", href: "https://www.registrucentras.lt/savitarna/" },
-];
-
-// Panels whose source answers only under contract: their "partial" is the
-// rule, not a failure, so they point to where to check instead of retrying.
-const GATED_PANEL_KEYS = new Set(["szns-restrictions"]);
-
-export type ExternalLink = { label: string; href: string };
 
 // Our server finds a building document's Infostatyba project page by the
 // building's address and the project's name (the open data has no link).
@@ -272,7 +261,15 @@ const FIELD_RULES: Record<string, Record<string, FieldRule>> = {
     approvedAt: { label: "Patvirtinta" },
   },
   "szns-restrictions": {
-    intersectingConditions: { label: "Galiojančių sąlygų skaičius" },
+    name: { label: "Sąlyga", isHeading: true },
+    code: { label: "Kodas", inRow: true },
+    zonesCount: { label: "Zonų sklype", inRow: true },
+    // RC's PDF of what the conditions forbid or require.
+    lawSection: {
+      label: "Sąlygų aprašas",
+      wide: true,
+      externalHref: (_, raw) => (typeof raw.documentUrl === "string" ? raw.documentUrl : undefined),
+    },
   },
   "osp-building-permits": {
     issuedDate: { label: "Data", prefixesHeading: true },
@@ -626,8 +623,12 @@ const INSIGHTS: Record<string, (items: RawItem[], note?: string) => string | und
     });
     return `Artimiausia ${parts.join(", ")} tiesia linija.`;
   },
-  "szns-restrictions": () =>
-    "Apsaugos zonų ir servitutų duomenis Registrų centras teikia tik pagal sutartį, todėl jų čia neparodome. Pasitikrinkite Nekilnojamojo turto registro išraše arba geoportal.lt žemėlapyje.",
+  // The public service names the conditions but not their outline, so how
+  // much of the parcel a zone covers is left to the NTR extract.
+  "szns-restrictions": (items) =>
+    items.length > 0
+      ? "Sklypas (bent iš dalies) patenka į šių sąlygų zonas. Ką jose draudžiama ar reikia derinti, rašoma sąlygų apraše. Kokią sklypo dalį zona užima, Registrų centras viešai nerodo: tai matyti Nekilnojamojo turto registro išraše."
+      : "Registre sklypui įregistruotų specialiųjų žemės naudojimo sąlygų nerasta. Dalis zonų gali būti dar neįregistruota, todėl prieš sandorį verta pasitikrinti Nekilnojamojo turto registro išraše.",
 };
 
 export type CuratedField = {
@@ -655,8 +656,6 @@ export type CuratedPanel = {
   count: number;
   countLabel?: string; // "3 laikotarpiai"; absent for one-record panels
   compact: boolean; // records render as one-line rows that open for details
-  retryable?: boolean; // the source failed and asking again may help
-  links?: ExternalLink[]; // where to check what the source would not give
   message?: string; // shown when empty / unavailable; absent for a plain "nothing found"
   insight?: string; // plain-language meaning of the finding, shown first
   note?: string; // reading guide under the items (scope, data date)
@@ -741,21 +740,17 @@ function curatePanel(
   const insightFor = INSIGHTS[panel.key];
 
   // An upstream failure is not an empty result: say no answer came back, never
-  // "Įrašų nerasta." (which would read as a clean bill). Panels gated by design
-  // (SŽNS) explain themselves through their insight and point to where the
-  // reader can check instead. A partial answer that still brought records
-  // (nearby places when one of three lookups failed) shows what came.
+  // "Įrašų nerasta." (which would read as a clean bill). A partial answer that
+  // still brought records (nearby places when one of three lookups failed)
+  // shows what came.
   if (panel.status === "error" || (panel.status === "partial" && panel.items.length === 0)) {
-    const gated = panel.status === "partial" && GATED_PANEL_KEYS.has(panel.key);
     return {
       key: panel.key,
       title,
       state: "unavailable",
       count: 0,
       compact: false,
-      retryable: !gated,
-      links: gated ? CHECK_ELSEWHERE_LINKS : undefined,
-      message: gated ? insightFor([]) : "Duomenų gauti nepavyko.",
+      message: "Duomenų gauti nepavyko.",
       items: [],
       source: sourceWithDate,
     };
@@ -1111,6 +1106,7 @@ export function buildSummary(report: ParcelReport): ReportSummary {
 
   flags.push(presenceFlag(report, "geoportal-constraints", "Saugomos teritorijos", "Saugoma teritorija"));
   flags.push(presenceFlag(report, "kvr-heritage", "Kultūros paveldas", "Kultūros paveldas"));
+  flags.push(presenceFlag(report, "szns-restrictions", "Specialiosios naudojimo sąlygos", "Specialiosios sąlygos"));
   flags.push(presenceFlag(report, "osp-pollution-risks", "Taršos rizika", "Taršos židinys"));
 
   // Building documents: unauthorised construction or binding orders first;
@@ -1196,20 +1192,6 @@ export function buildSummary(report: ParcelReport): ReportSummary {
       note: !hasFibre && technologies.length > 0 ? `Yra tik ${others.join(", ")}.` : undefined,
       panelKey: "broadband",
       tag: technologies.length > 0 ? "Nėra šviesolaidžio" : "Internetas: nėra duomenų",
-    });
-  }
-
-  // SŽNS feature data is gated upstream — be honest rather than imply "Nerasta".
-  // The places to check sit in the detailed panel, not in this short list.
-  const szns = findPanel(report, "szns-restrictions");
-  if (szns && szns.status !== "ok") {
-    flags.push({
-      label: "Specialiosios naudojimo sąlygos",
-      state: "check",
-      detail: "Tikrinti atskirai",
-      note: "Registrų centras šių duomenų neviešina: žr. NTR išrašą arba geoportal.lt.",
-      panelKey: "szns-restrictions",
-      tag: "Specialiosios sąlygos: tikrinti",
     });
   }
 

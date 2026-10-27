@@ -1,13 +1,19 @@
-import { DATA_SOURCES } from "../lib/data-sources";
+import { ADAPTED, creditHead, DATA_SOURCES, type DataSource, type DataSourceStatus } from "../lib/data-sources";
 import { CodeText } from "./CodeText";
 import { CheckIcon, WarningIcon } from "./icons";
 
-function StatusBadge({ status }: { status: "live" | "not-integrated" }) {
-  if (status === "live") {
+const IN_USE_LABEL: Record<Exclude<DataSourceStatus, "not-integrated">, string> = {
+  live: "Naudojama ataskaitose",
+  map: "Naudojama žemėlapyje",
+  search: "Naudojama paieškai",
+};
+
+function StatusBadge({ status }: { status: DataSourceStatus }) {
+  if (status !== "not-integrated") {
     return (
       <span className="chip chip--clear">
         <CheckIcon className="h-4 w-4 shrink-0" />
-        Naudojama ataskaitose
+        {IN_USE_LABEL[status]}
       </span>
     );
   }
@@ -16,6 +22,35 @@ function StatusBadge({ status }: { status: "live" | "not-integrated" }) {
       <WarningIcon className="h-4 w-4 shrink-0" />
       Neintegruota
     </span>
+  );
+}
+
+// The credit line every source in use carries: where the data came from, the
+// licence the publisher states for it (or that it states none), and how it
+// was handled on the way to the page.
+function Credit({ source }: { source: DataSource }) {
+  const { licence } = source;
+  return (
+    <p className="rounded-card bg-paper-2 px-4 py-3 text-sm text-ink-2">
+      Duomenų šaltinis: {creditHead(source)}.{" "}
+      {licence ? (
+        <>
+          Duomenys platinami{" "}
+          <a href={licence.url} target="_blank" rel="noreferrer" className="link font-normal">
+            {licence.phrase}
+          </a>{" "}
+          (
+          <a href={licence.statedAt} target="_blank" rel="noreferrer" className="link font-normal">
+            kur nurodyta
+          </a>
+          ).
+        </>
+      ) : (
+        "Šaltinis licencijos nenurodo."
+      )}{" "}
+      {source.licenceNote ? `${source.licenceNote} ` : null}
+      {source.processing ?? ADAPTED}
+    </p>
   );
 }
 
@@ -29,8 +64,9 @@ export function DataSourcesPage() {
         <h1 className="text-display md:col-span-6">Duomenų šaltiniai</h1>
         <p className="max-w-[60ch] text-lg text-ink-2 md:col-span-6">
           Reginfo.lt ataskaitos surenkamos iš viešų Lietuvos valstybės registrų ir
-          informacinių sistemų. Čia surašyti visi šaltiniai, ką jie apima ir kaip
-          dažnai tikrinami: atvirai, kad žinotumėte, iš kur kilo kiekvienas skaičius.
+          informacinių sistemų. Čia surašyti visi šaltiniai, ką jie apima, kaip dažnai
+          tikrinami ir pagal kokią licenciją naudojami. Duomenų turinio nekeičiame: tik
+          surenkame ir parodome. Duomenys priklauso juos tvarkančioms institucijoms.
         </p>
       </div>
 
@@ -73,6 +109,7 @@ export function DataSourcesPage() {
                     {source.caveat}
                   </p>
                 ) : null}
+                {source.status !== "not-integrated" ? <Credit source={source} /> : null}
               </div>
 
               <p className="text-sm text-ink-2">

@@ -421,15 +421,22 @@ export function buildPdbisPanel(ospPoints: OspBuildingPoint[]): UpstreamPanel {
   }
 }
 
-// SŽNS — Specialiosios žemės naudojimo sąlygos (special land use conditions /
-// restrictions registry, VĮ Registrų centras). The map (image) view is public, but
-// the feature /query capability is NOT exposed on the public proxy (returns an Esri
-// error: 401 "Užklausos naudojimas apribotas" or 400 "operation not supported"),
-// so restrictions cannot be extracted as vector data anonymously. We attempt the
-// query so it works automatically once an authorized RC endpoint is wired; otherwise
-// we degrade to a "partial" panel documenting the authorization path.
-const SZNS_PROBE_URL =
-  "https://www.geoportal.lt/mapproxy/rc_szns/MapServer/0/query";
+// SŽNS — Specialiosios žemės naudojimo sąlygos (special land use conditions
+// registry, VĮ Registrų centras). The public proxy answers /identify without a
+// key, with the whole parcel outline as the shape, but only with returnGeometry
+// =false: geometry (401), /query (400) and /export (500) are kept to RC's
+// contract customers. So we can say WHICH conditions apply, not how much of the
+// parcel they cover. Each layer is one condition type, its SŽNS code in the
+// name ("Elektros AZ (106)"); one parcel often lies in several zones of a type.
+const SZNS_IDENTIFY_URL =
+  "https://www.geoportal.lt/mapproxy/rc_szns/MapServer/identify";
+
+// "Valstybiniai parkai (V skyrius, dvidešimt trečiasis skirsnis)" → the name
+// and the part of the SŽNS law that sets the conditions.
+function splitSznsName(name: string): { name: string; lawSection?: string } {
+  const match = /^(.*?)\s*\(([^()]*skyrius[^()]*)\)\s*$/.exec(name);
+  return match ? { name: match[1]!, lawSection: match[2]! } : { name };
+}
 
 export async function fetchSznsRestrictions(geometry: any): Promise<UpstreamPanel> {
   const base: Pick<UpstreamPanel, "key" | "title" | "source"> = {
@@ -437,46 +444,85 @@ export async function fetchSznsRestrictions(geometry: any): Promise<UpstreamPane
     title: "Specialiosios žemės naudojimo sąlygos (SŽNS)",
     source: "geoportal.lt rc_szns (VĮ Registrų centras)",
   };
-  const authNote =
-    "SŽNS objektų užklausa viešajame geoportal.lt servise negalima " +
-    "(pasiekiamas tik žemėlapio vaizdas; duomenų ištraukimas apribotas VĮ Registrų centro). " +
-    "Norėdami gauti apribojimų / servitutų duomenis, kreipkitės: " +
-    "https://www.registrucentras.lt/p/1553 . Saugomos teritorijos ir paveldo apsaugos zonos " +
-    "vis tiek pateikiamos aplinkosaugos ir KVR skyriuose aukščiau.";
 
   const arcgisGeom = getArcgisGeometry(geometry);
   if (!arcgisGeom) {
-    return { ...base, status: "partial", items: [], note: authNote };
+    return { ...base, status: "error", items: [], note: "Sklypo geometrija nepasiekiama; specialiųjų sąlygų patikrinti negalima." };
   }
 
-  const params = new URLSearchParams();
-  params.append("where", "1=1");
-  params.append("geometry", JSON.stringify(arcgisGeom));
-  params.append("geometryType", "esriGeometryPolygon");
-  params.append("spatialRel", "esriSpatialRelIntersects");
-  params.append("inSR", "4326");
-  params.append("returnCountOnly", "true");
-  params.append("f", "json");
+  // identify wants the map the shape was drawn on; with layers=all the layers'
+  // scale ranges do not apply, so the parcel's own bbox will do.
+  const points: number[][] = arcgisGeom.rings.flat();
+  const lngs = points.map((p) => p[0]!);
+  const lats = points.map((p) => p[1]!);
+  const mapExtent = [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)].join(",");
 
-  try {
-    const response = await fetch(SZNS_PROBE_URL, {
+  const identify = async () => {
+    const response = await fetch(SZNS_IDENTIFY_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: params.toString(),
+      body: new URLSearchParams({
+        geometry: JSON.stringify(arcgisGeom),
+        geometryType: "esriGeometryPolygon",
+        sr: "4326",
+        layers: "all",
+        tolerance: "0",
+        mapExtent,
+        imageDisplay: "1000,1000,96",
+        returnGeometry: "false",
+        f: "json",
+      }).toString(),
+      signal: AbortSignal.timeout(15000),
     });
-    const data = await response.json().catch(() => ({}));
-    if (data?.error || !response.ok) {
-      return { ...base, status: "partial", items: [], note: authNote };
+    if (!response.ok) throw new Error(`HTTP error ${response.status} from ArcGIS service`);
+    return response.json();
+  };
+
+  try {
+    // The service now and then answers "Error performing identify" to a
+    // request that succeeds when sent again.
+    let data = await identify();
+    if (data.error) data = await identify();
+    if (data.error) throw new Error(data.error.message || "ArcGIS identify error");
+
+    type Condition = { code: string; name: string; lawSection?: string; documentUrl?: string; zoneNumbers: string[] };
+    const byCode = new Map<string, Condition>();
+    for (const result of data.results || []) {
+      const a = result.attributes || {};
+      const code = /\((\d+)\s*\)\s*$/.exec(result.layerName ?? "")?.[1] ?? String(result.layerName);
+      const entry: Condition = byCode.get(code) ?? {
+        code,
+        ...splitSznsName(a.PAVADINIM || result.layerName),
+        documentUrl: a.NUORODA || undefined,
+        zoneNumbers: [],
+      };
+      if (a.UNIK_NR && !entry.zoneNumbers.includes(a.UNIK_NR)) entry.zoneNumbers.push(a.UNIK_NR);
+      byCode.set(code, entry);
     }
-    // If access is ever granted, surface the count as a starting signal.
+
+    const items = [...byCode.values()]
+      .sort((x, y) => Number(x.code) - Number(y.code))
+      .map(({ zoneNumbers, ...entry }) => ({
+        ...entry,
+        zonesCount: zoneNumbers.length,
+        zoneNumbers: zoneNumbers.join(", "),
+      }));
+
     return {
       ...base,
       status: "ok",
-      items: typeof data.count === "number" ? [{ intersectingConditions: data.count }] : [],
-      note: "SŽNS užklausa autorizuota — išplėtoti fetchSznsRestrictions, kad būtų pateikti visi 58 sąlygų sluoksniai.",
+      items,
+      note: items.length === 0
+        ? "Sklypas nesikerta su registruotomis SŽNS teritorijomis."
+        : `Sklypui taikomos ${items.length} rūšių specialiosios žemės naudojimo sąlygos.`,
     };
   } catch (err: any) {
-    return { ...base, status: "partial", items: [], note: authNote };
+    return {
+      ...base,
+      status: "error",
+      items: [],
+      note: `Klaida tikrinant SŽNS registrą: ${err instanceof Error ? err.message : String(err)}`,
+    };
   }
 }
 
@@ -542,7 +588,7 @@ export async function fetchAsgrRegulations(geometry: any): Promise<UpstreamPanel
 }
 
 // SSVA (Statybos sektoriaus vystymo agentūra) per-parcel built-up ratios, open
-// data (CC BY 4.0): ADP_SP = % of the parcel under building footprints and roofed
+// data (keyless; the item states no licence): ADP_SP = % of the parcel under building footprints and roofed
 // structures (užstatymo tankis), PBP_SP = buildings' gross floor area ÷ parcel
 // area (užstatymo intensyvumas). Gross floor area comes from the real-property
 // register, which we can't read ourselves. The layer has no cadastral number, so

@@ -175,7 +175,7 @@ function getReportMetrics(report: ParcelReport) {
   const boundary = getFirstItem(report, "biip-boundary");
   const ospSummary = getFirstItem(report, "osp-parcel-summary");
   const pollution = getPanel(report, "osp-pollution-risks");
-  const restrictions = getPanel(report, "szns-restrictions") ?? getPanel(report, "geoportal-constraints");
+  const restrictions = getPanel(report, "szns-restrictions");
   const heritage = getPanel(report, "kvr-heritage");
 
   return {
@@ -190,7 +190,7 @@ function getReportMetrics(report: ParcelReport) {
     protectedAreaOverlapPercentage: ospSummary?.protectedAreaOverlapPercentage,
     culturalHeritageOverlapPercentage: ospSummary?.culturalHeritageOverlapPercentage,
     pollutionSites: pollution?.items.length ?? 0,
-    restrictionsCount: restrictions?.items.length ?? 0,
+    restrictionsCount: restrictions?.status === "ok" ? restrictions.items.length : undefined,
     heritageCount: heritage?.items.length ?? 0,
   };
 }
@@ -293,7 +293,7 @@ function buildReportHtml(report: ParcelReport, mapHtml: string): string {
   ]);
 
   const riskTable = renderSummaryTable([
-    renderSummaryRow("Apribojimų įrašų skaičius", metrics.restrictionsCount),
+    renderSummaryRow("Specialiosios žemės naudojimo sąlygos", metrics.restrictionsCount),
     renderSummaryRow("Paveldo įrašų skaičius", metrics.heritageCount),
     renderSummaryRow("Taršos rizikos objektai", metrics.pollutionSites),
     renderSummaryRow("Patvirtintų duomenų šaltiniai", statusCounts.ok),

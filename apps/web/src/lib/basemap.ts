@@ -51,7 +51,7 @@ export function orthoIndex(series: OrthoSeries[], choice: string | null): number
 
 export const OSM_TILES = {
   url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> bendraautoriai',
   maxNativeZoom: 19,
 };
 
@@ -59,7 +59,7 @@ export const OSM_TILES = {
 // blank while the national imagery loads, and covers the zoomed-out view.
 export const ESRI_IMAGERY = {
   url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-  attribution: "Esri World Imagery",
+  attribution: "Šaltinis: Esri, Vantor, Earthstar Geographics ir GIS User Community",
   maxNativeZoom: 19,
 };
 

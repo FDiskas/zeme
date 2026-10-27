@@ -4,7 +4,7 @@
 
 - [agent-memory-workflow](project/agent-memory-workflow.md) — use per-project auto-memory workflow in this repo. keywords: memory, workflow, preferences
 - [biip-api-scope](project/biip-api-scope.md) — boundaries.biip.lt = boundaries+addresses only; no restrictions/buildings; residential-areas point search gives locality for no-address parcels. keywords: biip, parcels, addresses, rooms, apribojimai, pastatai, geoportal, osp
-- [geoportal-data-sources](project/geoportal-data-sources.md) — GRPK building footprints OPEN via ArcGIS REST; SŽNS restrictions gated by RC. keywords: geoportal, GRPK, pastatai, footprints, SŽNS, apribojimai, arcgis
+- [geoportal-data-sources](project/geoportal-data-sources.md) — GRPK building footprints OPEN via ArcGIS REST; SŽNS: identify (no geometry) OPEN, geometry/query gated, fused tiles public. keywords: geoportal, GRPK, pastatai, footprints, SŽNS, apribojimai, arcgis
 - [geoportal-metadata-catalog](project/geoportal-metadata-catalog.md) — metadata-catalog REST = dataset DISCOVERY (632 records); open-data routes around SŽNS gap (TPDR reglamentai, potvynių zonos). keywords: geoportal, metadata, catalog, open data, SŽNS, reglamentai, TPDR, potvyniai, flood, discovery
 - [ux-goal-elderly-readability](project/ux-goal-elderly-readability.md) — full redesign: modern + comfortable for elderly; theme = land & buildings; direction = Hallmark Furrow (2026-10-26); map big + info concise + compact sections, orthophoto toggle; home hero short so the fold cuts the picture, recents in the search menu. keywords: ux, ui, redesign, modern, theme, land, buildings, readability, elderly, accessibility, design-goal, furrow, compact
 - [forest-fish-and-infostatyba-sources](project/forest-fish-and-infostatyba-sources.md) — forest-cutting permits OPEN via lkmp.alisas.lt geometry dump (not data.gov.lt — that misses state forest); fish stocking gated; Infostatyba kadastro_nr padding bug fixed. keywords: miskas, kirtimo leidimai, zuvinimas, infostatyba, kadastro_nr, padding, lkmp, amvmt, biip
@@ -16,6 +16,7 @@
 - [mobile-coverage-rrt](project/mobile-coverage-rrt.md) — RRT 5G/LTE/GSM coverage + LTE/5G speed per operator OPEN via geoportal RRT_duomenys MapServer (raster: identify for point value, export for overlay); map key "5G" INTEGRATED in RRT colours. keywords: 5G, LTE, mobilusis ryšys, aprėptis, rrt, telia, bitė, tele2, sparta
 - [soil-productivity-sources](project/soil-productivity-sources.md) — soil/našumo balas/melioration = open FileGDB ZIPs (CC BY 4.0; vert 6.7 GB) with ready seniūnija/sav/LT averages + BUKLE_P drainage condition; live NŽT services licence-barred. keywords: dirvozemis, nasumo balas, melioracija, NZT, licencija, gdal, geopackage
 - [energy-certificates-ssva](project/energy-certificates-ssva.md) — energy-class certificates OPEN (data.gov.lt ssva/pen_sertifikatai, CC BY 4.0) INTEGRATED as panel energy-certificates; matched by free-text address (street+nr+settlement). keywords: energinis naudingumas, klase, sertifikatai, ssva
+- [data-source-licences](project/data-source-licences.md) — per-source licences behind data-sources.ts credit lines; ORT10LT 2021–2023 needs consent, KVR CC BY vs non-commercial, flood CC BY-ND, many state none. keywords: licencija, CC BY 4.0, ODbL, attribution, ORT10LT, KVR
 
 ## feedback/
 

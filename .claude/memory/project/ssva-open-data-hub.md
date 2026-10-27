@@ -2,12 +2,12 @@
 name: ssva-open-data-hub
 description: atviri-duomenys-pi-ssva.hub.arcgis.com = SSVA urban stats (26 keyless FeatureServers); per-parcel built-up ratios INTEGRATED as ssva-built-up; block census + green-space access are next candidates; none of soil/melioration/orthophoto/mobile.
 keywords: [ssva, arcgis hub, užstatymas, užstatymo tankis, intensyvumas, ADP_SP, PBP_SP, kvartalai, surašymas, želdynai, open data]
-updated: 2026-10-26
+updated: 2026-10-27
 ---
 
 ### Rule / Fact
 
-Hub https://atviri-duomenys-pi-ssva.hub.arcgis.com belongs to SSVA (Statybos sektoriaus vystymo agentūra). ArcGIS org `IylpCF7DjNdsT4Zm`, base `https://services-eu1.arcgis.com/IylpCF7DjNdsT4Zm/arcgis/rest/services/`. It has 26 hosted FeatureServers, all anonymous, CC BY 4.0. The hub search API lists only 12 items; use `arcgis.com/sharing/rest/search?q=orgid:IylpCF7DjNdsT4Zm` to see them all.
+Hub https://atviri-duomenys-pi-ssva.hub.arcgis.com belongs to SSVA (Statybos sektoriaus vystymo agentūra). ArcGIS org `IylpCF7DjNdsT4Zm`, base `https://services-eu1.arcgis.com/IylpCF7DjNdsT4Zm/arcgis/rest/services/`. It has 26 hosted FeatureServers, all anonymous. The built-up ratio item states no licence (hub API `license: none`), so don't credit it as CC BY 4.0; see [[data-source-licences]]. The hub search API lists only 12 items; use `arcgis.com/sharing/rest/search?q=orgid:IylpCF7DjNdsT4Zm` to see them all.
 
 - **INTEGRATED:** `Pastatų_bendrojo_ploto_ir_sklypo_santykis/FeatureServer/0` → panel `ssva-built-up` (`fetchBuiltUpRatios` in connectors.ts). Fields: `ADP_SP` = % of the parcel under footprints and roofed structures (užstatymo tankis); `PBP_SP` = gross floor area ÷ parcel area (intensyvumas). There is no cadastral number field, so the subject parcel is the feature whose `returnCentroid` point falls inside our outline. Verified: 4174/0300:0850 → 37.6 % / 0.46, close to sklypoinfo's 28 560 m².
 - **Candidates, not yet done:** block-level 2021 census (`kvartalai_gyv_2021N`, `Kvartalai_bu_2021`, `Kvartalai_nu_2021`; values below 4 suppressed to 3); green space within 300 m (`Esama_zeldynu_situacija`, `Atskirieji_viesieji_zeldynai_300`); compact vs dispersed built-up land (`Užstatytos_teritorijos_2026_m`, plus a 2021 version for change over time).

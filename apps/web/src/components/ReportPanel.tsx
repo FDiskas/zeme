@@ -234,27 +234,19 @@ function Panel({ panel, checkedAt, onRetry, retryAfter, retrying }: PanelProps) 
   // Empty or upstream-unavailable panels: one quiet row, not an expandable
   // one, so they don't add clutter or imply hidden content. The source is
   // intentionally omitted here; it only appears inside an expanded panel. A
-  // failed source gets a key to ask again; a gated one, where to check.
+  // failed source gets a key to ask again.
   if (panel.state !== "ok") {
+    const failed = panel.state === "unavailable";
     return (
       <li id={`panel-${panel.key}`} className="grid scroll-mt-[calc(var(--nav-clear)+1rem)] justify-items-start gap-1 px-2 py-2.5">
         <span className="text-md text-ink-2">{panel.title}</span>
         {panel.message ? <span className="line-clamp-3 text-sm text-muted">{panel.message}</span> : null}
-        {panel.links ? (
-          <span className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-            {panel.links.map((link) => (
-              <a key={link.href} href={link.href} target="_blank" rel="noreferrer" className="link whitespace-nowrap">
-                {link.label}
-              </a>
-            ))}
-          </span>
-        ) : null}
-        {panel.retryable && onRetry ? (
+        {failed && onRetry ? (
           <button type="button" onClick={onRetry} disabled={retrying} aria-busy={retrying} className="btn btn--secondary btn--s mt-1">
             <RefreshIcon className="h-5 w-5" />
             {retrying ? "Bandoma…" : "Bandyti dar kartą"}
           </button>
-        ) : panel.retryable && retryAfter ? (
+        ) : failed && retryAfter ? (
           <span className="text-sm text-muted">Bandyti dar kartą galėsite po {retryAfter}</span>
         ) : null}
       </li>
