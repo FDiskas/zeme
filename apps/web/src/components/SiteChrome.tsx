@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
-import { CloseIcon, LogoMark, MenuIcon } from "./icons";
+import { CloseIcon, InfoIcon, LogoMark, MenuIcon } from "./icons";
 
 const NAV_LINKS = [
   { to: "/", label: "Pradžia" },
@@ -30,6 +30,30 @@ function navLinkClass({ isActive }: { isActive: boolean }) {
   return `flex min-h-12 items-center whitespace-nowrap rounded-pill px-4 text-md font-medium text-ink transition-colors duration-150 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus active:bg-paper-3 ${
     isActive ? "bg-accent-soft" : "hover:bg-paper-2"
   }`;
+}
+
+// A quiet strip above the bar, scrolling away with the page: the project is
+// for sale, and the domain's registry record is the way to reach its owner.
+export function SaleNotice() {
+  return (
+    <aside aria-label="Pranešimas" className="border-b border-rule bg-accent-soft">
+      <p className="container flex min-h-11 items-center gap-2.5 py-2 text-sm text-ink">
+        <InfoIcon className="h-5 w-5 shrink-0" />
+        <span>
+          Projektas parduodamas. Dėl pasiūlymų kreipkitės:{" "}
+          <a
+            href="https://www.domreg.lt/paslaugos/whois/?search=reginfo.lt"
+            target="_blank"
+            rel="noreferrer"
+            className="link"
+          >
+            kontaktai domenų registre
+          </a>
+          .
+        </span>
+      </p>
+    </aside>
+  );
 }
 
 // An edge-aligned bar: the wordmark at one edge, three links at the other,
@@ -79,19 +103,37 @@ export function Header() {
   );
 }
 
-// A colophon: the wordmark, then one paragraph that says what the data is,
-// what it is not, and whose maps and code it stands on.
+const FOOTER_LINKS = [
+  { to: "/apie", label: "Apie projektą" },
+  { to: "/naudojimosi-taisykles", label: "Naudojimosi taisyklės" },
+  { to: "/duomenu-saltiniai", label: "Duomenų šaltiniai" },
+];
+
+// A colophon: the wordmark and the reading pages, then one paragraph that says
+// what the data is, what it is not, and whose maps and code it stands on.
 export function Footer() {
   return (
     <footer className="border-t border-rule bg-paper-2">
       <div className="container grid gap-8 py-14 md:grid-cols-12 md:gap-8">
-        <div className="md:col-span-4">
+        <div className="grid content-start gap-6 md:col-span-4">
           <Brand />
+          <nav aria-label="Apie svetainę">
+            <ul className="grid gap-1">
+              {FOOTER_LINKS.map((link) => (
+                <li key={link.to}>
+                  <Link to={link.to} className="link inline-flex min-h-11 items-center text-md">
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
         </div>
         <p className="max-w-[60ch] text-md text-ink-2 md:col-span-7 md:col-start-6">
-          Žemės sklypų ir pastatų informacija iš viešų Lietuvos registrų. Duomenys
-          pateikiami pažintiniams tikslams ir nėra oficialus dokumentas. Žemėlapio
-          pagrindas:{" "}
+          Žemės sklypų ir pastatų informacija iš viešų Lietuvos registrų, surinkta ir
+          parodyta nekeičiant jos turinio. Duomenys pateikiami pažintiniams tikslams ir
+          nėra oficialus dokumentas: prieš priimdami sprendimus, pasitikrinkite juos
+          oficialiuose šaltiniuose. Žemėlapio pagrindas:{" "}
           <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" className="link">
             OpenStreetMap
           </a>

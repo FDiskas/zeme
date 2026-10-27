@@ -26,6 +26,7 @@ const NOTE_PANEL_KEYS = new Set([
   "census-households",
   "broadband",
   "flood-risk",
+  "energy-certificates",
 ]);
 
 // Panels that always hold one record — the parcel's own registry entry, its
@@ -49,6 +50,7 @@ const COUNT_NOUNS: Record<string, readonly [string, string, string]> = {
   "nearby-services": ["įstaiga", "įstaigos", "įstaigų"],
   "crime-stats": ["laikotarpis", "laikotarpiai", "laikotarpių"],
   broadband: ["technologija", "technologijos", "technologijų"],
+  "energy-certificates": ["pastatas", "pastatai", "pastatų"],
 };
 const DEFAULT_COUNT_NOUN = ["įrašas", "įrašai", "įrašų"] as const;
 
@@ -228,6 +230,18 @@ const FIELD_RULES: Record<string, Record<string, FieldRule>> = {
     condition: { label: "Būklė" },
     renovationWorks: { label: "Renovacijos darbai" },
   },
+  "energy-certificates": {
+    address: { label: "Adresas", isHeading: true },
+    energyClass: { label: "Energinio naudingumo klasė", inRow: true },
+    status: { label: "Sertifikatas" },
+    validUntil: { label: "Galioja iki" },
+    issued: { label: "Išduotas" },
+    certifiedAreaSqM: { label: "Sertifikuotas plotas", unit: "m²" },
+    heating: { label: "Šildymas", wide: true },
+    certificateNo: { label: "Sertifikato Nr." },
+    otherCertificates: { label: "Kiti sertifikatai šiuo adresu" },
+    flatCertificates: { label: "Butų sertifikatai", wide: true },
+  },
   "geoportal-constraints": {
     type: { label: "Tipas", isHeading: true },
     name: { label: "Pavadinimas" },
@@ -356,6 +370,7 @@ const PANEL_TITLES: Record<string, string> = {
   "grpk-buildings": "Pastatai sklype",
   "ssva-built-up": "Esamas užstatymas",
   "pdbis-building-data": "Pastatų duomenų bankas",
+  "energy-certificates": "Energinis naudingumas",
   "geoportal-constraints": "Saugomos teritorijos",
   "kvr-heritage": "Kultūros paveldas",
   "asgr-regulations": "Teritorijų planavimo reglamentai",
@@ -387,7 +402,7 @@ export const CATEGORIES: { id: string; title: string; panelKeys: string[] }[] =
     {
       id: "pastatai",
       title: "Pastatai",
-      panelKeys: ["grpk-buildings", "ssva-built-up", "pdbis-building-data"],
+      panelKeys: ["grpk-buildings", "ssva-built-up", "pdbis-building-data", "energy-certificates"],
     },
     {
       id: "statyba",
@@ -580,6 +595,15 @@ const INSIGHTS: Record<string, (items: RawItem[], note?: string) => string | und
     items.length > 0
       ? "Pastatų kontūrai iš georeferencinio pagrindo kadastro. Oficialų užstatymo plotą nurodo kadastro byla."
       : "Sklype pastatų kontūrų nerasta.",
+  // The class a buyer compares, with the scale it sits on; flats alone say
+  // nothing about the whole building.
+  "energy-certificates": (items) => {
+    if (items.length === 0) return undefined;
+    const classes = [...new Set(items.map((item) => item.energyClass).filter((c): c is string => typeof c === "string"))];
+    if (classes.length === 0) return "Rasti tik atskirų butų sertifikatai, viso pastato sertifikato nėra.";
+    const lead = classes.length === 1 ? `Energinio naudingumo klasė – ${classes[0]}.` : `Pastatų energinio naudingumo klasės: ${classes.join(", ")}.`;
+    return `${lead} A++–B klasių pastatams šildyti reikia mažai energijos, E–G – daug.`;
+  },
   "rc-masvert": (items) =>
     items.some((item) => num(item.marketValueEur))
       ? "Tai Registrų centro masiniu vertinimu nustatyta statistinė vertė, ne konkretaus sandorio kaina. Reali rinkos kaina gali skirtis."

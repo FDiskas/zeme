@@ -83,6 +83,19 @@ export const DATA_SOURCES: DataSource[] = [
     status: "live",
   },
   {
+    panelKey: "energy-certificates",
+    name: "Pastatų energinio naudingumo sertifikatai",
+    publisher: "Statybos sektoriaus vystymo agentūra (SSVA)",
+    api: "data.gov.lt · ssva/pen_sertifikatai",
+    url: "https://data.gov.lt/datasets/2366/",
+    coverage: "Pastato energinio naudingumo klasė (A++–G), sertifikato galiojimas, sertifikuotas plotas ir šildymo šaltiniai.",
+    updateFrequency: "Tikrinama tiesiogiai kiekvienos ataskaitos metu.",
+    status: "live",
+    caveat:
+      "Sertifikatai siejami su sklypu pagal pastato adresą, nes atviruose duomenyse nėra pastato numerio. " +
+      "Sertifikatas privalomas naujiems, parduodamiems ir nuomojamiems pastatams, todėl senesni namai jo dažnai neturi.",
+  },
+  {
     panelKey: "geoportal-constraints",
     name: "Saugomų teritorijų kadastras (VSTT)",
     publisher: "Valstybinė saugomų teritorijų tarnyba",
@@ -258,5 +271,34 @@ export const DATA_SOURCES: DataSource[] = [
       "žetono. Vienintelis viešai atsisiunčiamas duomuo: statinės metinės ataskaitos " +
       "(2020-2022 m.), kurios neapima konkrečių vandens telkinių prie sklypo, todėl į " +
       "ataskaitą kol kas neįtraukta.",
+  },
+  {
+    name: "Dirvožemis ir našumo balas",
+    publisher: "Žemės ūkio duomenų centras (geoportal.lt)",
+    api: "geoportal.lt · Dirv_DR10LT, Dirv_vert_DR10LT",
+    url: "https://www.geoportal.lt",
+    coverage:
+      "Dirvožemio tipai ir granuliometrinė sudėtis, žemės našumo balas ir jo vidurkiai " +
+      "kadastro vietovėje, seniūnijoje, savivaldybėje ir Lietuvoje.",
+    updateFrequency: "Netaikoma",
+    status: "not-integrated",
+    caveat:
+      "Duomenys atviri, bet skelbiami tik kaip dideli atsisiunčiami failai (vien našumo balo – 6,7 GB), " +
+      "kuriuos pirmiausia reikia apdoroti savo serveryje. Tiesioginę geoportal.lt dirvožemio paslaugą " +
+      "kitose svetainėse naudoti draudžiama be leidimo, todėl į ataskaitą kol kas neįtraukta.",
+  },
+  {
+    name: "Melioracija (sausinimo sistemos ir jų būklė)",
+    publisher: "Žemės ūkio duomenų centras (geoportal.lt)",
+    api: "geoportal.lt · MEL_DR10LT",
+    url: "https://www.geoportal.lt",
+    coverage:
+      "Nusausinta žemė, melioracijos projektai ir sistemų būklės problemos " +
+      "(užmirkimas, neveikiantis drenažas, pasiūlymai remontuoti ar rekonstruoti).",
+    updateFrequency: "Netaikoma",
+    status: "not-integrated",
+    caveat:
+      "Duomenys atviri, bet skelbiami tik kaip atsisiunčiamas failas, kurį reikia iš anksto apdoroti " +
+      "savo serveryje. Planuojama įtraukti kartu su dirvožemio duomenimis.",
   },
 ];

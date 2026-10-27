@@ -1,19 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, Route, Routes, useParams } from "react-router-dom";
+import { Link, Route, Routes, useLocation, useParams } from "react-router-dom";
 import type { ParcelReport } from "@zeme/shared";
 import { ParcelMap } from "./components/ParcelMap";
 import { ReportPanel } from "./components/ReportPanel";
 import { SummaryCard } from "./components/SummaryCard";
+import { AboutPage } from "./components/AboutPage";
 import { DataSourcesPage } from "./components/DataSourcesPage";
+import { TermsPage } from "./components/TermsPage";
 import { MapExplorePage } from "./components/MapExplorePage";
 import { ParcelAtPointPage } from "./components/ParcelAtPointPage";
-import { Footer, Header } from "./components/SiteChrome";
+import { Footer, Header, SaleNotice } from "./components/SiteChrome";
 import { RecentlyViewed } from "./components/RecentlyViewed";
 import { ParcelSearch } from "./components/ParcelSearch";
 import { ExploreClose, ReportTour, SourcesSpec } from "./components/HomeSections";
 import {
   ChevronLeft,
   DownloadIcon,
+  InfoIcon,
   PinIcon,
   RefreshIcon,
   ShareIcon,
@@ -52,7 +55,7 @@ function HomePage() {
         <figure className="relative m-0 grid grid-cols-[minmax(0,1fr)] lg:mb-(--space-xl) lg:grid-cols-12 lg:gap-x-(--gap-columns)">
           <div className="relative lg:col-span-10 lg:col-start-2">
             <div
-              className="frame aspect-[4/3] shadow-card md:aspect-[2/1]"
+              className="frame aspect-4/3 shadow-card md:aspect-2/1"
               data-slot="hero-parcel"
               data-kind="product"
               data-alt="Sklypas Vilniuje, Tilto g. 2A, apvestas oranžine linija ant ortofoto nuotraukos."
@@ -322,6 +325,16 @@ function ParcelPage() {
                   retryAfter={canRefresh ? undefined : refreshTime}
                   retrying={loading}
                 />
+                <p className="flex gap-3 text-sm text-ink-2">
+                  <InfoIcon className="mt-0.5 h-5 w-5 shrink-0 text-ink" />
+                  <span>
+                    Duomenys surinkti iš viešų registrų ir parodyti nekeičiant jų turinio. Tai nėra oficialus
+                    dokumentas: prieš priimdami sprendimą, pasitikrinkite juos oficialiuose šaltiniuose.{" "}
+                    <Link to="/naudojimosi-taisykles#neoficialu" className="link">
+                      Kur pasitikrinti
+                    </Link>
+                  </span>
+                </p>
               </section>
             </>
           ) : null}
@@ -357,9 +370,23 @@ function ParcelPageRoute() {
   return <ParcelPage key={cadastralRegNo} />;
 }
 
+// A new page opens at its top, or at the section its link names (#neoficialu),
+// rather than at the scroll depth of the page the reader came from.
+function ScrollOnNavigate() {
+  const { pathname, hash } = useLocation();
+  useEffect(() => {
+    const target = hash ? document.getElementById(decodeURIComponent(hash.slice(1))) : null;
+    if (target) target.scrollIntoView();
+    else window.scrollTo(0, 0);
+  }, [pathname, hash]);
+  return null;
+}
+
 function App() {
   return (
     <div className="flex min-h-dvh flex-col">
+      <ScrollOnNavigate />
+      <SaleNotice />
       <Header />
       <div className="flex-1">
         <Routes>
@@ -368,6 +395,8 @@ function App() {
           <Route path="/parcel/:cadastralRegNo" element={<ParcelPageRoute />} />
           <Route path="/vieta" element={<ParcelAtPointPage />} />
           <Route path="/duomenu-saltiniai" element={<DataSourcesPage />} />
+          <Route path="/apie" element={<AboutPage />} />
+          <Route path="/naudojimosi-taisykles" element={<TermsPage />} />
         </Routes>
       </div>
       <Footer />

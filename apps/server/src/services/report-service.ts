@@ -22,6 +22,7 @@ import {
   formatUniqueNumber,
 } from "./osp-service";
 import { getMarketValuePanel } from "./masvert-service";
+import { addressPointsOf, fetchEnergyCertificates } from "./energy-certificates";
 import {
   resolveParcelFromBiip,
   resolveAddressFromBiip,
@@ -132,6 +133,11 @@ export async function buildComprehensiveReport(
     ospParcel?.unikalus_nr || parcel?.uniqueNumber,
   );
 
+  // Energy certificates are found by the parcel's address points, so they
+  // follow the address panel rather than waiting for every other source.
+  const biipAddressesPanel = fetchBiipAddresses(targetCadastralRegNo, resolvedCoordinates, addressDetails);
+  const energyCertificatesPanel = biipAddressesPanel.then((panel) => fetchEnergyCertificates(addressPointsOf(panel)));
+
   const [
     biipBoundary,
     biipAddresses,
@@ -153,10 +159,11 @@ export async function buildComprehensiveReport(
     censusHouseholds,
     broadband,
     builtUp,
+    energyCertificates,
     locality,
   ] = await Promise.all([
     fetchBiipBoundary(targetCadastralRegNo, resolvedAddress),
-    fetchBiipAddresses(targetCadastralRegNo, resolvedCoordinates, addressDetails),
+    biipAddressesPanel,
     fetchGeoportalConstraints(targetCadastralRegNo, resolvedAddress, resolvedCoordinates),
     fetchGrpkBuildings(resolvedCoordinates, biipAddressPoints, ospBuildingPoints),
     fetchSznsRestrictions(resolvedCoordinates),
@@ -178,6 +185,7 @@ export async function buildComprehensiveReport(
     fetchCensusHouseholds(resolvedCoordinates),
     fetchBroadband(resolvedCoordinates),
     fetchBuiltUpRatios(resolvedCoordinates),
+    energyCertificatesPanel,
     hasStreetAddress ? Promise.resolve("") : resolveLocalityOf(resolvedCoordinates),
   ]);
 
@@ -226,7 +234,8 @@ export async function buildComprehensiveReport(
       "Aplinkos ministerija potvynių rizikos žemėlapiai",
       "OSP 2021 m. gyventojų ir būstų surašymas",
       "RRT fiksuotojo ryšio tinklai (data.gov.lt)",
-      "SSVA pastatų bendrojo ploto ir sklypo santykis"
+      "SSVA pastatų bendrojo ploto ir sklypo santykis",
+      "SSVA pastatų energinio naudingumo sertifikatai (data.gov.lt)"
     ],
     reportPanels: [
       ospParcelSummary,
@@ -235,6 +244,7 @@ export async function buildComprehensiveReport(
       biipAddresses,
       grpkBuildings.panel,
       builtUp,
+      energyCertificates,
       geoportal,
       asgr,
       szns,

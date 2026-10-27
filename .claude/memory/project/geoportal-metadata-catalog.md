@@ -3,10 +3,10 @@ name: geoportal-metadata-catalog
 description: geoportal.lt metadata-catalog REST is a dataset DISCOVERY API; surfaces open-data routes around the gated SŽNS gap.
 keywords: [geoportal, metadata, catalog, geonetwork, open data, atviri duomenys, SŽNS, apribojimai, reglamentai, TPDR, potvyniai, flood, planavimas, discovery]
 created: 2026-06-01
-updated: 2026-06-01
+updated: 2026-10-26
 ---
 
-**Fact / Rule (verified live):** `https://www.geoportal.lt/metadata-catalog/rest/find/group/read` is a GeoNetwork-style **metadata DISCOVERY catalog**, NOT a per-address query API. Returns JSON `{success,total:632,records[].documents[]}`; each document has `uuid`, `name`, `description`, `openData` bool, `extent` bbox, and `actions[]` (the `tag:"open"` action holds the bulk download URL — usually a ZIP/GDB, sometimes an ArcGIS web-app). The `any=` query param did NOT filter in testing (total stayed 632) — treat it as a fetch-all-then-filter-client-side list.
+**Fact / Rule (verified live):** `https://www.geoportal.lt/metadata-catalog/rest/find/group/read` is a GeoNetwork-style **metadata DISCOVERY catalog**, NOT a per-address query API. Returns JSON `{success,total:632,records[].documents[]}`; each document has `uuid`, `name`, `description`, `openData` bool, `extent` bbox, and `actions[]` (the `tag:"open"` action holds the bulk download URL — usually a ZIP/GDB, sometimes an ArcGIS web-app). The `any=` query param did NOT filter in testing. The list is PAGINATED: a plain call returns about 211 docs; loop `?start=1,51,…&max=50` to get everything (796 unique docs on 2026-10-26), then filter client-side.
 
 **Why:** The project's biggest data gap is restrictions: SŽNS feature `/query` is gated by Registrų centras (see [[geoportal-data-sources]]). This catalog reveals OPEN alternatives that route around that gate, plus risk layers well-suited to a due-diligence address report.
 

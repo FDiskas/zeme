@@ -26,7 +26,8 @@ import {
 import { resolveParcelByCoordinates } from "./services/biip-service";
 import { fetchParcelByPoint, fetchParcelsByBbox, formatUniqueNumber } from "./services/osp-service";
 import { getMarketValuePanel } from "./services/masvert-service";
-import { fetchBuiltUpRatios } from "./services/connectors";
+import { fetchBuiltUpRatios, type UpstreamPanel } from "./services/connectors";
+import { addressPointsOf, fetchEnergyCertificates } from "./services/energy-certificates";
 import {
   fetchNearbyServices,
   fetchCrimeStats,
@@ -90,14 +91,16 @@ async function refreshMissingMarketValue(
 
 // Panels added after reports were first cached; a cached report missing one
 // fetches it on read (see upgradeCachedReport).
-const BACKFILLED_PANELS = {
-  "nearby-services": fetchNearbyServices,
-  "crime-stats": fetchCrimeStats,
-  "flood-risk": fetchFloodRisk,
-  "census-households": fetchCensusHouseholds,
-  broadband: fetchBroadband,
-  "ssva-built-up": fetchBuiltUpRatios,
-} as const;
+const BACKFILLED_PANELS: Record<string, (report: ParcelReport) => Promise<UpstreamPanel>> = {
+  "nearby-services": (report) => fetchNearbyServices(report.coordinates),
+  "crime-stats": (report) => fetchCrimeStats(report.coordinates),
+  "flood-risk": (report) => fetchFloodRisk(report.coordinates),
+  "census-households": (report) => fetchCensusHouseholds(report.coordinates),
+  broadband: (report) => fetchBroadband(report.coordinates),
+  "ssva-built-up": (report) => fetchBuiltUpRatios(report.coordinates),
+  "energy-certificates": (report) =>
+    fetchEnergyCertificates(addressPointsOf(report.reportPanels.find((p) => p.key === "biip-addresses"))),
+};
 
 // A cached panel from an older build that lacks data the UI now relies on:
 // nearby places without coordinates can't link to their parcel, and crime
@@ -131,7 +134,7 @@ async function upgradeCachedReport(
   if (stale.length === 0 && !needsLocality) return report;
 
   const [panels, locality] = await Promise.all([
-    Promise.all(stale.map(([, fetchPanel]) => fetchPanel(report.coordinates))),
+    Promise.all(stale.map(([, fetchPanel]) => fetchPanel(report))),
     needsLocality ? resolveLocalityOf(report.coordinates) : Promise.resolve(report.locality),
   ]);
   const replaced = new Set(panels.map((p) => p.key));
