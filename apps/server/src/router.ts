@@ -319,34 +319,64 @@ const retryPanel = os
     return retry;
   });
 
-async function retryCachedPanel(cadastralRegNo: string, key: ReportPanelKey): Promise<ParcelReport> {
+// Saves of retried panels, by cadastral number. Retries of one parcel ask
+// their sources side by side but save one after another, each into the row
+// as the previous save left it, so no retry overwrites another's panel.
+const panelSavesInFlight = new Map<string, Promise<unknown>>();
+
+function afterPanelSaves<T>(cadastralRegNo: string, save: () => Promise<T>): Promise<T> {
+  const previous = panelSavesInFlight.get(cadastralRegNo) ?? Promise.resolve();
+  const next = previous.catch(() => undefined).then(save);
+  panelSavesInFlight.set(cadastralRegNo, next);
+  next
+    .catch(() => undefined)
+    .finally(() => {
+      if (panelSavesInFlight.get(cadastralRegNo) === next) panelSavesInFlight.delete(cadastralRegNo);
+    });
+  return next;
+}
+
+async function readCachedReport(cadastralRegNo: string): Promise<{ report: ParcelReport; updatedAt: Date }> {
   const existing = await prisma.parcelReport.findUnique({ where: { cadastralRegNo } });
   if (!existing || !shouldReuseCachedReport(existing)) {
     throw new ORPCError("NOT_FOUND", { message: "Report not found. Fetch the report first." });
   }
-  const report = parcelReportSchema.parse(JSON.parse(existing.reportData));
+  return { report: parcelReportSchema.parse(JSON.parse(existing.reportData)), updatedAt: existing.updatedAt };
+}
+
+type ReportPanel = ParcelReport["reportPanels"][number];
+
+function withRetriedPanel(report: ParcelReport, panel: ReportPanel, footprints?: ParcelReport["buildings"]): ParcelReport {
+  const replaced = report.reportPanels.some((p) => p.key === panel.key);
+  return {
+    ...report,
+    ...(footprints ? { buildings: footprints } : {}),
+    reportPanels: replaced
+      ? report.reportPanels.map((p) => (p.key === panel.key ? panel : p))
+      : [...report.reportPanels, panel],
+  };
+}
+
+async function retryCachedPanel(cadastralRegNo: string, key: ReportPanelKey): Promise<ParcelReport> {
+  const { report, updatedAt } = await readCachedReport(cadastralRegNo);
   const current = report.reportPanels.find((p) => p.key === key);
-  if (current && current.status !== "error") return cachedResponse(report, existing.updatedAt);
+  if (current && current.status !== "error") return cachedResponse(report, updatedAt);
 
   const ctx = panelContextOf(report);
   const panel = await fetchPanel(key, ctx);
-  const footprints = key === "grpk-buildings" && panel.status !== "error" ? (await ctx.grpk()).footprints : undefined;
-  const updated: ParcelReport = {
-    ...report,
-    ...(footprints ? { buildings: footprints } : {}),
-    reportPanels: current
-      ? report.reportPanels.map((p) => (p.key === key ? panel : p))
-      : [...report.reportPanels, panel],
-  };
+  if (panel.status === "error") return cachedResponse(withRetriedPanel(report, panel), updatedAt);
+  const footprints = key === "grpk-buildings" ? (await ctx.grpk()).footprints : undefined;
 
-  if (panel.status !== "error") {
+  return afterPanelSaves(cadastralRegNo, async () => {
+    const latest = await readCachedReport(cadastralRegNo);
+    const updated = withRetriedPanel(latest.report, panel, footprints);
     // updatedAt pinned: the rest of the report keeps its age and cooldown.
     await prisma.parcelReport.update({
       where: { cadastralRegNo },
-      data: { reportData: JSON.stringify(updated), pdfCachedPath: null, updatedAt: existing.updatedAt },
+      data: { reportData: JSON.stringify(updated), pdfCachedPath: null, updatedAt: latest.updatedAt },
     });
-  }
-  return cachedResponse(updated, existing.updatedAt);
+    return cachedResponse(updated, latest.updatedAt);
+  });
 }
 
 // Reverse-resolve a clicked map coordinate to the parcel beneath it. BIIP first

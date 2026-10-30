@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { REPORT_PANEL_KEYS, ltCount, type ParcelReport, type ReportPanelKey } from "@zeme/shared";
 import { panelTitle } from "../lib/report-format";
 import type { PanelRetry, ReportStatus } from "../lib/useParcelReport";
@@ -6,11 +6,15 @@ import { CheckIcon, CloseIcon, RefreshIcon, WarningIcon } from "./icons";
 
 type StepState = "loading" | "ok" | "error";
 type Step = { key: string; label: string; state: StepState; reason?: string; retryKey?: ReportPanelKey };
+type Phase = "loading" | "settled";
 
-// A cached report arrives in well under this; only a slower answer opens the
-// window, so a quick one doesn't flash it.
+// A cached report arrives in well under this; only a slower answer shows the
+// note, so a quick one doesn't flash it.
 const SHOW_AFTER_MS = 600;
+// How long "everything came" stays before the note goes by itself.
+const ALL_RECEIVED_MS = 3000;
 const LOST_REASON = "nepavyko gauti atsakymo iš serverio";
+const SOURCE_FORMS: [string, string, string] = ["šaltinio", "šaltinių", "šaltinių"];
 
 // The parcel lookup first, then one step per panel. A step still out when the
 // stream broke off counts as failed.
@@ -46,6 +50,30 @@ function StepMark({ state }: { state: StepState }) {
   );
 }
 
+function StepList({ steps, retrying }: { steps: Step[]; retrying: ReadonlySet<string> }) {
+  return (
+    <ul className="max-h-[min(20rem,40dvh)] overflow-y-auto border-y border-rule">
+      {steps.map((step) => {
+        const state = step.retryKey && retrying.has(step.retryKey) ? "loading" : step.state;
+        return (
+          <li key={step.key} className="flex items-start gap-3 border-b border-rule py-2 last:border-b-0">
+            <StepMark state={state} />
+            <div className="grid min-w-0 flex-1 gap-0.5">
+              <span className="text-md">
+                {step.label}
+                <span className="sr-only">: {SPOKEN[state]}</span>
+              </span>
+              {state === "error" && step.reason ? (
+                <span className="text-sm text-muted">Priežastis: {step.reason}</span>
+              ) : null}
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 type Props = {
   report: ParcelReport | null;
   status: ReportStatus;
@@ -58,81 +86,93 @@ type Props = {
 };
 
 /**
- * While a new report is built: a window listing every source and whether it
- * has answered, then the ones that failed, each with its reason and a key to
- * ask it again. Closed, it leaves a one-line note on the page that opens it
- * again. Remount it (key) for each load.
+ * A note in the screen's corner while a new report is built, so the report
+ * itself stays in view and fills in beside it. It counts the sources that
+ * have answered and goes by itself once all have; when some failed it stays,
+ * listing them with their reasons, until the reader asks them again or
+ * closes it. Remount it (key) for each load.
  */
 export function ReportProgress({ report, status, rebuilt, retry, onReload }: Props) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const [delayPassed, setDelayPassed] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissedIn, setDismissedIn] = useState<Phase | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [allReceivedShown, setAllReceivedShown] = useState(false);
+
+  const loading = status === "loading";
+  const phase: Phase = loading ? "loading" : "settled";
+  // On a refresh the previous report stays on the page until the new build
+  // starts; its panels are not this load's answers.
+  const steps = stepsOf(loading && !rebuilt ? null : report, status);
+  const answered = steps.filter((step) => step.state !== "loading").length;
+  const failures = steps.filter((step) => step.state === "error");
+  const allReceived = !loading && failures.length === 0;
 
   useEffect(() => {
     const timer = setTimeout(() => setDelayPassed(true), SHOW_AFTER_MS);
     return () => clearTimeout(timer);
   }, []);
 
-  const loading = status === "loading";
-  const steps = stepsOf(report, status);
-  const answered = steps.filter((step) => step.state !== "loading").length;
-  const failures = steps.filter((step) => step.state === "error");
-  const received = steps.filter((step) => step.state === "ok").length;
-  // Shown only for a build that takes a while; it stays after the build only
-  // to show what failed, and closes by itself when everything came.
-  const shown = rebuilt || (delayPassed && loading);
-  const worthShowing = loading || (failures.length > 0 && (rebuilt || status === "failed"));
-  const open = shown && worthShowing && !dismissed;
-
   useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
-  }, [open]);
+    if (!allReceived) return;
+    const timer = setTimeout(() => setAllReceivedShown(true), ALL_RECEIVED_MS);
+    return () => clearTimeout(timer);
+  }, [allReceived]);
 
-  if (!shown || !worthShowing) return null;
+  // Shown only for a build that takes a while. Closing it while it loads
+  // hides the count, not a failure that comes later. Without any report the
+  // page itself says so, with its own key to try again.
+  const started = rebuilt || (delayPassed && loading);
+  const worthShowing =
+    loading ||
+    (failures.length > 0 && (rebuilt || status === "failed")) ||
+    (allReceived && rebuilt && !allReceivedShown && dismissedIn === null);
+  const pageReportsFailure = !report && status === "failed";
+  const visible = started && worthShowing && dismissedIn !== phase && !pageReportsFailure;
+  if (!visible) return null;
 
-  // Failures lead once everything has answered; while loading the order
-  // stays put, so rows don't jump as they turn green.
-  const ordered = loading ? steps : [...failures, ...steps.filter((step) => step.state !== "error")];
-  const total = ltCount(steps.length, ["šaltinio", "šaltinių", "šaltinių"]);
+  const total = ltCount(steps.length, SOURCE_FORMS);
+  const retrying = retry?.retrying ?? new Set<string>();
+  const retryKeys = failures.flatMap((step) => (step.retryKey ? [step.retryKey] : []));
+  const busy = retryKeys.some((key) => retrying.has(key));
+  // A broken stream is read again whole; a saved report asks only the failed sources.
+  const onTryAgain =
+    status === "failed" ? onReload : retry ? () => retryKeys.forEach((key) => retry.onRetry(key)) : undefined;
+
+  const title = loading ? "Renkame sklypo duomenis" : allReceived ? "Visi duomenys gauti" : "Ne visi šaltiniai atsakė";
+  const summary =
+    loading || allReceived
+      ? `Gauta ${answered} iš ${total}`
+      : `Nepavyko gauti ${failures.length} iš ${total}. Kitus duomenis jau matote ataskaitoje.`;
 
   return (
-    <>
-      <dialog
-        ref={dialogRef}
-        aria-labelledby="report-progress-title"
-        onCancel={(event) => {
-          event.preventDefault();
-          setDismissed(true);
-        }}
-        className="m-auto max-h-[calc(100dvh-2rem)] w-[min(34rem,calc(100vw-2rem))] overflow-hidden rounded-entry bg-plate p-0 text-ink shadow-lift backdrop:bg-ink/40"
-      >
-        <div className="flex max-h-[calc(100dvh-2rem)] flex-col gap-4 p-6 max-sm:p-5">
-          <header className="flex items-start justify-between gap-4">
-            <div className="grid gap-1">
-              <h2 id="report-progress-title" className="text-xl tracking-[-0.02em]" aria-live="polite">
-                {loading ? "Renkame sklypo duomenis" : "Ne visi šaltiniai atsakė"}
-              </h2>
-              <p className="text-md text-ink-2">
-                {loading
-                  ? `Gauta ${answered} iš ${total}. Pirmą kartą tai gali užtrukti iki minutės, vėliau ataskaita atsidarys iš karto.`
-                  : `Gauta ${received} iš ${total}. Ataskaitą jau galite peržiūrėti, o nepavykusius šaltinius bandyti dar kartą.`}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setDismissed(true)}
-              className="btn btn--secondary btn--icon shrink-0"
-              aria-label="Uždaryti"
-            >
-              <CloseIcon className="h-5 w-5" />
-            </button>
-          </header>
+    <section
+      aria-labelledby="report-progress-title"
+      className="fixed inset-x-4 bottom-4 z-1100 grid gap-3 rounded-entry border border-rule bg-plate p-4 text-ink shadow-lift sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-104"
+    >
+      <header className="flex items-start gap-3">
+        <span className="mt-1">
+          <StepMark state={loading ? "loading" : allReceived ? "ok" : "error"} />
+        </span>
+        <div className="grid min-w-0 flex-1 gap-0.5">
+          <h2 id="report-progress-title" className="text-lg tracking-[-0.02em]" aria-live="polite">
+            {title}
+          </h2>
+          <p className="text-sm text-ink-2">{summary}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setDismissedIn(phase)}
+          className="btn btn--secondary btn--icon -mt-1 -mr-1 shrink-0"
+          aria-label="Užverti pranešimą"
+        >
+          <CloseIcon className="h-5 w-5" />
+        </button>
+      </header>
 
+      {loading ? (
+        <>
           <div
-            className="h-2 shrink-0 overflow-hidden rounded-pill bg-paper-2"
+            className="h-2 overflow-hidden rounded-pill bg-paper-2"
             role="progressbar"
             aria-label="Atsakę šaltiniai"
             aria-valuemin={0}
@@ -144,72 +184,34 @@ export function ReportProgress({ report, status, rebuilt, retry, onReload }: Pro
               style={{ width: `${(answered / steps.length) * 100}%` }}
             />
           </div>
+          <button
+            type="button"
+            onClick={() => setExpanded((open) => !open)}
+            aria-expanded={expanded}
+            className="link min-h-11 w-fit text-sm"
+          >
+            {expanded ? "Slėpti šaltinius" : "Rodyti šaltinius"}
+          </button>
+          {expanded ? <StepList steps={steps} retrying={retrying} /> : null}
+        </>
+      ) : null}
 
-          <ul className="min-h-0 flex-1 overflow-y-auto border-y border-rule">
-            {ordered.map((step) => {
-              const retryKey = step.state === "error" ? step.retryKey : undefined;
-              const busy = retryKey ? (retry?.retrying.has(retryKey) ?? false) : false;
-              return (
-                <li key={step.key} className="flex items-start gap-3 border-b border-rule py-2.5 last:border-b-0">
-                  <StepMark state={step.state} />
-                  <div className="grid min-w-0 flex-1 gap-0.5">
-                    <span className="text-md">
-                      {step.label}
-                      <span className="sr-only">: {SPOKEN[step.state]}</span>
-                    </span>
-                    {step.state === "error" && step.reason ? (
-                      <span className="text-sm text-muted">Priežastis: {step.reason}</span>
-                    ) : null}
-                  </div>
-                  {retryKey && retry ? (
-                    <button
-                      type="button"
-                      onClick={() => retry.onRetry(retryKey)}
-                      disabled={busy}
-                      aria-busy={busy}
-                      className="btn btn--secondary btn--s shrink-0"
-                    >
-                      <RefreshIcon className={`h-5 w-5${busy ? " animate-spin motion-reduce:animate-none" : ""}`} />
-                      {busy ? "Bandoma…" : "Bandyti dar kartą"}
-                    </button>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-
-          <footer className="flex flex-wrap justify-end gap-2">
-            {status === "failed" ? (
-              <button type="button" onClick={onReload} className="btn btn--secondary btn--s">
-                <RefreshIcon className="h-5 w-5" />
-                Gauti likusius duomenis
+      {!loading && failures.length > 0 ? (
+        <>
+          <StepList steps={failures} retrying={retrying} />
+          <div className="flex flex-wrap justify-end gap-2">
+            <button type="button" onClick={() => setDismissedIn(phase)} className="btn btn--secondary btn--s">
+              Užverti
+            </button>
+            {onTryAgain ? (
+              <button type="button" onClick={onTryAgain} disabled={busy} aria-busy={busy} className="btn btn--s">
+                <RefreshIcon className={`h-5 w-5${busy ? " animate-spin motion-reduce:animate-none" : ""}`} />
+                {busy ? "Bandoma…" : "Bandyti dar kartą"}
               </button>
             ) : null}
-            <button type="button" onClick={() => setDismissed(true)} className="btn btn--s">
-              {loading ? "Rodyti, kas jau gauta" : "Rodyti ataskaitą"}
-            </button>
-          </footer>
-        </div>
-      </dialog>
-
-      {/* The window closed: one line keeps the state in view and opens it again. */}
-      {dismissed ? (
-        <p className="flex min-h-11 flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-card bg-paper-2 px-4 py-2 text-sm text-ink-2">
-          <span className="flex items-center gap-2">
-            {loading ? (
-              <StepMark state="loading" />
-            ) : (
-              <WarningIcon className="h-5 w-5 shrink-0 text-warn" />
-            )}
-            {loading
-              ? `Gauta ${answered} iš ${total}`
-              : `Nepavyko gauti ${ltCount(failures.length, ["šaltinio", "šaltinių", "šaltinių"])}`}
-          </span>
-          <button type="button" onClick={() => setDismissed(false)} className="link min-h-11">
-            {loading ? "Rodyti eigą" : "Peržiūrėti"}
-          </button>
-        </p>
+          </div>
+        </>
       ) : null}
-    </>
+    </section>
   );
 }

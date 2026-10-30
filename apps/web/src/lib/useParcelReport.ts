@@ -110,7 +110,12 @@ export function useParcelReport(cadastralRegNo: string, onLoaded: (report: Parce
       setRetrying((keys) => new Set(keys).add(key));
       try {
         const updated = await retryReportPanel(cadastralRegNo, key);
-        setReport(updated);
+        const retried = updated.reportPanels.find((panel) => panel.key === key);
+        // Only this source is taken from the answer: retries run side by side,
+        // and one that answers late must not undo another's panel.
+        setReport((current) =>
+          current && retried ? { ...updated, reportPanels: withPanel(current, retried).reportPanels } : updated,
+        );
       } catch {
         // The panel stays failed and its key stays offered.
       } finally {
