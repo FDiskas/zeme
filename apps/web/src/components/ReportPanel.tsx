@@ -1,5 +1,5 @@
 import { Fragment, useState } from "react";
-import type { ParcelReport } from "@zeme/shared";
+import { isReportPanelKey, type ParcelReport } from "@zeme/shared";
 import { Link } from "react-router-dom";
 import {
   LONG_LIST,
@@ -8,6 +8,7 @@ import {
   type CuratedItem,
   type CuratedPanel,
 } from "../lib/report-format";
+import type { PanelRetry } from "../lib/useParcelReport";
 import { ArrowUpIcon, ChevronDown, InfoIcon, PinIcon, RefreshIcon, SourceIcon } from "./icons";
 
 const formatDate = (iso: string) => new Date(iso).toISOString().slice(0, 10);
@@ -46,11 +47,10 @@ function SourceLine({ source, checkedAt }: { source: NonNullable<CuratedPanel["s
 
 type Props = {
   report: ParcelReport;
-  /** Ask the sources again, offered on a panel whose source failed. */
-  onRetry?: () => void;
-  /** When asking again is not allowed yet: the time it will be ("18:32"). */
-  retryAfter?: string;
-  retrying?: boolean;
+  /** Panels still on their way while the report is built. */
+  pending?: ReadonlySet<string>;
+  /** Ask a failed source again, offered on its panel. */
+  retry?: PanelRetry;
 };
 
 function FieldValue({ value, isLink, href, externalHref }: { value: string; isLink?: boolean; href?: string; externalHref?: string }) {
@@ -225,29 +225,36 @@ function ListFilters({ panel, filter, onChange }: { panel: CuratedPanel; filter:
 const FIRST_ITEMS = 3;
 const ROWS_PER_PAGE = 10;
 
-type PanelProps = { panel: CuratedPanel; checkedAt: string; onRetry?: () => void; retryAfter?: string; retrying: boolean };
+type PanelProps = { panel: CuratedPanel; checkedAt: string; retry?: PanelRetry };
 
-function Panel({ panel, checkedAt, onRetry, retryAfter, retrying }: PanelProps) {
+function Panel({ panel, checkedAt, retry }: PanelProps) {
   const [shown, setShown] = useState(panel.compact ? ROWS_PER_PAGE : FIRST_ITEMS);
   const [filter, setFilter] = useState<Filter>(NO_FILTER);
 
   // Empty or upstream-unavailable panels: one quiet row, not an expandable
   // one, so they don't add clutter or imply hidden content. The source is
   // intentionally omitted here; it only appears inside an expanded panel. A
-  // failed source gets a key to ask again.
+  // failed source says why and gets a key to ask it again.
   if (panel.state !== "ok") {
     const failed = panel.state === "unavailable";
+    const retryKey = failed && isReportPanelKey(panel.key) ? panel.key : undefined;
+    const retrying = retry?.retrying.has(panel.key) ?? false;
     return (
       <li id={`panel-${panel.key}`} className="grid scroll-mt-[calc(var(--nav-clear)+1rem)] justify-items-start gap-1 px-2 py-2.5">
         <span className="text-md text-ink-2">{panel.title}</span>
         {panel.message ? <span className="line-clamp-3 text-sm text-muted">{panel.message}</span> : null}
-        {failed && onRetry ? (
-          <button type="button" onClick={onRetry} disabled={retrying} aria-busy={retrying} className="btn btn--secondary btn--s mt-1">
-            <RefreshIcon className="h-5 w-5" />
+        {failed && panel.reason ? <span className="line-clamp-3 text-sm text-muted">Priežastis: {panel.reason}</span> : null}
+        {retry && retryKey ? (
+          <button
+            type="button"
+            onClick={() => retry.onRetry(retryKey)}
+            disabled={retrying}
+            aria-busy={retrying}
+            className="btn btn--secondary btn--s mt-1"
+          >
+            <RefreshIcon className={`h-5 w-5${retrying ? " animate-spin motion-reduce:animate-none" : ""}`} />
             {retrying ? "Bandoma…" : "Bandyti dar kartą"}
           </button>
-        ) : failed && retryAfter ? (
-          <span className="text-sm text-muted">Bandyti dar kartą galėsite po {retryAfter}</span>
         ) : null}
       </li>
     );
@@ -337,8 +344,21 @@ function NothingFound({ panels }: { panels: CuratedPanel[] }) {
   );
 }
 
-export function ReportPanel({ report, onRetry, retryAfter, retrying = false }: Props) {
-  const categories = curateReport(report);
+// A panel whose source has not answered yet, while the report is built.
+function PendingPanel({ panelKey, title }: { panelKey: string; title: string }) {
+  return (
+    <li id={`panel-${panelKey}`} className="flex scroll-mt-[calc(var(--nav-clear)+1rem)] items-center justify-between gap-3 px-2 py-2.5">
+      <span className="text-md text-ink-2">{title}</span>
+      <span className="flex items-center gap-2 text-sm text-muted">
+        <span className="h-4 w-4 animate-spin rounded-full border-2 border-paper-3 border-t-ink motion-reduce:animate-none" aria-hidden="true" />
+        Tikrinama…
+      </span>
+    </li>
+  );
+}
+
+export function ReportPanel({ report, pending, retry }: Props) {
+  const categories = curateReport(report, pending);
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-8">
@@ -363,8 +383,11 @@ export function ReportPanel({ report, onRetry, retryAfter, retrying = false }: P
             {category.panels
               .filter((panel) => !isPlainEmpty(panel))
               .map((panel) => (
-                <Panel key={panel.key} panel={panel} checkedAt={report.fetchedAt} onRetry={onRetry} retryAfter={retryAfter} retrying={retrying} />
+                <Panel key={panel.key} panel={panel} checkedAt={report.fetchedAt} retry={retry} />
               ))}
+            {category.pending.map((panel) => (
+              <PendingPanel key={panel.key} panelKey={panel.key} title={panel.title} />
+            ))}
             {category.panels.some(isPlainEmpty) ? <NothingFound panels={category.panels.filter(isPlainEmpty)} /> : null}
           </ul>
         </section>

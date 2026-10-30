@@ -1,5 +1,5 @@
 import { MapContainer, Polygon, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { latLngBounds, type Map as LeafletMap } from "leaflet";
 import type { ParcelReport } from "@zeme/shared";
@@ -41,7 +41,7 @@ type Props = {
   report: ParcelReport;
 };
 
-function toLatLngPath(report: ParcelReport): [number, number][] {
+function toLatLngPath(report: Pick<ParcelReport, "coordinates">): [number, number][] {
   const ring = report.coordinates.coordinates[0] ?? [];
 
   return ring.map(([lng, lat]) => [lat, lng]);
@@ -552,7 +552,10 @@ export function ParcelMap({ report }: Props) {
   const ortho = useOrtho();
   const coverage = useCoverage();
   const [map, setMap] = useState<LeafletMap | null>(null);
-  const polygon = toLatLngPath(report);
+  // Kept while the outline is the same: the report fills in panel by panel,
+  // and a new array each time would frame the parcel again over the reader's pan.
+  const coordinates = report.coordinates;
+  const polygon = useMemo(() => toLatLngPath({ coordinates }), [coordinates]);
   const buildings = toBuildingShapes(report);
   const neighbors = toNeighborShapes(report);
 

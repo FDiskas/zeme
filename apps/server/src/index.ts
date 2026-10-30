@@ -77,6 +77,9 @@ const port = env.PORT;
 
 const server = Bun.serve({
   port,
+  // Bun closes a connection idle for 10 s by default, which cut off report
+  // builds and PDF renders. Streamed reports send a keep-alive every 5 s.
+  idleTimeout: 120,
   fetch: async (request) => {
     const { pathname } = new URL(request.url);
 

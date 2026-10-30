@@ -92,6 +92,50 @@ export const parcelReportSchema = z.object({
   pdfUrl: z.string().optional(),
 });
 
+// The report's panels in the order it lists them. Each comes from its own
+// source: while a report is built the page shows them arriving one by one, and
+// a panel whose source failed can be asked for again on its own.
+export const REPORT_PANEL_KEYS = [
+  "osp-parcel-summary",
+  "biip-boundary",
+  "rc-masvert",
+  "biip-addresses",
+  "grpk-buildings",
+  "ssva-built-up",
+  "energy-certificates",
+  "geoportal-constraints",
+  "asgr-regulations",
+  "szns-restrictions",
+  "kvr-heritage",
+  "pdbis-building-data",
+  "osp-building-permits",
+  "osp-pollution-risks",
+  "forest-cutting-permits",
+  "nearby-services",
+  "crime-stats",
+  "flood-risk",
+  "census-households",
+  "broadband",
+] as const;
+
+export const isReportPanelKey = (key: string): key is (typeof REPORT_PANEL_KEYS)[number] =>
+  (REPORT_PANEL_KEYS as readonly string[]).includes(key);
+
+export const parcelPanelRetryInputSchema = z.object({
+  cadastralRegNo: z.string().min(3).max(64),
+  panelKey: z.enum(REPORT_PANEL_KEYS),
+});
+
+// What the server sends while it builds a report: the parcel itself (outline,
+// address) as soon as the registries find it, each panel as its source
+// answers, and last the finished report. A cached report comes as the last
+// event alone.
+export const reportEventSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("parcel"), report: parcelReportSchema }),
+  z.object({ type: z.literal("panel"), panel: reportPanelSchema }),
+  z.object({ type: z.literal("report"), report: parcelReportSchema }),
+]);
+
 // A parcel's report is rebuilt from the upstream registries at most once in
 // this window, however often "Atnaujinti" is pressed: each rebuild queries
 // some twenty public services, and they must not be hammered on our behalf.
@@ -158,6 +202,8 @@ export type ParcelSearchItem = z.infer<typeof parcelSearchItemSchema>;
 export type BuildingFootprint = z.infer<typeof buildingFootprintSchema>;
 export type NeighborParcel = z.infer<typeof neighborParcelSchema>;
 export type ParcelReport = z.infer<typeof parcelReportSchema>;
+export type ReportPanelKey = (typeof REPORT_PANEL_KEYS)[number];
+export type ReportEvent = z.infer<typeof reportEventSchema>;
 export type ParcelPdfOutput = z.infer<typeof parcelPdfOutputSchema>;
 
 export * from "./search-query";

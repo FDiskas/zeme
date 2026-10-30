@@ -18,12 +18,13 @@
 - [energy-certificates-ssva](project/energy-certificates-ssva.md) — energy-class certificates OPEN (data.gov.lt ssva/pen_sertifikatai, CC BY 4.0) INTEGRATED as panel energy-certificates; matched by free-text address (street+nr+settlement). keywords: energinis naudingumas, klase, sertifikatai, ssva
 - [data-source-licences](project/data-source-licences.md) — per-source licences behind data-sources.ts credit lines; ORT10LT 2021–2023 needs consent, KVR CC BY vs non-commercial, flood CC BY-ND, many state none. keywords: licencija, CC BY 4.0, ODbL, attribution, ORT10LT, KVR
 
-## feedback/
+## feedback/ ([Topic Index](feedback/INDEX.md))
 
 - [always-load-auto-memory](feedback/always-load-auto-memory.md) — invoke /auto-memory at start of every task, no exceptions, even when urgent. keywords: auto-memory, skill, startup, always, protocol
 - [redesign-approach](feedback/redesign-approach.md) — redesign method: apply /solid + /ui-ux-pro-max skills; use codebase MCP to analyze code first. keywords: redesign, approach, solid, ui-ux-pro-max, codebase, mcp, methodology
 - [prefer-simple-cache-repair](feedback/prefer-simple-cache-repair.md) — for pure-cache tables, wipe-and-rebuild beats a targeted verify-and-delete script. keywords: cache, repair, cleanup, simplicity, wipe, rebuild, ParcelReport
 - [boy-scout-rule](feedback/boy-scout-rule.md) — always leave touched files cleaner than found (stale comments, misplaced imports, typos, small duplication). keywords: boy scout rule, cleanup, code quality, always
+- [clean-code-skills-on-ts-edits](feedback/clean-code-skills-on-ts-edits.md) — load typescript-clean-code + boy-scout (clean-tests for tests) before TS edits; PreToolUse hook reminds once per session. keywords: clean code, typescript, skills, hook
 
 ## decisions/ ([Topic Index](decisions/INDEX.md))
 
@@ -31,7 +32,8 @@
 - [pdf-report-printable-real-estate-style](decisions/pdf-report-printable-real-estate-style.md) — PDF must be a serious printable NT report, not raw dumps. keywords: pdf, printable, nt, report, layout
 - [ui-lithuanian-and-curation-layer](decisions/ui-lithuanian-and-curation-layer.md) — UI fully Lithuanian; report uses curation layer + summary card, not raw panel dump. keywords: ui, lithuanian, curation, summary, report, panels, decision
 - [report-display-rules](decisions/report-display-rules.md) — Unikalus Nr.; Paskirtis = BIIP full_name + TPDR code ("Kita (KT)"), never purpose_group; card: address h1 + attention-only risk tags + 4 primary facts + one-line fact rows + folded technical data; school/darželis only in Aplinka insight; partial-with-items panels shown; long lists = filterable rows; flag tones good/attention/check; Šaltinis = name + date, tech id behind ℹ; empty panels merged into "Nerasta:"; footprint-led užstatymas. keywords: report, unikalus numeris, paskirtis, KT, šaltinis, nerasta, flags, užstatymas, display
-- [report-refresh-cooldown](decisions/report-refresh-cooldown.md) — report rebuild (forceRefresh) at most once per 3 h per parcel, enforced in getReport; refreshAvailableAt drives the UI. keywords: atnaujinti, refresh, cooldown, rate limit, apsauga
+- [report-refresh-cooldown](decisions/report-refresh-cooldown.md) — report rebuild (forceRefresh) at most once per 3 h per parcel, enforced in streamReport; per-panel retry exempt; refreshAvailableAt drives the UI. keywords: atnaujinti, refresh, cooldown, rate limit, apsauga
+- [report-streaming-progress](decisions/report-streaming-progress.md) — reports stream panel by panel; progress dialog; per-source retry + reason; map even on failure. keywords: streamReport, retryPanel, progress, eiga, partial, priežastis
 - [no-fabricated-address-or-geometry](decisions/no-fabricated-address-or-geometry.md) — never fake address/outline; hasStreetAddress flag; buildFromNominatim cadastral-collision bug FIXED 2026-09-26 + clear-parcel-report-cache script. keywords: address, fabricated, fake, placeholder, hasStreetAddress, geometry, cache poisoning, buildFromNominatim
 - [rc-masvert-market-value](decisions/rc-masvert-market-value.md) — market value scraped from RC masinis vertinimas (CSRF GET+POST, HTML parse); RC outage = 200 maintenance page; missing value re-fetched from cache. keywords: vidutinė rinkos vertė, market value, masvert, registrucentras, csrf, scraping, daikto vertė
 - [dokploy-deployment](decisions/dokploy-deployment.md) — Confirmed working: Dokploy Compose, reginfo service name, no ports, --ignore-scripts, bunx, scripts/ in context; avoid "latest" pins for typescript/prisma (broke builds twice). keywords: dokploy, deploy, docker, docker-compose, bun, puppeteer, nginx, typescript, latest, openapi-ts
@@ -40,4 +42,5 @@
 
 ## gotchas/
 
+- [bun-idle-timeout](gotchas/bun-idle-timeout.md) — Bun.serve drops requests idle 10 s by default; idleTimeout 120 set, long endpoints must stream. keywords: bun, idleTimeout, timeout, nepavyko gauti
 - [react-leaflet-classname-prod-only](gotchas/react-leaflet-classname-prod-only.md) — Leaflet className via pathOptions only works in dev (StrictMode); prod shows default blue polygons. Spread as props; verify maps on a prod build. keywords: leaflet, react-leaflet, className, pathOptions, strictmode, production, map colours

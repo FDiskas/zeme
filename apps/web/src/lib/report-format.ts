@@ -1,4 +1,4 @@
-import { describeCrimeComparison, ltCount, type ParcelReport } from "@zeme/shared";
+import { describeCrimeComparison, ltCount, type ParcelReport, type ReportPanelKey } from "@zeme/shared";
 import { DATA_SOURCES } from "./data-sources";
 import { buildingsInParcel, parcelPolygons, perimeterM, polygonAreaM2 } from "./geo";
 
@@ -360,6 +360,8 @@ const PANEL_SOURCES: Record<string, SourceInfo> = Object.fromEntries(
 );
 
 // Lithuanian panel titles (server titles are English / mixed).
+export const panelTitle = (key: string) => PANEL_TITLES[key] ?? key;
+
 const PANEL_TITLES: Record<string, string> = {
   "osp-parcel-summary": "Registrų duomenys (VDA / OSP)",
   "biip-boundary": "Sklypo ribos ir paskirtis",
@@ -657,6 +659,7 @@ export type CuratedPanel = {
   countLabel?: string; // "3 laikotarpiai"; absent for one-record panels
   compact: boolean; // records render as one-line rows that open for details
   message?: string; // shown when empty / unavailable; absent for a plain "nothing found"
+  reason?: string; // why the source failed, in its own words
   insight?: string; // plain-language meaning of the finding, shown first
   note?: string; // reading guide under the items (scope, data date)
   items: CuratedItem[];
@@ -666,6 +669,8 @@ export type CuratedCategory = {
   id: string;
   title: string;
   panels: CuratedPanel[];
+  // Panels whose sources have not answered yet, while the report is built.
+  pending: { key: string; title: string }[];
 };
 
 // Registry strings carry decimals with a point ("253.9"); readers expect the
@@ -751,6 +756,7 @@ function curatePanel(
       count: 0,
       compact: false,
       message: "Duomenų gauti nepavyko.",
+      reason: panel.note,
       items: [],
       source: sourceWithDate,
     };
@@ -843,7 +849,7 @@ function curatePanel(
   };
 }
 
-export function curateReport(report: ParcelReport): CuratedCategory[] {
+export function curateReport(report: ParcelReport, pending: ReadonlySet<string> = new Set()): CuratedCategory[] {
   const byKey = new Map<string, ParcelReport["reportPanels"][number]>();
   for (const panel of report.reportPanels) {
     if (HIDDEN_PANEL_KEYS.has(panel.key)) continue;
@@ -864,7 +870,8 @@ export function curateReport(report: ParcelReport): CuratedCategory[] {
       .map((k) => byKey.get(k))
       .filter((p): p is ParcelReport["reportPanels"][number] => Boolean(p))
       .map((panel) => curatePanel(panel, knownNames)),
-  })).filter((cat) => cat.panels.length > 0);
+    pending: cat.panelKeys.filter((k) => pending.has(k)).map((key) => ({ key, title: panelTitle(key) })),
+  })).filter((cat) => cat.panels.length > 0 || cat.pending.length > 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -876,8 +883,8 @@ export function curateReport(report: ParcelReport): CuratedCategory[] {
 // keeps them behind an info tip. `meter` sets the value against an allowed
 // maximum, drawn as a slim bar.
 // `primary` facts lead the card in large type; the rest follow in a plain
-// grid. `unavailable` marks a fact whose source failed, so the card can
-// offer to ask again.
+// grid. `failedPanel` names the source of a fact that failed, so the card
+// can offer to ask it again.
 export type FactMeter = { value: number; max: number; label: string };
 export type SummaryFact = {
   label: string;
@@ -885,7 +892,7 @@ export type SummaryFact = {
   hints?: string[];
   meter?: FactMeter;
   primary?: boolean;
-  unavailable?: boolean;
+  failedPanel?: ReportPanelKey;
 };
 
 // good = nothing to worry about, attention = worth a closer look, check = this
@@ -917,7 +924,19 @@ function firstItem(report: ParcelReport, key: string): RawItem | undefined {
 // Yes/no flag over a panel's records. A check that failed upstream is unknown,
 // never "Nerasta": a clean answer must come from a source that actually answered.
 // No count: the panel's row gives it, after repeated records are dropped.
-function presenceFlag(report: ParcelReport, key: string, label: string, tag: string): SummaryFlag {
+const PRESENCE_FLAGS = [
+  { key: "geoportal-constraints", label: "Saugomos teritorijos", tag: "Saugoma teritorija" },
+  { key: "kvr-heritage", label: "Kultūros paveldas", tag: "Kultūros paveldas" },
+  { key: "szns-restrictions", label: "Specialiosios naudojimo sąlygos", tag: "Specialiosios sąlygos" },
+  { key: "osp-pollution-risks", label: "Taršos rizika", tag: "Taršos židinys" },
+];
+
+function presenceFlag(
+  report: ParcelReport,
+  pending: ReadonlySet<string>,
+  { key, label, tag }: { key: string; label: string; tag: string },
+): SummaryFlag {
+  if (pending.has(key)) return { label, state: "check", detail: "Tikrinama…", panelKey: key };
   const panel = findPanel(report, key);
   if (!panel || panel.status !== "ok") {
     return { label, state: "check", detail: "Nepavyko patikrinti", panelKey: key, tag: `${label}: nepatikrinta` };
@@ -1032,7 +1051,9 @@ export function findParcelUniqueNumber(
   return formatUniqueNumber(String(value));
 }
 
-export function buildSummary(report: ParcelReport): ReportSummary {
+// `pending`: panels still on their way while the report is built; their
+// flags say so instead of "Nepavyko patikrinti".
+export function buildSummary(report: ParcelReport, pending: ReadonlySet<string> = new Set()): ReportSummary {
   const facts: SummaryFact[] = [];
 
   const boundary = firstItem(report, "biip-boundary");
@@ -1098,16 +1119,13 @@ export function buildSummary(report: ParcelReport): ReportSummary {
       value: `${marketValue.toLocaleString("lt-LT")} €`,
     });
   } else if (valuation?.status === "error") {
-    facts.push({ label: "Vidutinė rinkos vertė", value: "Nepavyko gauti", unavailable: true });
+    facts.push({ label: "Vidutinė rinkos vertė", value: "Nepavyko gauti", failedPanel: "rc-masvert" });
   }
 
   // Flags — the answers a buyer/owner worries about, each with its tone.
   const flags: SummaryFlag[] = [];
 
-  flags.push(presenceFlag(report, "geoportal-constraints", "Saugomos teritorijos", "Saugoma teritorija"));
-  flags.push(presenceFlag(report, "kvr-heritage", "Kultūros paveldas", "Kultūros paveldas"));
-  flags.push(presenceFlag(report, "szns-restrictions", "Specialiosios naudojimo sąlygos", "Specialiosios sąlygos"));
-  flags.push(presenceFlag(report, "osp-pollution-risks", "Taršos rizika", "Taršos židinys"));
+  for (const presence of PRESENCE_FLAGS) flags.push(presenceFlag(report, pending, presence));
 
   // Building documents: unauthorised construction or binding orders first;
   // otherwise what the valid documents add up to. Nothing is said when there

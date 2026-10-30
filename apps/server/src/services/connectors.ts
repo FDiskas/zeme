@@ -2,6 +2,7 @@ import type { ParcelReport, BuildingFootprint } from "@zeme/shared";
 import type { BiipAddressPoint } from "./biip-service";
 import type { OspBuildingPoint } from "./osp-service";
 import { findForestCuttingPermits } from "./lkmp-service";
+import { describeUpstreamError } from "./upstream-error";
 
 export type UpstreamPanel = ParcelReport["reportPanels"][number];
 
@@ -143,7 +144,7 @@ export async function fetchBiipAddresses(
   };
 }
 
-function geometryToEwkt(geometry: any): string | undefined {
+export function geometryToEwkt(geometry: any): string | undefined {
   if (!geometry || geometry.type !== "Polygon") return undefined;
   const ring = geometry.coordinates?.[0];
   if (!ring || ring.length < 4) return undefined;
@@ -289,7 +290,7 @@ export async function fetchGeoportalConstraints(
       source: "Valstybinis saugomų teritorijų kadastras (VSTT STVK) per OSP",
       status: "error",
       items: [],
-      note: `Klaida tikrinant aplinkosauginius apribojimus: ${err instanceof Error ? err.message : String(err)}`,
+      note: `Klaida tikrinant aplinkosauginius apribojimus: ${describeUpstreamError(err)}`,
     };
   }
 }
@@ -376,7 +377,7 @@ export async function fetchKvrData(
       source: "KVR ArcGIS REST API per OSP",
       status: "error",
       items: [],
-      note: `Klaida tikrinant kultūros paveldo registrą: ${err instanceof Error ? err.message : String(err)}`,
+      note: `Klaida tikrinant kultūros paveldo registrą: ${describeUpstreamError(err)}`,
     };
   }
 }
@@ -416,7 +417,7 @@ export function buildPdbisPanel(ospPoints: OspBuildingPoint[]): UpstreamPanel {
       source: "pastatai_geo API per OSP",
       status: "error",
       items: [],
-      note: `Klaida generuojant pastatų registro duomenis: ${err instanceof Error ? err.message : String(err)}`,
+      note: `Klaida generuojant pastatų registro duomenis: ${describeUpstreamError(err)}`,
     };
   }
 }
@@ -521,7 +522,7 @@ export async function fetchSznsRestrictions(geometry: any): Promise<UpstreamPane
       ...base,
       status: "error",
       items: [],
-      note: `Klaida tikrinant SŽNS registrą: ${err instanceof Error ? err.message : String(err)}`,
+      note: `Klaida tikrinant SŽNS registrą: ${describeUpstreamError(err)}`,
     };
   }
 }
@@ -582,7 +583,7 @@ export async function fetchAsgrRegulations(geometry: any): Promise<UpstreamPanel
       ...base,
       status: "error",
       items: [],
-      note: `Klaida tikrinant ASGR planavimo reglamentus: ${err instanceof Error ? err.message : String(err)}`,
+      note: `Klaida tikrinant ASGR planavimo reglamentus: ${describeUpstreamError(err)}`,
     };
   }
 }
@@ -656,7 +657,7 @@ export async function fetchBuiltUpRatios(geometry: any): Promise<UpstreamPanel> 
       ...base,
       status: "error",
       items: [],
-      note: `Klaida tikrinant užstatymo rodiklius: ${err instanceof Error ? err.message : String(err)}`,
+      note: `Klaida tikrinant užstatymo rodiklius: ${describeUpstreamError(err)}`,
     };
   }
 }
@@ -795,7 +796,7 @@ export async function fetchGrpkBuildings(
     };
   } catch (err: any) {
     return errorPanel(
-      `Klaida tikrinant GRPK pastatų kontūrus: ${err instanceof Error ? err.message : String(err)}`,
+      `Klaida tikrinant GRPK pastatų kontūrus: ${describeUpstreamError(err)}`,
     );
   }
 }
@@ -860,7 +861,7 @@ export async function fetchForestCuttingPermits(
       ...base,
       status: "error",
       items: [],
-      note: `Klaida tikrinant miško kirtimo leidimus: ${err instanceof Error ? err.message : String(err)}`,
+      note: `Klaida tikrinant miško kirtimo leidimus: ${describeUpstreamError(err)}`,
     };
   }
 }

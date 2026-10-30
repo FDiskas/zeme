@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Route, Routes, useLocation, useParams } from "react-router-dom";
-import type { ParcelReport } from "@zeme/shared";
-import { ParcelMap } from "./components/ParcelMap";
+import { ExploreMap, ParcelMap } from "./components/ParcelMap";
 import { ReportPanel } from "./components/ReportPanel";
+import { ReportProgress } from "./components/ReportProgress";
 import { SummaryCard } from "./components/SummaryCard";
 import { AboutPage } from "./components/AboutPage";
 import { DataSourcesPage } from "./components/DataSourcesPage";
@@ -23,9 +23,10 @@ import {
   Spinner,
   WarningIcon,
 } from "./components/icons";
-import { getParcelReport, generateParcelPdf } from "./lib/orpc";
+import { generateParcelPdf } from "./lib/orpc";
 import { parcelKml, parcelPolygons } from "./lib/geo";
 import { useRecentParcels } from "./lib/useRecentParcels";
+import { pendingPanels, useParcelReport } from "./lib/useParcelReport";
 
 function HomePage() {
   return (
@@ -101,14 +102,15 @@ function ParcelPage() {
     [params.cadastralRegNo],
   );
 
-  const [report, setReport] = useState<ParcelReport | null>(null);
-  // Starts true: the page always loads a report on mount, so the effect never
-  // has to set loading synchronously (which would trigger cascading renders).
-  const [loading, setLoading] = useState(true);
-  const [pdfLoading, setPdfLoading] = useState(false);
-  const [loadFailed, setLoadFailed] = useState(false);
-  const [shareNote, setShareNote] = useState<string | null>(null);
   const recent = useRecentParcels();
+  const { report, status, rebuilt, run, reload, retry } = useParcelReport(cadastralRegNo, recent.remember);
+  const loading = status === "loading";
+  const pending = pendingPanels(report, status);
+  // A failed source is asked again within the saved report, so not until the
+  // build has saved one.
+  const panelRetry = loading ? undefined : retry;
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [shareNote, setShareNote] = useState<string | null>(null);
 
   // The server rebuilds a parcel's report at most once per cooldown and says
   // when the next rebuild is allowed; until then the refresh keys give way to
@@ -122,20 +124,8 @@ function ParcelPage() {
   const canRefresh = refreshAt <= clock;
   const refreshTime = new Date(refreshAt).toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit" });
 
-  // Manual refresh — an event handler, so setting loading here is fine.
-  async function onRefresh() {
-    if (!cadastralRegNo || !canRefresh) return;
-    setLoading(true);
-    setLoadFailed(false);
-    try {
-      const data = await getParcelReport({ cadastralRegNo, forceRefresh: true });
-      setReport(data);
-      recent.remember(data);
-    } catch {
-      setLoadFailed(true);
-    } finally {
-      setLoading(false);
-    }
+  function onRefresh() {
+    if (cadastralRegNo && canRefresh && !loading) reload(true);
   }
 
   async function onDownloadPdf() {
@@ -181,32 +171,6 @@ function ParcelPage() {
     }
   }
 
-  // Auto-load on mount / when the cadastral number changes. The `ignore` flag
-  // drops a stale response if the user navigates to another parcel mid-request.
-  useEffect(() => {
-    if (!cadastralRegNo) return;
-    let ignore = false;
-    window.scrollTo({ top: 0, behavior: "smooth" });
-
-    (async () => {
-      try {
-        const data = await getParcelReport({ cadastralRegNo, forceRefresh: false });
-        if (ignore) return;
-        setReport(data);
-        recent.remember(data);
-      } catch {
-        if (!ignore) setLoadFailed(true);
-      } finally {
-        if (!ignore) setLoading(false);
-      }
-    })();
-
-    return () => {
-      ignore = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cadastralRegNo]);
-
   // The exact time the sources were read, so the ↻ key beside it reads as
   // "read them again now" rather than a mystery.
   const freshness = report ? `Duomenys atnaujinti ${formatFetchedAt(report.fetchedAt)}` : "";
@@ -218,6 +182,10 @@ function ParcelPage() {
           runs edge to edge first and the report follows. */}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_30rem] lg:items-start lg:gap-8 xl:grid-cols-[minmax(0,1fr)_32rem]">
         <div className="-mt-4 md:mt-0 lg:sticky lg:top-[calc(var(--nav-clear)+1rem)] lg:h-[calc(100dvh-var(--nav-clear)-2rem)]">
+          {/* The parcel is drawn as soon as the registries find it, before
+              the slower sources answer. Without it (the report could not be
+              had) the map of Lithuania stays, so the reader can pick the
+              parcel by hand. */}
           {report ? (
             <ParcelMap report={report} />
           ) : loading ? (
@@ -225,7 +193,11 @@ function ParcelPage() {
               className="-mx-(--gutter) h-[52svh] min-h-80 animate-pulse border-y border-rule bg-paper-2 md:mx-0 md:rounded-card md:border lg:h-full"
               aria-hidden="true"
             />
-          ) : null}
+          ) : (
+            <div className="flex h-[52svh] min-h-80 flex-col lg:h-full">
+              <ExploreMap />
+            </div>
+          )}
         </div>
 
         <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-8">
@@ -241,16 +213,26 @@ function ParcelPage() {
             </div>
           ) : null}
 
-          {!report && !loading && loadFailed ? (
+          <ReportProgress
+            key={run}
+            report={report}
+            status={status}
+            rebuilt={rebuilt}
+            retry={panelRetry}
+            onReload={() => reload(false)}
+          />
+
+          {!report && status === "failed" ? (
             <div className="grid gap-4 rounded-card bg-warn-soft p-6">
               <p className="flex gap-3 text-md text-ink">
                 <WarningIcon className="mt-1 h-5 w-5 shrink-0 text-ink" />
-                Nepavyko gauti sklypo duomenų. Spauskite „Atnaujinti“ arba bandykite vėliau.
+                Nepavyko gauti sklypo duomenų. Bandykite dar kartą arba vėliau. Žemėlapyje galite pasirinkti
+                sklypą patys.
               </p>
               <div>
-                <button type="button" onClick={onRefresh} disabled={loading} aria-busy={loading} className="btn btn--secondary btn--s">
+                <button type="button" onClick={() => reload(false)} className="btn btn--secondary btn--s">
                   <RefreshIcon className="h-5 w-5" />
-                  {loading ? "Atnaujinama…" : "Atnaujinti"}
+                  Bandyti dar kartą
                 </button>
               </div>
             </div>
@@ -268,7 +250,7 @@ function ParcelPage() {
                       <button
                         type="button"
                         onClick={onDownloadPdf}
-                        disabled={pdfLoading}
+                        disabled={pdfLoading || loading}
                         aria-busy={pdfLoading}
                         className="btn btn--s col-span-2 text-md"
                       >
@@ -312,19 +294,13 @@ function ParcelPage() {
                     </p>
                   </div>
                 }
-                onRetry={canRefresh ? onRefresh : undefined}
-                retryAfter={canRefresh ? undefined : refreshTime}
-                retrying={loading}
+                pending={pending}
+                retry={panelRetry}
               />
 
               <section className="grid grid-cols-[minmax(0,1fr)] gap-4">
                 <h2 className="text-xl tracking-[-0.02em]">Detali informacija</h2>
-                <ReportPanel
-                  report={report}
-                  onRetry={canRefresh ? onRefresh : undefined}
-                  retryAfter={canRefresh ? undefined : refreshTime}
-                  retrying={loading}
-                />
+                <ReportPanel report={report} pending={pending} retry={panelRetry} />
                 <p className="flex gap-3 text-sm text-ink-2">
                   <InfoIcon className="mt-0.5 h-5 w-5 shrink-0 text-ink" />
                   <span>

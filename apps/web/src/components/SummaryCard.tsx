@@ -1,5 +1,5 @@
 import { Fragment, type ReactNode } from "react";
-import { ltCount, type ParcelReport } from "@zeme/shared";
+import { ltCount, type ParcelReport, type ReportPanelKey } from "@zeme/shared";
 import {
   buildSummary,
   findParcelUniqueNumber,
@@ -10,6 +10,7 @@ import {
   type SummaryFlag,
 } from "../lib/report-format";
 import { wgs84ToLks94 } from "../lib/geo";
+import type { PanelRetry } from "../lib/useParcelReport";
 import { CopyButton } from "./CopyButton";
 import { InfoTip } from "./InfoTip";
 import { CheckIcon, ChevronDown, ChevronRight, InfoIcon, PinIcon, RefreshIcon, WarningIcon } from "./icons";
@@ -28,11 +29,10 @@ type Props = {
   report: ParcelReport;
   /** Report-level actions (PDF, refresh), shown at the foot of the card. */
   actions?: ReactNode;
-  /** Ask the sources again, offered next to a fact whose source failed. */
-  onRetry?: () => void;
-  /** When asking again is not allowed yet: the time it will be ("18:32"). */
-  retryAfter?: string;
-  retrying?: boolean;
+  /** Panels still on their way while the report is built. */
+  pending?: ReadonlySet<string>;
+  /** Ask a failed source again, offered next to its fact. */
+  retry?: PanelRetry;
 };
 
 // Flag meaning rides on the icon, its word and a spoken tone, never on
@@ -179,8 +179,24 @@ function RiskTags({ flags }: { flags: SummaryFlag[] }) {
   );
 }
 
-export function SummaryCard({ report, actions, onRetry, retryAfter, retrying = false }: Props) {
-  const { facts, flags } = buildSummary(report);
+function RetryLink({ panelKey, retry }: { panelKey: ReportPanelKey; retry: PanelRetry }) {
+  const busy = retry.retrying.has(panelKey);
+  return (
+    <button
+      type="button"
+      onClick={() => retry.onRetry(panelKey)}
+      disabled={busy}
+      aria-busy={busy}
+      className="link mt-1 ml-auto flex w-fit items-center gap-1.5 font-body text-sm"
+    >
+      <RefreshIcon className={`h-4 w-4 shrink-0${busy ? " animate-spin motion-reduce:animate-none" : ""}`} />
+      {busy ? "Bandoma…" : "Bandyti dar kartą"}
+    </button>
+  );
+}
+
+export function SummaryCard({ report, actions, pending, retry }: Props) {
+  const { facts, flags } = buildSummary(report, pending);
   const uniqueNumber = findParcelUniqueNumber(report);
 
   // No street address → honest label instead of a fabricated one, plus the
@@ -207,18 +223,10 @@ export function SummaryCard({ report, actions, onRetry, retryAfter, retrying = f
     hints: fact.hints,
     meter: fact.meter,
     value:
-      fact.unavailable && onRetry ? (
+      fact.failedPanel && retry ? (
         <>
           <span className="text-ink-2">{fact.value}</span>
-          <button type="button" onClick={onRetry} disabled={retrying} aria-busy={retrying} className="link mt-1 ml-auto flex w-fit items-center gap-1.5 font-body text-sm">
-            <RefreshIcon className="h-4 w-4 shrink-0" />
-            {retrying ? "Bandoma…" : "Bandyti dar kartą"}
-          </button>
-        </>
-      ) : fact.unavailable && retryAfter ? (
-        <>
-          <span className="text-ink-2">{fact.value}</span>
-          <span className="mt-1 block font-body text-sm font-normal text-muted">Bandyti dar kartą galėsite po {retryAfter}</span>
+          <RetryLink panelKey={fact.failedPanel} retry={retry} />
         </>
       ) : (
         fact.value

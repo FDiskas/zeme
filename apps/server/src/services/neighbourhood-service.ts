@@ -1,4 +1,5 @@
 import type { UpstreamPanel } from "./connectors";
+import { describeUpstreamError } from "./upstream-error";
 import { parcelCentre } from "./geometry";
 import { describeCrimeComparison } from "@zeme/shared";
 
@@ -314,7 +315,7 @@ export async function fetchCrimeStats(geometry: any): Promise<UpstreamPanel> {
       ...base,
       status: "error",
       items: [],
-      note: `Klaida gaunant nusikalstamumo duomenis: ${err instanceof Error ? err.message : String(err)}`,
+      note: `Klaida gaunant nusikalstamumo duomenis: ${describeUpstreamError(err)}`,
     };
   }
 }
@@ -369,7 +370,7 @@ export async function fetchFloodRisk(geometry: any): Promise<UpstreamPanel> {
       ...base,
       status: "error",
       items: [],
-      note: `Klaida tikrinant potvynių riziką: ${err instanceof Error ? err.message : String(err)}`,
+      note: `Klaida tikrinant potvynių riziką: ${describeUpstreamError(err)}`,
     };
   }
 }
@@ -450,7 +451,7 @@ export async function fetchCensusHouseholds(geometry: any): Promise<UpstreamPane
       ...base,
       status: "error",
       items: [],
-      note: `Klaida gaunant surašymo duomenis: ${err instanceof Error ? err.message : String(err)}`,
+      note: `Klaida gaunant surašymo duomenis: ${describeUpstreamError(err)}`,
     };
   }
 }
@@ -534,7 +535,7 @@ export async function fetchBroadband(geometry: any): Promise<UpstreamPanel> {
       ...base,
       status: "error",
       items: [],
-      note: `Klaida gaunant interneto ryšio duomenis: ${err instanceof Error ? err.message : String(err)}`,
+      note: `Klaida gaunant interneto ryšio duomenis: ${describeUpstreamError(err)}`,
     };
   }
 }

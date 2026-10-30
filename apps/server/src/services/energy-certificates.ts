@@ -1,5 +1,6 @@
 import { ltCount } from "@zeme/shared";
 import type { UpstreamPanel } from "./connectors";
+import { describeUpstreamError } from "./upstream-error";
 
 // Building energy-performance certificates (SSVA), open on data.gov.lt. They
 // carry no building number and no coordinates, only the address as the
@@ -225,7 +226,7 @@ export async function fetchEnergyCertificates(points: AddressPoint[]): Promise<U
       ...base,
       status: "error",
       items: [],
-      note: `Klaida gaunant energinio naudingumo sertifikatus: ${err instanceof Error ? err.message : String(err)}`,
+      note: `Klaida gaunant energinio naudingumo sertifikatus: ${describeUpstreamError(err)}`,
     };
   }
 }

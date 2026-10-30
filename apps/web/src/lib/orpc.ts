@@ -1,11 +1,23 @@
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
-import type { NeighborParcel, OrthoSeries, ParcelPdfOutput, ParcelReport, ParcelSearchItem } from "@zeme/shared";
+import type {
+  NeighborParcel,
+  OrthoSeries,
+  ParcelPdfOutput,
+  ParcelReport,
+  ParcelSearchItem,
+  ReportEvent,
+  ReportPanelKey,
+} from "@zeme/shared";
 
 type ParcelClient = {
   parcel: {
     autocomplete(input: { query: string }): Promise<ParcelSearchItem[]>;
-    getReport(input: { cadastralRegNo: string; forceRefresh?: boolean }): Promise<ParcelReport>;
+    streamReport(
+      input: { cadastralRegNo: string; forceRefresh?: boolean },
+      options?: { signal?: AbortSignal },
+    ): Promise<AsyncIterable<ReportEvent>>;
+    retryPanel(input: { cadastralRegNo: string; panelKey: ReportPanelKey }): Promise<ParcelReport>;
     generatePdf(input: { cadastralRegNo: string }): Promise<ParcelPdfOutput>;
     resolveByPoint(input: { lat: number; lng: number }): Promise<{ cadastralRegNo: string } | null>;
     parcelsByBbox(input: { minLat: number; minLng: number; maxLat: number; maxLng: number }): Promise<NeighborParcel[]>;
@@ -21,25 +33,21 @@ const link = new RPCLink({
 
 export const orpcClient = createORPCClient<ParcelClient>(link);
 
-// In-flight de-duplication for getReport. React StrictMode (dev) mounts effects
-// twice, and a user can trigger overlapping loads (e.g. fast navigation). Two
-// identical concurrent requests — same cadastral number + refresh flag — share a
-// single network call instead of hitting /rpc/parcel/getReport twice.
-const reportInFlight = new Map<string, Promise<ParcelReport>>();
+// A parcel's report as it is built (see reportEventSchema): the last event
+// carries the finished report. Two readers of the same parcel (StrictMode's
+// double mount, two tabs) share one build on the server, so no de-duplication
+// is needed here.
+export async function* streamParcelReport(
+  input: { cadastralRegNo: string; forceRefresh?: boolean },
+  signal: AbortSignal,
+): AsyncGenerator<ReportEvent> {
+  yield* await orpcClient.parcel.streamReport(input, { signal });
+}
 
-export function getParcelReport(input: {
-  cadastralRegNo: string;
-  forceRefresh?: boolean;
-}): Promise<ParcelReport> {
-  const key = `${input.cadastralRegNo}|${input.forceRefresh ? "1" : "0"}`;
-  const existing = reportInFlight.get(key);
-  if (existing) return existing;
-
-  const request = orpcClient.parcel
-    .getReport(input)
-    .finally(() => reportInFlight.delete(key));
-  reportInFlight.set(key, request);
-  return request;
+// Asks one failed source of a cached report again; returns the report with
+// that panel replaced (still failed if the source failed again).
+export function retryReportPanel(cadastralRegNo: string, panelKey: ReportPanelKey): Promise<ParcelReport> {
+  return orpcClient.parcel.retryPanel({ cadastralRegNo, panelKey });
 }
 
 // Which parcel sits under a clicked map coordinate (WGS84), or null if none.

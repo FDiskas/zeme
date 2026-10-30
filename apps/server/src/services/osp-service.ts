@@ -1,4 +1,5 @@
 import type { UpstreamPanel } from "./connectors";
+import { describeUpstreamError } from "./upstream-error";
 
 // Strip null/NaN/undefined points from ArcGIS geometry rings so the output
 // satisfies z.array(z.array(z.array(z.number()))).
@@ -546,7 +547,7 @@ export async function getOspPollutionRisksPanel(geometry?: any): Promise<Upstrea
       source: "OSP potencialus_tarsos_zidiniai FeatureServer",
       status: "error",
       items: [],
-      note: `Klaida tikrinant taršos rizikos geoduomenis: ${err instanceof Error ? err.message : String(err)}`
+      note: `Klaida tikrinant taršos rizikos geoduomenis: ${describeUpstreamError(err)}`
     };
   }
 }
